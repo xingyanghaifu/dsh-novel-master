@@ -219,10 +219,19 @@ export function installUpdater(ctx, options = {}) {
       if (!service) throw new UpdateError('unavailable', 'DSH settings 服务不可用')
       return service
     }
-    // The entry id is instance-specific. Never select another plugin's document.
-    const namespace = options.namespace ?? 'include:novel-master'
+    // Inspect uses entry.id; Settings uses entry.options.id. They are different.
+    const namespace = () => {
+      if (options.namespace) return options.namespace
+      const fiber = ctx.fiber
+      const entry = fiber?.entry?.fiber === fiber ? fiber.entry
+        : fiber ? ctx.get('configEditor')?.entries().find(row => row.fiber === fiber) : undefined
+      const ns = entry?.options?.id
+      if (!ns) throw new UpdateError('no-owner', '无法确认当前插件的配置所属条目')
+      return ns
+    }
     const document = () => {
-      const item = settings().describe({ redactSecrets: true }).find(row => row.ns === namespace)
+      const ns = namespace()
+      const item = settings().describe({ redactSecrets: true }).find(row => row.ns === ns)
       if (!item) throw new UpdateError('no-document', '小说创作大师配置表单尚未就绪')
       return item
     }

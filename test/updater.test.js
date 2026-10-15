@@ -224,7 +224,9 @@ test('settings routes wait for late Web service and remount after replacement', 
 
 test('real settings endpoint persists revisioned edits; updater remains mounted without writing enabled', async () => {
   let route, disposed = 0
-  let document = { ns: 'include:novel-master', revision: 1, value: { enabled: false, commands: { novel: false } } }
+  let document = { ns: 'novel-master', revision: 1, value: { enabled: false, commands: { novel: false } } }
+  const fiber = {}
+  fiber.entry = { id: 'include:novel-master', options: { id: 'novel-master' }, fiber }
   const settings = {
     describe: () => [document],
     update: async (ns, patch, revision) => {
@@ -234,6 +236,7 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
     },
   }
   const ctx = {
+    fiber,
     get: key => key === 'webServer' ? { register: value => { route = value; return () => { disposed++ } } } : key === 'settings' ? settings : key === 'connection' ? { requestRejection: () => undefined } : undefined,
     commands: { register: definition => { assert.equal(definition.name, 'novel-update'); return () => { disposed++ } } },
     on() {},
@@ -258,6 +261,35 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
   assert.equal((await request('POST', 'apply', {}, { origin: 'https://evil.example' })).status, 403)
   updater.dispose(); updater.dispose()
   assert.equal(disposed, 2)
+})
+
+test('settings namespace resolves only the owning entry across renamed instances', async () => {
+  let route, own, writes = []
+  const fiber = {}, foreignFiber = {}
+  const docs = [{ ns: 'other-novel', revision: 4, value: { projectsDir: 'other' } }, { ns: 'my-writing', revision: 9, value: { projectsDir: 'mine' } }]
+  own = { id: 'include:my-writing', options: { id: 'my-writing' }, fiber }
+  const ctx = {
+    fiber,
+    get(key) { return {
+      webServer: { register(value) { route = value; return () => {} } },
+      configEditor: { entries: () => [{ id: 'include:other-novel', options: { id: 'other-novel' }, fiber: foreignFiber }, own] },
+      settings: { describe: () => docs, update: async (...args) => { writes.push(args) } },
+      connection: { requestRejection: () => undefined },
+    }[key] }, on() {}, commands: { register: () => () => {} },
+  }
+  const updater = installUpdater(ctx)
+  async function request(body) {
+    const req = Readable.from(body ? [JSON.stringify(body)] : [])
+    Object.assign(req, { method: body ? 'POST' : 'GET', url: '/api/novel-master/settings', headers: { host: 'localhost', 'content-type': 'application/json', 'x-novel-master': 'settings' } })
+    const res = { writeHead(code) { this.code = code }, end(text) { this.data = JSON.parse(text) } }
+    await route.handler(req, res); return res
+  }
+  assert.equal((await request()).data.ns, 'my-writing')
+  await request({ revision: 9, patch: { enabled: false } })
+  assert.deepEqual(writes, [['my-writing', { enabled: false }, 9]])
+  own = { ...own, fiber: foreignFiber }
+  assert.equal((await request()).data.code, 'no-owner')
+  updater.dispose()
 })
 
 test('matched plugin routes retain Host authentication before reading settings or actions', async () => {
