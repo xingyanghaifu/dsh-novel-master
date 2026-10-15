@@ -12,6 +12,7 @@
     "src/",
     "preset/",
     "examples/",
+    "cordis.patch.yml",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -56,6 +57,11 @@
     "service": {
       "required": ["commands"],
       "optional": ["goals"]
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
     }
   }
 }

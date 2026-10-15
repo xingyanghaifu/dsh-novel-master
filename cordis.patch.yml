@@ -1,0 +1,12 @@
+# dsh-novel-master bundle layer: mounted by the DSH plugin manager, so a
+# profile gets these rows without manual cordis.patch.yml edits.
+#
+# The command rows live in this one plugin entry: every slash command is
+# registered from src/index.js, and each can be toggled individually through
+# this entry's config (`commands.<key>: false`). See README.md for the full
+# list of keys.
+- insert:
+    - id: novel-master
+      name: dsh-novel-master
+      config:
+        enabled: true
