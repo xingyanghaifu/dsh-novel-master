@@ -184,6 +184,34 @@ test('equal versions and unknown commits are not reported as proven latest/runni
   assert.equal((await updater.reload()).application, 'restart-required')
 })
 
+test('settings routes wait for late Web service and remount after replacement', async () => {
+  let activate, cleanup, forkDisposed = 0
+  const routes = [], removed = []
+  const ctx = {
+    get: () => undefined,
+    inject(deps, callback) { assert.deepEqual(deps, ['webServer']); activate = callback; return { dispose() { forkDisposed++; cleanup?.() } } },
+    on() {}, commands: { register: () => () => {} },
+  }
+  const updater = installUpdater(ctx)
+  assert.equal(routes.length, 0)
+  const scope = name => ({
+    get: key => key === 'webServer' ? { register(route) { routes.push(route); return () => removed.push(name) } } : undefined,
+    effect(effect) { cleanup = effect() },
+  })
+  activate(scope('first'))
+  assert.equal(routes[0].path, '/api/novel-master/')
+  const res = { writeHead(code) { this.code = code }, end(body) { this.body = JSON.parse(body) } }
+  await routes[0].handler({ method: 'GET', url: '/api/novel-master/status' }, res)
+  assert.equal(res.code, 200)
+  assert.ok(res.body.running)
+  cleanup()
+  activate(scope('second'))
+  assert.equal(routes.length, 2)
+  updater.dispose(); updater.dispose()
+  assert.equal(forkDisposed, 1)
+  assert.deepEqual(removed, ['first', 'second'])
+})
+
 test('real settings endpoint persists revisioned edits; updater remains mounted without writing enabled', async () => {
   let route, disposed = 0
   let document = { ns: 'include:novel-master', revision: 1, value: { enabled: false, commands: { novel: false } } }

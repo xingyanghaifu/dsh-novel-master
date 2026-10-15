@@ -30,6 +30,9 @@ function harness(options = {}) {
     fetch: async (url, request) => {
       const body = request.body ? JSON.parse(request.body) : undefined
       calls.push({ url, request, body })
+      if (options.response) return options.response(url, request)
+      if (url.endsWith('/settings') && request.method === 'GET') return { ok: true, json: async () => document }
+      if (url.endsWith('/status') && !url.endsWith('/intelligence/status')) return { ok: true, json: async () => states[1] }
       if (url.endsWith('/intelligence/status')) {
         if (options.activityError) return { ok: false, json: async () => ({ error: options.activityError }) }
         return { ok: true, json: async () => ({ learningEnabled: true, decisionEnabled: false, storageDir: '/real/library', trackedSessions: 2, activeJobs: 1, recordsWrittenThisRun: 7, lastError: 'summary service unavailable' }) }
@@ -50,13 +53,88 @@ function harness(options = {}) {
   const render = () => { stateIndex = 0; refIndex = 0; return page() }
   const flatten = node => Array.isArray(node) ? node.flatMap(flatten) : !node || typeof node !== 'object' ? [] : [node, ...node.children.flatMap(flatten)]
   const nodes = () => flatten(render())
-  const text = node => Array.isArray(node) ? node.map(text).join('') : node && typeof node === 'object' ? node.children.map(text).join('') : node === false || node == null ? '' : String(node)
+  const text = node => Array.isArray(node) ? node.map(text).join('') : node && typeof node === 'object' ? node.type === 'style' ? '' : node.children.map(text).join('') : node === false || node == null ? '' : String(node)
   const find = (type, label) => { const node = nodes().find(n => n.type === type && (n.props['aria-label'] === label || text(n) === label)); assert.ok(node, `${type}: ${label}`); return node }
   const click = label => find('button', label).props.onClick()
   const edit = (label, value) => { const input = find('input', label); return input.props.onChange({ target: { value, checked: value } }) }
   const submit = label => find('form', label).props.onSubmit({ preventDefault() {} })
   return { render, nodes, text, find, click, edit, submit, calls }
 }
+
+test('tabs mount every panel but expose only the selected accessible panel', async () => {
+  const h = harness()
+  const panels = () => h.nodes().filter(node => node.props.role === 'tabpanel')
+  assert.equal(panels().length, 4)
+  assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-features'])
+  await h.click('学习总结')
+  assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-learning'])
+  assert.equal(h.find('button', '学习总结').props['aria-selected'], true)
+  assert.equal(h.find('input', '学习存储目录').props.value, 'novel_learning')
+  let prevented = false
+  h.find('button', '学习总结').props.onKeyDown({ key: 'ArrowRight', preventDefault() { prevented = true }, currentTarget: {} })
+  assert.equal(prevented, true)
+  assert.equal(h.find('button', '决策助手').props['aria-selected'], true)
+})
+
+test('search filters features without altering choices and presets save only actual keys once', async () => {
+  const h = harness()
+  h.edit('搜索功能', 'novel-backup')
+  assert.equal(h.nodes().filter(node => node.type === 'fieldset').length, 1)
+  assert.equal(h.find('input', '备份').props.role, 'switch')
+  assert.equal(h.calls.length, 0)
+  h.edit('搜索功能', 'does-not-exist')
+  assert.match(h.text(h.render()), /没有找到匹配功能/)
+  assert.equal(h.nodes().filter(node => node.type === 'fieldset').length, 0)
+  h.edit('搜索功能', '')
+  await h.click('基础工具')
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.calls[0].body.patch.commands.novel, true)
+  assert.equal(h.calls[0].body.patch.commands.study, false)
+  assert.equal(h.calls[0].body.patch.commands.update, undefined)
+  assert.equal(h.calls[0].body.patch.commands.outline, undefined)
+})
+
+test('dirty indicators reflect actual unsaved differences and clear after successful save', async () => {
+  const h = harness()
+  assert.doesNotMatch(h.text(h.render()), /有未保存的修改/)
+  h.edit('学习存储目录', 'new-library')
+  assert.match(h.text(h.render()), /有未保存的修改/)
+  h.edit('学习存储目录', 'novel_learning')
+  assert.doesNotMatch(h.text(h.render()), /有未保存的修改/)
+  h.edit('学习存储目录', 'new-library')
+  await h.submit('学习配置')
+  assert.doesNotMatch(h.text(h.render()), /有未保存的修改/)
+})
+
+test('HTML HTTP failures show actionable backend diagnostics without parser messages', async () => {
+  const h = harness({ response: async () => ({ ok: false, status: 404, text: async () => '<html>not found</html>' }) })
+  await h.click('检查更新')
+  const text = h.text(h.render())
+  assert.match(text, /check · HTTP 404/)
+  assert.match(text, /插件后端尚未就绪，请重启 DSH/)
+  assert.doesNotMatch(text, /Unexpected token|JSON\.parse/)
+  assert.ok(h.find('button', '重试连接'))
+})
+
+test('successful settings remain available when independent update status fails', async () => {
+  const h = harness({ response: async url => url.endsWith('/settings') ? { ok: true, json: async () => ({ revision: 9, value: structuredClone(DEFAULT) }) } : { ok: false, status: 503, text: async () => 'service unavailable' } })
+  await h.click('刷新设置与状态')
+  assert.equal(h.find('input', '一键完本').props.checked, true)
+  assert.match(h.text(h.render()), /status · HTTP 503/)
+  assert.doesNotMatch(h.text(h.render()), /配置服务尚未连接/)
+})
+
+test('theme styles are scoped with keyboard and reduced motion support', () => {
+  const h = harness()
+  const tree = h.render()
+  assert.equal(tree.props.className, 'nm-settings')
+  const css = h.nodes().find(node => node.type === 'style').children.join('')
+  assert.match(css, /--dsw-alias-label-primary/)
+  assert.match(css, /\.nm-settings \[hidden\]/)
+  assert.match(css, /:focus-visible/)
+  assert.match(css, /prefers-reduced-motion/)
+  assert.doesNotMatch(css, /(?:^|\})\s*(?:body|html|input|button)\s*\{/)
+})
 
 test('all/group controls change only actual creative keys, use revisions, and show counts', async () => {
   const h = harness()
@@ -165,5 +243,5 @@ test('activity is read only on demand and renders actual backend status and erro
   assert.match(h.text(h.render()), /summary service unavailable/)
   const unavailable = harness({ activityError: 'not-found' })
   await unavailable.click('读取学习与决策活动')
-  assert.match(unavailable.text(unavailable.render()), /读取活动失败：not-found/)
+  assert.match(unavailable.text(unavailable.render()), /读取活动失败：intelligence\/status · HTTP 未知：not-found/)
 })

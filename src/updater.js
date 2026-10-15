@@ -202,8 +202,16 @@ function allowedWrite(req) {
 export function installUpdater(ctx, options = {}) {
   const updater = createUpdater(ctx, options)
   const cleanups = []
-  const web = ctx.get('webServer')
-  if (web) {
+  const mount = (scoped, handler) => {
+    const web = scoped.get('webServer')
+    if (!web) return
+    let routeDisposed = false
+    const disposeRoute = web.register({ kind: 'prefix', path: `${API_PATH}/`, handler })
+    const cleanup = () => { if (!routeDisposed) { routeDisposed = true; disposeRoute() } }
+    if (typeof scoped.effect === 'function') scoped.effect(() => cleanup)
+    else cleanups.push(cleanup)
+  }
+  {
     const settings = () => {
       const service = ctx.get('settings')
       if (!service) throw new UpdateError('unavailable', 'DSH settings 服务不可用')
@@ -243,7 +251,11 @@ export function installUpdater(ctx, options = {}) {
         return send(res, 404, { error: 'not-found' })
       } catch (error) { send(res, error.code === 'busy' ? 409 : 400, { error: messageOf(error), code: error.code ?? 'operation-error' }) }
     }
-    cleanups.push(web.register({ kind: 'prefix', path: `${API_PATH}/`, handler }))
+    if (typeof ctx.inject === 'function') {
+      const fork = ctx.inject(['webServer'], scoped => mount(scoped, handler))
+      if (typeof fork === 'function') cleanups.push(fork)
+      else if (typeof fork?.dispose === 'function') cleanups.push(() => fork.dispose())
+    } else mount(ctx, handler)
   }
   const commandDispose = ctx.commands?.register(updateCommand(ctx, updater))
   if (commandDispose) cleanups.push(commandDispose)
