@@ -6,6 +6,7 @@
  * DSH's `goals` service when it is composed; all durable state lives in
  * project files under `<cwd>/novel_projects/`.
  */
+import z from '@deepseek-ai/schemastery'
 import { continueCommand, novelCommand } from './cmd-write.js'
 import { studyCommand } from './cmd-study.js'
 import {
@@ -37,49 +38,100 @@ export const inject = ['commands']
 /** Stable namespace for definition ids. */
 const DEFINITION_PREFIX = 'dsh-novel-master'
 
-/** Cordis Config Schema — DSH 用它生成设置面板 */
-export const Config = {
-  type: 'object',
-  properties: {
-    enabled: {
-      type: 'boolean',
-      default: true,
-      title: '启用插件',
-      description: '关闭后所有命令都不会注册',
-    },
-    commands: {
-      type: 'object',
-      title: '命令开关',
-      description: '选择要启用的命令（关闭的命令不会出现在 / 菜单里）',
-      properties: {
-        novel: { type: 'boolean', default: true, title: '一键完本 (/novel)' },
-        continue: { type: 'boolean', default: true, title: '续写 (/novel-continue)' },
-        study: { type: 'boolean', default: true, title: '拆书 (/novel-study)' },
-        outline: { type: 'boolean', default: true, title: '大纲 (/novel-outline)' },
-        cast: { type: 'boolean', default: true, title: '人设 (/novel-cast)' },
-        rewrite: { type: 'boolean', default: true, title: '改写 (/novel-rewrite)' },
-        review: { type: 'boolean', default: true, title: '审校 (/novel-review)' },
-        idea: { type: 'boolean', default: true, title: '构思 (/novel-idea)' },
-        spark: { type: 'boolean', default: true, title: '灵感 (/novel-spark)' },
-        world: { type: 'boolean', default: true, title: '世界 (/novel-world)' },
-        role: { type: 'boolean', default: true, title: '角色 (/novel-role)' },
-        stats: { type: 'boolean', default: true, title: '统计 (/novel-stats)' },
-        export: { type: 'boolean', default: true, title: '导出 (/novel-export)' },
-        conflict: { type: 'boolean', default: true, title: '冲突分析 (/novel-conflict)' },
-        pace: { type: 'boolean', default: true, title: '节奏分析 (/novel-pace)' },
-        reader: { type: 'boolean', default: true, title: '虚拟读者 (/novel-reader)' },
-        dialogue: { type: 'boolean', default: true, title: '对话增强 (/novel-dialogue)' },
-        emotion: { type: 'boolean', default: true, title: '情感曲线 (/novel-emotion)' },
-        market: { type: 'boolean', default: true, title: '市场分析 (/novel-market)' },
-      },
-    },
-    projectsDir: {
-      type: 'string',
-      default: 'novel_projects',
-      title: '项目目录',
-      description: '小说项目存放的相对路径（相对于工作目录）',
-    },
-  },
+/**
+ * Every command's config key, in menu order.
+ *
+ * Declared once so the schema below and the registration loop cannot drift.
+ */
+const COMMAND_KEYS = [
+  ['novel', '一键完本 (/novel)'],
+  ['continue', '续写 (/novel-continue)'],
+  ['study', '拆书 (/novel-study)'],
+  ['outline', '大纲 (/novel-outline)'],
+  ['cast', '人设 (/novel-cast)'],
+  ['rewrite', '改写 (/novel-rewrite)'],
+  ['review', '审校 (/novel-review)'],
+  ['idea', '构思 (/novel-idea)'],
+  ['spark', '灵感 (/novel-spark)'],
+  ['world', '世界 (/novel-world)'],
+  ['role', '角色 (/novel-role)'],
+  ['stats', '统计 (/novel-stats)'],
+  ['export', '导出 (/novel-export)'],
+  ['conflict', '冲突分析 (/novel-conflict)'],
+  ['pace', '节奏分析 (/novel-pace)'],
+  ['reader', '虚拟读者 (/novel-reader)'],
+  ['dialogue', '对话增强 (/novel-dialogue)'],
+  ['emotion', '情感曲线 (/novel-emotion)'],
+  ['market', '市场分析 (/novel-market)'],
+]
+
+/**
+ * Whether the resolved schemastery can mark a field live-editable.
+ *
+ * `.volatile()` is what makes `dsh-settings` project a field into the settings
+ * form; without it the field still works, it is just not editable from the UI.
+ * The kernel's bundled copy (3.18.4) has the method, but a plugin that resolves
+ * an older copy would throw while this module is being evaluated — which would
+ * take every command down with it. So the method is probed once and the schema
+ * degrades to non-volatile when absent.
+ */
+const LIVE_CAPABLE = typeof z.boolean().volatile === 'function'
+
+/** Mark one Config leaf live-editable, where the schema library allows it. */
+function live(schema) {
+  return LIVE_CAPABLE ? schema.volatile() : schema
+}
+
+/**
+ * Cordis Config Schema — DSH uses it to generate the settings panel.
+ *
+ * This must be a schemastery schema instance, not a plain object: cordis calls
+ * `Config['~standard'].validate(raw)` before `apply`, and a plain object has no
+ * such property (`TypeError: Cannot read properties of undefined (reading
+ * 'validate')`).
+ *
+ * `.volatile()` is applied to leaves only. Marking the enclosing `commands`
+ * object volatile is rejected by schemastery ("volatile fields require a fixed
+ * object path without an enclosing volatile field"), so the container stays a
+ * plain object and each command flag is volatile on its own.
+ */
+export const Config = z.object({
+  enabled: live(z.boolean().default(true))
+    .description('启用插件')
+    .comment('关闭后所有命令都不会注册'),
+  commands: z.object(
+    Object.fromEntries(
+      COMMAND_KEYS.map(([key, title]) => [key, live(z.boolean().default(true)).description(title)]),
+    ),
+  ).description('命令开关'),
+  projectsDir: live(z.string().default('novel_projects'))
+    .description('项目目录')
+    .comment('小说项目存放的相对路径（相对于工作目录）'),
+})
+
+/**
+ * Well-known key cosmokit puts on a live config reference.
+ *
+ * A volatile field does not resolve to its value: it resolves to a stable
+ * reference whose `get()` answers the current immutable snapshot. Reading
+ * `config.enabled` directly would therefore see an object, not a boolean.
+ */
+const VOLATILE_REF = Symbol.for('cosmokit.volatile.write')
+
+/** Whether a config value is a live reference rather than a plain snapshot. */
+function isLive(value) {
+  return typeof value === 'object' && value !== null && VOLATILE_REF in value
+}
+
+/**
+ * Read one applied-config field, unwrapping a live reference when present.
+ * @param config - the applied config, possibly undefined.
+ * @param key - field name.
+ * @returns the current value, or undefined when the field is absent.
+ */
+function readField(config, key) {
+  const value = config?.[key]
+  return isLive(value) && typeof value.get === 'function' ? value.get() : value
 }
 
 /** Every command definition with its config key, in menu order. */
@@ -125,19 +177,19 @@ function guarded(definition, logger) {
 
 export function apply(ctx, config = {}) {
   // 整个插件被禁用
-  if (config.enabled === false) return
+  if (readField(config, 'enabled') === false) return
 
   let logger = ctx.logger
   try {
     if (typeof ctx.logger === 'function') logger = ctx.logger('novel-master') ?? ctx.logger
   } catch { /* fall back to the context logger */ }
 
-  const commandConfig = config.commands ?? {}
+  const commandsConfig = config?.commands ?? {}
   const disposers = []
 
   for (const { key, factory } of definitions(ctx)) {
     // 这个命令被禁用了，跳过注册
-    if (commandConfig[key] === false) {
+    if (readField(commandsConfig, key) === false) {
       logger?.info?.(`[novel-master] 命令已禁用: /${key}`)
       continue
     }

@@ -12,6 +12,16 @@ let cwd
 beforeEach(() => { cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-')) })
 afterEach(() => { fs.rmSync(cwd, { recursive: true, force: true }) })
 
+/**
+ * Read a resolved config field, unwrapping the live reference that
+ * `.volatile()` produces (see src/index.js).
+ */
+const VOLATILE_REF = Symbol.for('cosmokit.volatile.write')
+function readConfig(config, key) {
+  const value = config?.[key]
+  return typeof value === 'object' && value !== null && VOLATILE_REF in value ? value.get() : value
+}
+
 /** Fake host: command registry + optional goal service + one agent. */
 function host({ goals = true, config = {} } = {}) {
   const commands = new Map()
@@ -40,10 +50,25 @@ const proj = (n) => path.join(cwd, 'novel_projects', n)
 test('plugin metadata and Config schema are valid', () => {
   assert.equal(name, 'novel-master')
   assert.deepEqual(inject, ['commands'])
-  assert.equal(Config.type, 'object')
-  assert.ok(Config.properties.enabled)
-  assert.ok(Config.properties.commands)
-  assert.equal(Object.keys(Config.properties.commands.properties).length, 19)
+
+  // Cordis validates the raw profile row through Config["~standard"].validate(),
+  // so the export must be a schemastery schema instance, not a plain object.
+  assert.equal(typeof Config['~standard']?.validate, 'function')
+
+  const resolved = Config['~standard'].validate({})
+  assert.equal(resolved.issues, undefined)
+  assert.equal(readConfig(resolved.value, 'enabled'), true)
+  assert.equal(readConfig(resolved.value, 'projectsDir'), 'novel_projects')
+  assert.equal(Object.keys(resolved.value.commands).length, 19)
+  for (const key of Object.keys(resolved.value.commands)) {
+    assert.equal(readConfig(resolved.value.commands, key), true, `${key} should default to true`)
+  }
+
+  // A partial row keeps the other defaults.
+  const partial = Config['~standard'].validate({ commands: { novel: false } })
+  assert.equal(partial.issues, undefined)
+  assert.equal(readConfig(partial.value.commands, 'novel'), false)
+  assert.equal(readConfig(partial.value.commands, 'market'), true)
 })
 
 test('config.enabled: false disables all commands', () => {

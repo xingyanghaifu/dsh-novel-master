@@ -52,6 +52,12 @@
   "engines": {
     "node": ">=20"
   },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": ">=3.18.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.4"
+  },
   "cordis": {
     "description": "小说创作大师：19 个专业命令，一键完本、虚拟读者反馈、冲突/节奏/情感分析、市场适配",
     "service": {
