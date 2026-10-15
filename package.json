@@ -21,12 +21,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xinyanghaifu/dsh-novel-master.git"
+    "url": "git+https://github.com/xingyanghaifu/dsh-novel-master.git"
   },
   "bugs": {
-    "url": "https://github.com/xinyanghaifu/dsh-novel-master/issues"
+    "url": "https://github.com/xingyanghaifu/dsh-novel-master/issues"
   },
-  "homepage": "https://github.com/xinyanghaifu/dsh-novel-master#readme",
+  "homepage": "https://github.com/xingyanghaifu/dsh-novel-master#readme",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -46,7 +46,7 @@
     "creative-writing",
     "小说"
   ],
-  "author": "xinyanghaifu <3174332008@qq.com>",
+  "author": "xingyanghaifu <3174332008@qq.com>",
   "license": "MIT",
   "engines": {
     "node": ">=20"
