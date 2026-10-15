@@ -9,6 +9,7 @@ import { chapterTarget, extractOptions } from './args.js'
 import { NO_PROJECT, agentCwd, fail, ok, projectExists, resolveProject } from './context.js'
 import { decodeText, splitChapters, writeImportedChapters } from './importer.js'
 import { userMessage } from './message.js'
+import { enhanceTaskPrompt, bindNovelGoal } from './task-intelligence.js'
 import { safeName, projectRelativeDir } from './project.js'
 import { finishObjective } from './prompts.js'
 import { WORKFLOW_FILE, ensureProject, prepareRun, uniqueName } from './workflow.js'
@@ -40,29 +41,26 @@ function goalConflict(ctx, invocation) {
 /** Start the writing loop through a goal, or fall back to a single queued task. */
 function launch(ctx, invocation, name, target, done, receipt) {
   const goals = goalsOf(ctx)
-  const attachments = invocation.attachments ?? []
-  if (attachments.length > 0) {
-    invocation.agent.followup(userMessage(`以上附件是《${name}》的参考资料（风格或设定），动笔前先看，要点记进项目文件。`, attachments))
-  }
-  if (goals !== undefined) {
-    goals.create(invocation.agent, {
-      objective: finishObjective(name, target),
-      // At least one chapter per round, plus slack for planning and checks.
-      maxGoalRounds: Math.max(1, target - done) + 10,
-    })
-    
-    const statusDetails = {
-      '📝 进度': `${done}/${target} 章`,
-      '🎯 剩余': `${target - done} 章`,
-      '🔄 模式': '自动多轮（目标驱动）'
+  const base = goals !== undefined ? finishObjective(name, target)
+    : `请读取 ${projectRelativeDir(name)}/${WORKFLOW_FILE} 并按它执行。当前环境没有目标服务：每次回复写 1-3 章，用户说"继续"再往下写。`
+  const start = prompt => {
+    invocation.signal?.throwIfAborted()
+    const attachments = invocation.attachments ?? []
+    if (attachments.length > 0) {
+      invocation.agent.followup(userMessage(`以上附件是《${name}》的参考资料（风格或设定），动笔前先看，要点记进项目文件。`, attachments))
     }
-    
-    return ok(formatSuccess(receipt, statusDetails) + '\n\n💡 提示：可用 /goal pause 暂停、/goal resume 继续')
+    if (goals !== undefined) {
+      const goal = goals.create(invocation.agent, { objective: prompt, maxGoalRounds: Math.max(1, target - done) + 10 })
+      bindNovelGoal({ ...invocation, novelProject: name }, goal)
+      return ok(formatSuccess(receipt, {
+        '📝 进度': `${done}/${target} 章`, '🎯 剩余': `${target - done} 章`, '🔄 模式': '自动多轮（目标驱动）',
+      }) + '\n\n💡 提示：可用 /goal pause 暂停、/goal resume 继续')
+    }
+    invocation.agent.followup(userMessage(prompt))
+    return ok(`${receipt}\n\n⚠️ 当前环境没有目标服务，改为手动模式：\n  每轮写完说"继续"才会接着写下一轮`)
   }
-  invocation.agent.followup(userMessage(
-    `请读取 ${projectRelativeDir(name)}/${WORKFLOW_FILE} 并按它执行。当前环境没有目标服务：每次回复写 1-3 章，用户说"继续"再往下写。`,
-  ))
-  return ok(`${receipt}\n\n⚠️ 当前环境没有目标服务，改为手动模式：\n  每轮写完说"继续"才会接着写下一轮`)
+  const enhanced = enhanceTaskPrompt({ ...invocation, novelProject: name }, base)
+  return typeof enhanced?.then === 'function' ? enhanced.then(start) : start(enhanced)
 }
 
 /** `/novel <脑洞> [60章|20万字] [--auto]` */

@@ -33,6 +33,7 @@ import { withProjectsDirectory } from './project.js'
 import { EXTRA_COMMANDS } from './cmd-extra.js'
 import { createUpdateTransport, installUpdater } from './updater.js'
 import { selfReload } from './reload.js'
+import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from './intelligence.js'
 
 export const name = 'novel-master'
 
@@ -68,6 +69,7 @@ const COMMAND_KEYS = [
   ['emotion', '情感曲线 (/novel-emotion)'],
   ['market', '市场分析 (/novel-market)'],
   ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
+  ...INTELLIGENCE_KEYS,
 ]
 
 /**
@@ -109,6 +111,25 @@ export const Config = z.object({
       COMMAND_KEYS.map(([key, title]) => [key, live(z.boolean().default(true)).description(title)]),
     ),
   ).description('命令开关'),
+  learning: z.object({
+    enabled: live(z.boolean().default(false)).description('启用自主学习总结'),
+    autoSummarize: live(z.boolean().default(true)).description('自动总结小说任务输出'),
+    reuse: live(z.boolean().default(true)).description('复用同模型经验'),
+    storageDir: live(z.string().default('novel_learning')).description('学习存储地址').comment('支持绝对地址或工作目录相对地址；按工作目录与实际 provider/model 隔离，变更后不自动迁移记录。'),
+    summaryProvider: live(z.string().default('')).description('摘要模型 Provider').comment('和摘要模型一起填写；全部留空使用被总结输出的实际模型路由。'),
+    summaryModel: live(z.string().default('')).description('摘要模型 ID'),
+    maxInputChars: live(z.natural().min(1000).max(24000).default(12000)).description('总结输入字符上限'),
+    maxRecords: live(z.natural().min(1).max(10000).default(500)).description('每个模型的记录上限').comment('达到上限停止追加，不删除旧记录。'),
+    cooldownSeconds: live(z.natural().min(0).max(86400).default(60)).description('自动总结最小间隔（秒）'),
+  }).description('学习总结'),
+  decision: z.object({
+    enabled: live(z.boolean().default(false)).description('启用决策 AI'),
+    provider: live(z.string().default('')).description('决策模型 Provider'),
+    model: live(z.string().default('')).description('决策模型 ID'),
+    reasoningEffort: live(z.string().default('')).description('决策推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
+    minConfidence: live(z.number().min(0).max(1).default(0.7)).description('人工复核置信度阈值'),
+    timeoutMs: live(z.natural().min(1000).max(120000).default(30000)).description('决策超时（毫秒）'),
+  }).description('决策 AI'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
@@ -143,7 +164,7 @@ function readField(config, key) {
 }
 
 /** Every command definition with its config key, in menu order. */
-export function definitions(ctx) {
+export function definitions(ctx, intelligence) {
   return [
     { key: 'novel', factory: () => novelCommand(ctx) },
     { key: 'continue', factory: () => continueCommand(ctx) },
@@ -165,17 +186,19 @@ export function definitions(ctx) {
     { key: 'emotion', factory: emotionCommand },
     { key: 'market', factory: marketCommand },
     ...EXTRA_COMMANDS,
+    ...intelligenceDefinitions(intelligence),
   ]
 }
 
 /** Wrap a handler so unexpected failures become a readable error, not a crash. */
-function guarded(definition, logger, config) {
+function guarded(definition, logger, config, intelligence) {
   return {
     ...definition,
     definitionId: `${DEFINITION_PREFIX}/${definition.name}`,
     handler: async (invocation) => {
       try {
-        return await withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () => definition.handler(invocation))
+        return await withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () =>
+          intelligence.run(invocation, () => definition.handler(invocation)))
       } catch (error) {
         logger?.warn?.(`[novel-master] /${definition.name} failed: ${error?.stack ?? error}`)
         return { kind: 'error', text: `/${definition.name} 出错了：${error?.message ?? String(error)}` }
@@ -191,7 +214,8 @@ export function apply(ctx, config = {}) {
   } catch { /* fall back to the context logger */ }
 
   const registered = new Map()
-  const entries = definitions(ctx)
+  const intelligence = installIntelligence(ctx, config)
+  const entries = definitions(ctx, intelligence)
   let disposed = false
   const remove = (key) => {
     const dispose = registered.get(key)
@@ -203,12 +227,13 @@ export function apply(ctx, config = {}) {
   }
   const reconcile = () => {
     if (disposed) return
+    intelligence.reconcile()
     for (const { key, factory } of entries) {
       const wanted = readField(config, 'enabled') !== false && readField(config.commands, key) !== false
       if (!wanted) { remove(key); continue }
       if (registered.has(key)) continue
       try {
-        registered.set(key, ctx.commands.register(guarded(factory(), logger, config)))
+        registered.set(key, ctx.commands.register(guarded(factory(), logger, config, intelligence)))
       } catch (error) {
         logger?.warn?.(`[novel-master] 命令注册失败 ${key}: ${error?.message ?? error}`)
       }
@@ -222,10 +247,12 @@ export function apply(ctx, config = {}) {
   ctx.on('dispose', () => updateTransport.dispose())
   installUpdater(ctx, {
     fetch: updateTransport.fetch,
+    intelligence,
     reload: async () => { const result = await selfReload(ctx); return { ...result, application: result.status } },
   })
   ctx.on('dispose', () => {
     disposed = true
+    intelligence.dispose()
     offSettings?.()
     offReload?.()
     for (const key of [...registered.keys()]) remove(key)

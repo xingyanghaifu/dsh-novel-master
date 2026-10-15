@@ -79,7 +79,7 @@ ${profiles[platform]}
 4. 给出可执行的修改建议、取舍与验证方法；效果仅作为假设，不能承诺读者增长或收入。
 5. 建议符合实际故事内容的标签和简介方向，更新计划以作者可持续能力为依据。收费与投稿政策只提醒核对官方说明。
 6. 最后列出不确定性和投稿前需核实的信息，明确“本报告是启发式建议，不含实时市场数据”。`
-      return queueTask(invocation, prompt, formatSuccess(`开始为《${project}》生成 ${platform} 适配建议（非实时市场调研）`, {
+      return queueTask({ ...invocation, novelProject: project }, prompt, formatSuccess(`开始为《${project}》生成 ${platform} 适配建议（非实时市场调研）`, {
         '📱 目标平台': platform,
         '📖 分析项目': project,
         '📝 实际平均字数': `${averageChars} 字/章`,

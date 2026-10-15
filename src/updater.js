@@ -220,6 +220,10 @@ export function installUpdater(ctx, options = {}) {
       try {
         const action = new URL(req.url, 'http://localhost').pathname.slice(API_PATH.length)
         if (req.method === 'GET' && action === '/status') return send(res, 200, await updater.status())
+        if (req.method === 'GET' && action === '/intelligence/status') {
+          if (!options.intelligence) return send(res, 503, { error: '智能运行时尚未加载' })
+          return send(res, 200, await options.intelligence.status())
+        }
         if (req.method === 'GET' && action === '/settings') return send(res, 200, document())
         if (req.method !== 'POST') return send(res, 405, { error: 'method-not-allowed' })
         if (!allowedWrite(req)) return send(res, 403, { error: 'same-origin-json-required' })

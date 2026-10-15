@@ -200,7 +200,8 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
     commands: { register: definition => { assert.equal(definition.name, 'novel-update'); return () => { disposed++ } } },
     on() {},
   }
-  const updater = installUpdater(ctx)
+  const activity = { learningEnabled: false, decisionEnabled: false, activeJobs: 0, lastError: 'example diagnostic' }
+  const updater = installUpdater(ctx, { intelligence: { status: () => activity } })
   async function request(method, action, data, headers = {}) {
     const req = Readable.from(data ? [JSON.stringify(data)] : [])
     Object.assign(req, { method, url: `/api/novel-master/${action}`, headers: { host: 'localhost:19387', 'content-type': 'application/json', 'x-novel-master': 'settings', ...headers } })
@@ -209,6 +210,7 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
     return res
   }
   assert.equal((await request('GET', 'settings')).data.value.enabled, false)
+  assert.deepEqual((await request('GET', 'intelligence/status')).data, activity)
   const saved = await request('POST', 'settings', { revision: 1, patch: { enabled: true } })
   assert.equal(saved.data.value.enabled, true)
   assert.equal(saved.data.revision, 2)

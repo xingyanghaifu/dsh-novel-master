@@ -94,7 +94,7 @@ ${evidence}
    - 「写法要点」：8-12 条可以照着执行的规则
    - 「仿写示范」：用这个风格写一段 200 字左右的新场景（不要照搬原文情节）
 3. 回复里只用三四句话说说这人的味道，并告诉我档案路径。${apply}`
-      return queueTask(invocation, prompt, `开始拆书：${sourceLabel}\n档案会写到 ${profileFile}${to ? `，并套用到《${to}》` : ''}。`)
+      return queueTask({ ...invocation, novelProject: to ?? null }, prompt, `开始拆书：${sourceLabel}\n档案会写到 ${profileFile}${to ? `，并套用到《${to}》` : ''}。`)
     },
   }
 }

@@ -155,7 +155,7 @@ ${chapterFiles(t.dir, selected)}
 开始分析吧！`
 
       return queueTask(
-        invocation,
+        { ...invocation, novelProject: t.project },
         prompt,
         formatSuccess(`开始分析《${t.project}》的冲突设计`, {
           '📊 分析范围': rangeText,
@@ -284,7 +284,7 @@ ${chapterFiles(t.dir, chapters)}
 开始分析吧！注意数据要真实（从文件中统计），不要编造。`
 
       return queueTask(
-        invocation,
+        { ...invocation, novelProject: t.project },
         prompt,
         formatSuccess(`开始分析《${t.project}》的节奏`, {
           '📊 分析章节': `${chapters.length} 章`,
@@ -430,7 +430,7 @@ ${personaDescriptions[persona]}
 现在开始阅读并给出反馈吧！记住，你就是那个真实的读者。`
 
       return queueTask(
-        invocation,
+        { ...invocation, novelProject: t.project },
         prompt,
         formatSuccess(`${persona}正在阅读《${t.project}》`, {
           '📖 阅读范围': rangeText,
@@ -596,7 +596,7 @@ AI 味对话：Y 句 (Z%)
 开始分析吧！`
 
       return queueTask(
-        invocation,
+        { ...invocation, novelProject: t.project },
         prompt,
         formatSuccess(`开始分析第 ${chapterNum} 章的对话`, {
           '📖 章节': `第 ${chapterNum} 章`,
@@ -764,7 +764,7 @@ ${chapterFiles(t.dir, selected)}
 开始分析吧！`
 
       return queueTask(
-        invocation,
+        { ...invocation, novelProject: t.project },
         prompt,
         formatSuccess(`开始分析《${t.project}》的情感曲线`, {
           '📊 分析范围': rangeText,

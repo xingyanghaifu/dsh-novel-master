@@ -23,7 +23,7 @@ function readConfig(config, key) {
 }
 
 /** Fake host: command registry + optional goal service + one agent. */
-function host({ goals = true, config = {} } = {}) {
+function host({ goals = true, config = {}, services = {} } = {}) {
   const commands = new Map()
   const created = []
   let current
@@ -39,7 +39,7 @@ function host({ goals = true, config = {} } = {}) {
       commands.set(d.name, d)
       return () => { if (commands.get(d.name) === d) commands.delete(d.name) }
     } },
-    get: (key) => (key === 'goals' && goals ? goalService : undefined),
+    get: (key) => (key === 'goals' && goals ? goalService : services[key]),
     on: (event, listener) => {
       const set = listeners.get(event) ?? new Set()
       listeners.set(event, set)
@@ -50,7 +50,7 @@ function host({ goals = true, config = {} } = {}) {
   const emit = (event, ...args) => { for (const listener of [...(listeners.get(event) ?? [])]) listener(...args) }
   apply(ctx, config)
   const followups = []
-  const agent = { session: { header: { cwd } }, followup: (m) => followups.push(m) }
+  const agent = { id: 'test-novel-session', session: { header: { cwd } }, followup: (m) => followups.push(m) }
   const run = (cmd, rawInput = '', attachments = []) =>
     commands.get(cmd).handler({ agent, rawInput, attachments, signal: new AbortController().signal })
   return { commands, created, followups, run, emit, setGoal: (g) => { current = g } }
@@ -82,6 +82,41 @@ test('plugin metadata and Config schema are valid', () => {
   assert.equal(partial.issues, undefined)
   assert.equal(readConfig(partial.value.commands, 'novel'), false)
   assert.equal(readConfig(partial.value.commands, 'market'), true)
+})
+
+test('entry integrates real decision calls, audit storage and live tool gating', async () => {
+  const tools = new Map(), calls = []
+  const config = { decision: { enabled: true, provider: 'judge', model: 'decision-model', minConfidence: 0.5 }, learning: { enabled: false } }
+  const services = {
+    tools: { register(definition) { assert.ok(definition.output.schema); assert.equal(typeof definition.output.render, 'function'); tools.set(definition.name, definition); return () => tools.delete(definition.name) } },
+    sessionController: { inspect: async () => ({ events: [{ type: 'assistant/message', seq: 1, data: { message: { source: { kind: 'model', provider: 'writer', model: 'book-model' } } } }] }) },
+    llm: {
+      listProviders: () => [{ id: 'judge' }],
+      resolveModelInfo: async (provider, model) => ({ provider, id: model }),
+      stream: async function* (options) { calls.push(options); yield { type: 'text-delta', index: 0, text: JSON.stringify({ choice: 'option-1', reason: '保留既有线索', confidence: 0.55, needsHumanReview: false }) }; yield { type: 'finish', reason: { kind: 'stop' } } },
+    },
+  }
+  const h = host({ config, services, goals: false })
+  assert.equal(tools.has('novel_decide'), true)
+  const answer = await h.run('novel-decide', '如何安排？ | 先铺垫 | 直接揭示')
+  assert.equal(answer.kind, 'success')
+  assert.match(answer.text, /"humanRequired": false/)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].provider, 'judge')
+  assert.deepEqual(calls[0].tools, [])
+  assert.ok(fs.existsSync(path.join(cwd, 'novel_learning')))
+  config.commands = { decide: false }
+  h.emit('settings/document-updated')
+  assert.equal(tools.has('novel_decide'), false)
+  assert.equal(h.commands.has('novel-decide'), false)
+  config.commands.decide = true
+  h.emit('settings/document-updated')
+  assert.equal(tools.has('novel_decide'), true)
+  config.enabled = false
+  h.emit('settings/document-updated')
+  assert.equal(tools.has('novel_decide'), false)
+  assert.deepEqual([...h.commands.keys()], ['novel-update'])
+  h.emit('dispose')
 })
 
 test('config.enabled: false disables all commands', () => {

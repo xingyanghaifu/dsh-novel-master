@@ -32,7 +32,7 @@ function modelCommand({ name, description, hint, needsProject = true, build }) {
       }
       const built = build(t)
       if (built.error) return fail(built.error)
-      return queueTask(invocation, built.prompt, built.receipt)
+      return queueTask({ ...invocation, novelProject: t.project ?? null }, built.prompt, built.receipt)
     },
   }
 }
@@ -281,7 +281,7 @@ export function worldCommand() {
       const t = target(invocation)
       if (t.error) return t.error
       if (t.note.length > 0) {
-        return queueTask(invocation, `【世界推演】项目 ${t.dir}。读 设定.md、角色.md、世界状态.md、大纲.md。
+        return queueTask({ ...invocation, novelProject: t.project ?? null }, `【世界推演】项目 ${t.dir}。读 设定.md、角色.md、世界状态.md、大纲.md。
 要求：${t.note}
 按每个势力/角色自己的目标和性格推进他们的计划（不为主角让路），写进 世界状态.md 的「幕后推进」并推进世界时钟；会影响主线的变化同步进 大纲.md 后续章节。回复列出关键变化。`, `开始推演《${t.project}》的世界。`)
       }
@@ -305,7 +305,7 @@ export function roleCommand() {
       // A bare name that appears as a heading: show just that section.
       const section = roles?.split(/\n(?=#{2,3}\s)/u).find((s) => s.replace(/^#+\s*/u, '').startsWith(t.note))
       if (section !== undefined) return ok(section.trim())
-      return queueTask(invocation, `【角色】项目 ${t.dir}。读 角色.md、最近 3 章、世界状态.md。
+      return queueTask({ ...invocation, novelProject: t.project ?? null }, `【角色】项目 ${t.dir}。读 角色.md、最近 3 章、世界状态.md。
 要求：${t.note}
 改 角色.md（保持每人：身份/性格/说话习惯/目标/当前状态/关系），必要时同步 世界状态.md。回复说改了谁、改了什么。`, `开始更新《${t.project}》的角色。`)
     },

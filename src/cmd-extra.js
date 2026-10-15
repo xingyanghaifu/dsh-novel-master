@@ -340,7 +340,7 @@ const compareCommand = command('compare', '作品对比：基于本地参考文�
     must(new Set(refs).size === refs.length, '参考文件不能重复')
     const source = chapters(t.dir).map((entry) => entry.file)
     const output = modelOutput(t, '作品对比')
-    return queueTask(inv, `${contextPrompt(t)}\n【作品对比】逐一读取参考文件：${JSON.stringify(refs)}。本项目正文：${JSON.stringify(source)}。长文本可抽样，但报告必须明确采样范围与未读部分。比较节奏、叙事视角、人物弧线、冲突、语言与差异化。每个判断给文件名、章节和短引文证据；分别列优势、不足、3项可执行修改及风险。不得编造相似度百分比或市场数据，不复制参考作品表达。仅新建 ${JSON.stringify(output)}，禁止改正文；若输出已存在则停止。`, `已安排作品对比，输出：${output}`)
+    return queueTask({ ...inv, novelProject: t.project }, `${contextPrompt(t)}\n【作品对比】逐一读取参考文件：${JSON.stringify(refs)}。本项目正文：${JSON.stringify(source)}。长文本可抽样，但报告必须明确采样范围与未读部分。比较节奏、叙事视角、人物弧线、冲突、语言与差异化。每个判断给文件名、章节和短引文证据；分别列优势、不足、3项可执行修改及风险。不得编造相似度百分比或市场数据，不复制参考作品表达。仅新建 ${JSON.stringify(output)}，禁止改正文；若输出已存在则停止。`, `已安排作品对比，输出：${output}`)
   })
 
 const chapterCommand = command('chapter', '章节草稿：依据大纲生成指定章节，已有正文须明确选择另存草稿',
@@ -356,7 +356,7 @@ const chapterCommand = command('chapter', '章节草稿：依据大纲生成指�
     const folder = values['--draft'] ? outputDirectory(t.dir, '章节草稿') : checked(path.join(t.dir, CHAPTER_DIR), { missing: true, directory: true })
     const outputs = numbers.map((n) => path.join(folder, `第${n}章_草稿.md`))
     outputs.forEach((file) => must(!fs.existsSync(file), `输出已存在：${file}`))
-    return queueTask(inv, `${contextPrompt(t)}\n【章节生成】章节号：${numbers.join(',')}；每章约 ${length} 字；${values['--draft'] ? '大纲级草稿，可列待定问题。' : '完整章节草稿，保持前后衔接。'}风格：${values['--style'] ?? '遵循写作规范与既有正文'}。先核对大纲中每章目标、角色动机、时间地点、前章结尾；大纲缺失时先给出待确认问题，不擅自推进关键事实。每章有开场目标、阻力、变化和结尾钩子。仅新建这些文件（按章节顺序）：${JSON.stringify(outputs)}。写入前再次确认对应章节号没有既有正文；若新出现冲突则停止（--draft 模式只需确保目标文件不存在）。禁止覆盖任何现有文件，禁止更新项目状态或世界设定；说明哪些剧情事实需作者确认。`, `已安排第 ${numbers.join(',')} 章，输出：${outputs.join('、')}`)
+    return queueTask({ ...inv, novelProject: t.project }, `${contextPrompt(t)}\n【章节生成】章节号：${numbers.join(',')}；每章约 ${length} 字；${values['--draft'] ? '大纲级草稿，可列待定问题。' : '完整章节草稿，保持前后衔接。'}风格：${values['--style'] ?? '遵循写作规范与既有正文'}。先核对大纲中每章目标、角色动机、时间地点、前章结尾；大纲缺失时先给出待确认问题，不擅自推进关键事实。每章有开场目标、阻力、变化和结尾钩子。仅新建这些文件（按章节顺序）：${JSON.stringify(outputs)}。写入前再次确认对应章节号没有既有正文；若新出现冲突则停止（--draft 模式只需确保目标文件不存在）。禁止覆盖任何现有文件，禁止更新项目状态或世界设定；说明哪些剧情事实需作者确认。`, `已安排第 ${numbers.join(',')} 章，输出：${outputs.join('、')}`)
   })
 
 function chaptersAllowEmpty(dir) {
@@ -371,7 +371,7 @@ function knowledgeCommand(key, title, task) {
     const keyword = t.note.trim()
     must(keyword && keyword.length <= 300 && !keyword.startsWith('--'), '请提供 1-300 字的关键词或类型')
     const output = modelOutput(t, key === 'tips' ? '写作技巧' : '套路设计')
-    return queueTask(inv, `${contextPrompt(t)}\n主题：${keyword}。${task}\n只新建 ${JSON.stringify(output)}（若存在则停止），不修改正文。这是模型生成的建议，不是检索固定数量的内置技巧库；区分正文事实与假设，不捏造来源。`, `已安排${title}，输出：${output}`)
+    return queueTask({ ...inv, novelProject: t.project }, `${contextPrompt(t)}\n主题：${keyword}。${task}\n只新建 ${JSON.stringify(output)}（若存在则停止），不修改正文。这是模型生成的建议，不是检索固定数量的内置技巧库；区分正文事实与假设，不捏造来源。`, `已安排${title}，输出：${output}`)
   })
 }
 

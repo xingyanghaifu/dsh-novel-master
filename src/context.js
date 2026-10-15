@@ -4,6 +4,7 @@
 import { latestProject, listProjects, projectDir } from './project.js'
 import { splitProject } from './args.js'
 import { userMessage } from './message.js'
+import { enhanceTaskPrompt } from './task-intelligence.js'
 import { formatError, formatSuccess } from './validators.js'
 import fs from 'node:fs'
 
@@ -42,8 +43,13 @@ export const NO_PROJECT = formatError(
  * @param {string} receipt - text shown to the user.
  */
 export function queueTask(invocation, prompt, receipt) {
-  invocation.agent.followup(userMessage(prompt, invocation.attachments ?? []))
-  return ok(receipt)
+  const enqueue = text => {
+    invocation.signal?.throwIfAborted()
+    invocation.agent.followup(userMessage(text, invocation.attachments ?? []))
+    return ok(receipt)
+  }
+  const enhanced = enhanceTaskPrompt(invocation, prompt)
+  return typeof enhanced?.then === 'function' ? enhanced.then(enqueue) : enqueue(enhanced)
 }
 
 /** True when the project directory exists. */
