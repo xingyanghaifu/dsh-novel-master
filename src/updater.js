@@ -206,7 +206,9 @@ export function installUpdater(ctx, options = {}) {
     const web = scoped.get('webServer')
     if (!web) return
     let routeDisposed = false
-    const disposeRoute = web.register({ kind: 'prefix', path: `${API_PATH}/`, handler })
+    // webServer.match adds the path-segment separator itself. A trailing slash
+    // here would require /api/novel-master//settings and miss every normal URL.
+    const disposeRoute = web.register({ kind: 'prefix', path: API_PATH, handler })
     const cleanup = () => { if (!routeDisposed) { routeDisposed = true; disposeRoute() } }
     if (typeof scoped.effect === 'function') scoped.effect(() => cleanup)
     else cleanups.push(cleanup)
@@ -226,6 +228,11 @@ export function installUpdater(ctx, options = {}) {
     }
     const handler = async (req, res) => {
       try {
+        const connection = ctx.get('connection')
+        if (typeof connection?.requestRejection !== 'function') return send(res, 503, { error: 'DSH 连接认证服务尚未就绪' })
+        let rejection
+        try { rejection = connection.requestRejection(req) } catch { return send(res, 503, { error: 'DSH 连接认证检查暂不可用' }) }
+        if (rejection !== undefined) return send(res, rejection === 401 || rejection === 403 ? rejection : 503, { error: rejection === 401 ? '登录状态已失效，请刷新当前页面' : '请求未通过宿主认证' })
         const action = new URL(req.url, 'http://localhost').pathname.slice(API_PATH.length)
         if (req.method === 'GET' && action === '/status') return send(res, 200, await updater.status())
         if (req.method === 'GET' && action === '/intelligence/status') {

@@ -9,6 +9,13 @@ const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
 const spec = `github:xingyanghaifu/dsh-novel-master#${SHA}`
 const response = data => ({ ok: true, json: async () => data })
+// DSH webServer's directory-prefix contract: the router supplies the separator.
+// Route through it instead of invoking captured handlers for arbitrary URLs.
+function matchRoute(routes, pathname) {
+  return routes.filter(route => route.kind === 'exact' ? pathname === route.path
+    : pathname === route.path || pathname.startsWith(`${route.path}/`))
+    .sort((a, b) => Number(b.kind === 'exact') - Number(a.kind === 'exact') || b.path.length - a.path.length)[0]
+}
 function transport(calls = []) {
   return async (url, options) => {
     calls.push({ url, options })
@@ -188,7 +195,7 @@ test('settings routes wait for late Web service and remount after replacement', 
   let activate, cleanup, forkDisposed = 0
   const routes = [], removed = []
   const ctx = {
-    get: () => undefined,
+    get: key => key === 'connection' ? { requestRejection: () => undefined } : undefined,
     inject(deps, callback) { assert.deepEqual(deps, ['webServer']); activate = callback; return { dispose() { forkDisposed++; cleanup?.() } } },
     on() {}, commands: { register: () => () => {} },
   }
@@ -199,9 +206,12 @@ test('settings routes wait for late Web service and remount after replacement', 
     effect(effect) { cleanup = effect() },
   })
   activate(scope('first'))
-  assert.equal(routes[0].path, '/api/novel-master/')
+  assert.equal(routes[0].path, '/api/novel-master')
+  assert.equal(matchRoute(routes, '/api/novel-master-evil/settings'), undefined)
+  const selected = matchRoute(routes, '/api/novel-master/status')
+  assert.ok(selected, 'normal status URL must match the mounted prefix')
   const res = { writeHead(code) { this.code = code }, end(body) { this.body = JSON.parse(body) } }
-  await routes[0].handler({ method: 'GET', url: '/api/novel-master/status' }, res)
+  await selected.handler({ method: 'GET', url: '/api/novel-master/status' }, res)
   assert.equal(res.code, 200)
   assert.ok(res.body.running)
   cleanup()
@@ -224,7 +234,7 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
     },
   }
   const ctx = {
-    get: key => key === 'webServer' ? { register: value => { route = value; return () => { disposed++ } } } : key === 'settings' ? settings : undefined,
+    get: key => key === 'webServer' ? { register: value => { route = value; return () => { disposed++ } } } : key === 'settings' ? settings : key === 'connection' ? { requestRejection: () => undefined } : undefined,
     commands: { register: definition => { assert.equal(definition.name, 'novel-update'); return () => { disposed++ } } },
     on() {},
   }
@@ -234,7 +244,9 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
     const req = Readable.from(data ? [JSON.stringify(data)] : [])
     Object.assign(req, { method, url: `/api/novel-master/${action}`, headers: { host: 'localhost:19387', 'content-type': 'application/json', 'x-novel-master': 'settings', ...headers } })
     const res = { writeHead(status) { this.status = status }, end(text) { this.data = JSON.parse(text) } }
-    await route.handler(req, res)
+    const selected = matchRoute([{ kind: 'prefix', path: '/api', handler() { throw new Error('plugin route fell through to kernel API') } }, route], new URL(req.url, 'http://localhost').pathname)
+    assert.equal(selected, route, 'normal plugin API URL must win longest-prefix dispatch')
+    await selected.handler(req, res)
     return res
   }
   assert.equal((await request('GET', 'settings')).data.value.enabled, false)
@@ -246,6 +258,27 @@ test('real settings endpoint persists revisioned edits; updater remains mounted 
   assert.equal((await request('POST', 'apply', {}, { origin: 'https://evil.example' })).status, 403)
   updater.dispose(); updater.dispose()
   assert.equal(disposed, 2)
+})
+
+test('matched plugin routes retain Host authentication before reading settings or actions', async () => {
+  let route, connection, reads = 0
+  const ctx = {
+    get: key => key === 'connection' ? connection : key === 'settings' ? { describe() { reads++; return [] } }
+      : key === 'webServer' ? { register(value) { route = value; return () => {} } } : undefined,
+    on() {}, commands: { register: () => () => {} },
+  }
+  const updater = installUpdater(ctx)
+  const request = async () => {
+    const res = { writeHead(code) { this.code = code }, end(body) { this.body = JSON.parse(body) } }
+    await matchRoute([route], '/api/novel-master/settings').handler({ method: 'GET', url: '/api/novel-master/settings', headers: {} }, res)
+    return res.code
+  }
+  assert.equal(await request(), 503)
+  connection = { requestRejection: () => 401 }; assert.equal(await request(), 401)
+  connection = { requestRejection: () => 403 }; assert.equal(await request(), 403)
+  connection = { requestRejection() { throw new Error('private internal detail') } }; assert.equal(await request(), 503)
+  assert.equal(reads, 0)
+  updater.dispose()
 })
 
 test('settings client mounts controls and saves real checkbox edits through the business API', async () => {
