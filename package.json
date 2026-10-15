@@ -1,7 +1,7 @@
 {
   "name": "dsh-novel-master",
-  "version": "1.1.0",
-  "description": "小说创作大师：DeepSeek Harness 斜杠命令插件——一键完本、续写、拆书、大纲、人设、改写、审校、世界推演与导出",
+  "version": "1.2.0",
+  "description": "全功能小说创作插件 for DeepSeek Harness - 19个专业命令，虚拟读者反馈，冲突/节奏/情感分析，市场适配",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -34,6 +34,16 @@
     "cordis",
     "novel",
     "writing",
+    "ai-writing",
+    "chinese-novel",
+    "web-novel",
+    "conflict-analysis",
+    "pace-analysis",
+    "virtual-reader",
+    "dialogue-enhancement",
+    "emotion-tracking",
+    "market-analysis",
+    "creative-writing",
     "小说"
   ],
   "author": "xinyanghaifu <3174332008@qq.com>",
@@ -42,7 +52,7 @@
     "node": ">=20"
   },
   "cordis": {
-    "description": "小说创作大师：13 个斜杠命令，一键完本、续写、拆书、改写、审校等功能",
+    "description": "小说创作大师：19 个专业命令，一键完本、虚拟读者反馈、冲突/节奏/情感分析、市场适配",
     "service": {
       "required": ["commands"],
       "optional": ["goals"]
