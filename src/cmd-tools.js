@@ -86,31 +86,150 @@ ${RULES_HINT(dir)}先读前后各一章保证衔接，读 角色.md 保证人物
 
 export const reviewCommand = () => modelCommand({
   name: 'novel-review',
-  description: '审校：查错字、AI 味、人设崩坏、设定矛盾与伏笔，并直接修',
-  hint: '[项目名] [章节号|最近N章]',
+  description: '审校：查错字、AI 味、人设崩坏、设定矛盾与伏笔，支持深度模式',
+  hint: '[项目名] [章节号|最近N章] [--deep]',
   build: ({ cwd, dir, project, note }) => {
     const chapters = listChapters(cwd, project)
     if (chapters.length === 0) return { error: '这本书还没有正文。' }
-    const recent = note.match(/最近\s*(\d+)\s*章/u)
-    const { chapter } = leadingChapter(note)
+    
+    // 检查是否启用深度模式
+    const deepMode = note.includes('--deep')
+    const cleanNote = note.replace(/--deep/g, '').trim()
+    
+    const recent = cleanNote.match(/最近\s*(\d+)\s*章/u)
+    const { chapter } = leadingChapter(cleanNote)
     let scope
     if (recent !== null) scope = chapters.slice(-Number(recent[1]))
     else if (chapter !== undefined) scope = chapters.filter((c) => c.number === chapter)
     else scope = chapters.slice(-3)
     if (scope.length === 0) return { error: `没有第 ${chapter} 章。` }
     const files = scope.map((c) => `${dir}/${CHAPTER_DIR}/${c.file}`).join('\n')
-    return {
-      receipt: `开始审校《${project}》第 ${scope[0].number}-${scope.at(-1).number} 章。`,
-      prompt: `【审校】逐章细读：
+    
+    const basicChecks = `【基础审校】逐章细读：
 ${files}
+
 对照 ${dir}/${RULES_FILE}、设定.md、角色.md、世界状态.md、伏笔.md 检查：
-1. 错别字、病句、标点
-2. AI 味（写作规范里列的套话、总结升华、排比、所有人一个腔调）
-3. 人物 OOC、说话口气跑偏
-4. 设定或时间线矛盾、前后数值对不上
-5. 埋了没收或忘了的伏笔
-小问题直接改原文件；大问题（要改剧情）先列出来问我。
-回复：每章一行说改了什么，最后列需要我拍板的问题。`,
+
+## 1. 基础错误
+- 错别字、病句、标点
+- 标点符号使用规范
+- 段落格式
+
+## 2. AI 味检测
+检查写作规范里列出的 AI 味特征：
+- 套话："不禁""缓缓""嘴角勾起一抹弧度"
+- 总结升华：段尾总结、"这一刻他明白了"
+- 排比三连、对仗工整
+- 所有人一个腔调
+
+## 3. 人物一致性
+- 人物 OOC（性格崩坏）
+- 说话口气跑偏
+- 行为动机不符合人设
+
+## 4. 设定一致性
+- 设定或时间线矛盾
+- 前后数值对不上
+- 能力突然变化
+
+## 5. 伏笔管理
+- 埋了没收的伏笔
+- 忘记的伏笔
+- 伏笔.md 更新`
+
+    const deepChecks = `
+
+## 6. 逻辑检查（深度模式）
+- **时间线冲突**：
+  上章晚上，本章突然白天但没交代
+  事件顺序混乱
+  
+- **地点穿越**：
+  上章在 A 地，本章在 B 地但没说怎么去的
+  场景转换不自然
+  
+- **能力不一致**：
+  上章不会的技能，本章突然会了
+  实力前后不符
+  
+- **物品和伤势**：
+  上章受伤，本章没了
+  重要物品突然消失/出现
+
+## 7. 剧情质量（深度模式）
+- **无效剧情**：
+  与主线无关的冗长描写
+  重复的内容
+  
+- **信息密度**：
+  信息过载（一段话塞太多）
+  信息过少（水文）
+  
+- **节奏问题**：
+  该快的地方慢
+  该慢的地方快
+
+## 8. 情感真实性（深度模式）
+- 人物情绪转变是否合理
+- 情感描写是否真实
+- 是否有情感断层`
+
+    const finalPrompt = deepMode ? basicChecks + deepChecks : basicChecks
+
+    const instructions = `
+
+## 修改原则
+- **小问题直接改**：错字、AI 味、格式问题
+- **中等问题标注**：逻辑小瑕疵，建议改法
+- **大问题列出**：需要改剧情的问题，先问我
+
+## 输出格式
+
+\`\`\`
+📋 审校报告：《${project}》第 ${scope[0].number}-${scope.at(-1).number} 章
+
+【已修复的问题】
+第 X 章：
+  ✅ 修复 3 处错别字
+  ✅ 删除 AI 味套话 5 处："不禁""缓缓"等
+  ✅ 调整对话标点
+
+第 Y 章：
+  ✅ 修复时间线矛盾（改为"第二天早上"）
+  ✅ 补充场景转换（增加"一个小时后"）
+
+【标注的问题】
+第 X 章：
+  ⚠️  信息密度过高（第 3 段）
+     建议：拆成 2 段，增加喘息空间
+     
+  ⚠️  对话略显生硬（林晓 vs 苏瑶）
+     建议：增加停顿和语气词
+
+【需要确认的问题】
+❓ 第 Y 章：林晓的实力设定前后不一致
+   上章：刚学会"引气"
+   本章：能用"破煞掌"（需要练气境）
+   → 是剧情需要突破，还是笔误？
+
+❓ 第 Z 章：苏瑶的态度转变太快
+   上章：对林晓冷淡
+   本章：突然关心
+   → 是否需要补充转变的理由？
+
+【统计】
+- 审校章节：${scope.length} 章
+- 修复问题：X 处
+- 标注建议：Y 处
+- 待确认：Z 处
+${deepMode ? '- 深度模式：已启用 ✅' : ''}
+\`\`\`
+
+${deepMode ? '\n💡 提示：深度模式已启用，检查项更全面' : '\n💡 提示：使用 --deep 启用深度审校（逻辑、节奏、情感）'}`
+
+    return {
+      receipt: `开始${deepMode ? '深度' : ''}审校《${project}》第 ${scope[0].number}-${scope.at(-1).number} 章`,
+      prompt: finalPrompt + instructions,
     }
   },
 })
@@ -196,11 +315,15 @@ export function roleCommand() {
 export function statsCommand() {
   return {
     name: 'novel-stats',
-    description: '统计：字数、章节、进度与伏笔情况',
-    input: { hint: '[项目名]' },
+    description: '统计：字数、章节、进度与伏笔情况，支持详细模式',
+    input: { hint: '[项目名] [--detailed]' },
     handler: (invocation) => {
       const t = target(invocation)
       if (t.error) return t.error
+      
+      // 检查是否启用详细模式
+      const detailedMode = t.note.includes('--detailed')
+      
       const state = readState(t.cwd, t.project) ?? {}
       const chapters = listChapters(t.cwd, t.project)
       const total = chapters.reduce((sum, c) => sum + c.chars, 0)

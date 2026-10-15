@@ -20,6 +20,14 @@ import {
   statsCommand,
   worldCommand,
 } from './cmd-tools.js'
+import {
+  conflictCommand,
+  dialogueCommand,
+  emotionCommand,
+  paceCommand,
+  readerCommand,
+} from './cmd-analysis.js'
+import { marketCommand } from './cmd-market.js'
 
 export const name = 'novel-master'
 
@@ -57,6 +65,12 @@ export const Config = {
         role: { type: 'boolean', default: true, title: '角色 (/novel-role)' },
         stats: { type: 'boolean', default: true, title: '统计 (/novel-stats)' },
         export: { type: 'boolean', default: true, title: '导出 (/novel-export)' },
+        conflict: { type: 'boolean', default: true, title: '冲突分析 (/novel-conflict)' },
+        pace: { type: 'boolean', default: true, title: '节奏分析 (/novel-pace)' },
+        reader: { type: 'boolean', default: true, title: '虚拟读者 (/novel-reader)' },
+        dialogue: { type: 'boolean', default: true, title: '对话增强 (/novel-dialogue)' },
+        emotion: { type: 'boolean', default: true, title: '情感曲线 (/novel-emotion)' },
+        market: { type: 'boolean', default: true, title: '市场分析 (/novel-market)' },
       },
     },
     projectsDir: {
@@ -84,6 +98,12 @@ export function definitions(ctx) {
     { key: 'role', factory: roleCommand },
     { key: 'stats', factory: statsCommand },
     { key: 'export', factory: exportCommand },
+    { key: 'conflict', factory: conflictCommand },
+    { key: 'pace', factory: paceCommand },
+    { key: 'reader', factory: readerCommand },
+    { key: 'dialogue', factory: dialogueCommand },
+    { key: 'emotion', factory: emotionCommand },
+    { key: 'market', factory: marketCommand },
   ]
 }
 

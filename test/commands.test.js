@@ -43,7 +43,7 @@ test('plugin metadata and Config schema are valid', () => {
   assert.equal(Config.type, 'object')
   assert.ok(Config.properties.enabled)
   assert.ok(Config.properties.commands)
-  assert.equal(Object.keys(Config.properties.commands.properties).length, 13)
+  assert.equal(Object.keys(Config.properties.commands.properties).length, 19)
 })
 
 test('config.enabled: false disables all commands', () => {
@@ -58,12 +58,12 @@ test('config.commands selective disable', () => {
   assert.equal(h.commands.has('novel-export'), false)
   assert.equal(h.commands.has('novel-continue'), true)
   assert.equal(h.commands.has('novel-outline'), true)
-  assert.equal(h.commands.size, 10) // 13 - 3 disabled
+  assert.equal(h.commands.size, 16) // 19 - 3 disabled
 })
 
-test('default config enables all 13 commands', () => {
+test('default config enables all 19 commands', () => {
   const h = host()
-  assert.equal(h.commands.size, 13)
+  assert.equal(h.commands.size, 19)
   for (const [n, d] of h.commands) {
     assert.match(n, /^[a-z][a-z0-9_-]*$/u)
     assert.ok(d.description.length > 0)
