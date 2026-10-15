@@ -1,0 +1,13 @@
+# 测试文件
+test/
+
+# Git 元数据
+.git/
+.gitignore
+
+# 临时文件
+*.tmp
+*.log
+
+# npm 打包产物
+*.tgz

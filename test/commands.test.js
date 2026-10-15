@@ -1,0 +1,178 @@
+import { test, beforeEach, afterEach } from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { apply, inject, name, Config } from '../src/index.js'
+import { chapterTarget, extractOptions, leadingChapter } from '../src/args.js'
+import { splitChapters, decodeText } from '../src/importer.js'
+import { textStats } from '../src/cmd-study.js'
+
+let cwd
+beforeEach(() => { cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-')) })
+afterEach(() => { fs.rmSync(cwd, { recursive: true, force: true }) })
+
+/** Fake host: command registry + optional goal service + one agent. */
+function host({ goals = true, config = {} } = {}) {
+  const commands = new Map()
+  const created = []
+  let current
+  const goalService = {
+    get: () => current,
+    create: (_agent, req) => { current = { ...req, phase: 'active' }; created.push(req); return current },
+  }
+  const ctx = {
+    logger: { warn() {}, info() {} },
+    commands: { register: (d) => { commands.set(d.name, d); return () => commands.delete(d.name) } },
+    get: (key) => (key === 'goals' && goals ? goalService : undefined),
+    on: () => () => {}, // Returns disposer
+  }
+  apply(ctx, config)
+  const followups = []
+  const agent = { session: { header: { cwd } }, followup: (m) => followups.push(m) }
+  const run = (cmd, rawInput = '', attachments = []) =>
+    commands.get(cmd).handler({ agent, rawInput, attachments, signal: new AbortController().signal })
+  return { commands, created, followups, run, setGoal: (g) => { current = g } }
+}
+
+const proj = (n) => path.join(cwd, 'novel_projects', n)
+
+test('plugin metadata and Config schema are valid', () => {
+  assert.equal(name, 'novel-master')
+  assert.deepEqual(inject, ['commands'])
+  assert.equal(Config.type, 'object')
+  assert.ok(Config.properties.enabled)
+  assert.ok(Config.properties.commands)
+  assert.equal(Object.keys(Config.properties.commands.properties).length, 13)
+})
+
+test('config.enabled: false disables all commands', () => {
+  const h = host({ config: { enabled: false } })
+  assert.equal(h.commands.size, 0)
+})
+
+test('config.commands selective disable', () => {
+  const h = host({ config: { commands: { novel: false, study: false, export: false } } })
+  assert.equal(h.commands.has('novel'), false)
+  assert.equal(h.commands.has('novel-study'), false)
+  assert.equal(h.commands.has('novel-export'), false)
+  assert.equal(h.commands.has('novel-continue'), true)
+  assert.equal(h.commands.has('novel-outline'), true)
+  assert.equal(h.commands.size, 10) // 13 - 3 disabled
+})
+
+test('default config enables all 13 commands', () => {
+  const h = host()
+  assert.equal(h.commands.size, 13)
+  for (const [n, d] of h.commands) {
+    assert.match(n, /^[a-z][a-z0-9_-]*$/u)
+    assert.ok(d.description.length > 0)
+    assert.ok(d.definitionId.startsWith('dsh-novel-master/'))
+  }
+})
+
+test('option parsing', () => {
+  assert.deepEqual(extractOptions('网管修仙 80章 --auto'), { auto: true, chapters: 80, rest: '网管修仙' })
+  assert.equal(chapterTarget(extractOptions('x 20万字')), 80)
+  assert.equal(chapterTarget(extractOptions('x')), 40)
+  assert.equal(chapterTarget({ chapters: 99999 }), 2000)
+  assert.deepEqual(leadingChapter('第12章 节奏快点'), { chapter: 12, note: '节奏快点' })
+})
+
+test('/novel creates project, workflow and a goal', async () => {
+  const h = host()
+  const r = await h.run('novel', '网管发现网吧电脑能修仙 30章')
+  assert.equal(r.kind, 'success')
+  const [dir] = fs.readdirSync(path.join(cwd, 'novel_projects'))
+  for (const f of ['写作规范.md', '完本流程.md', '世界状态.md', '剧情树.md', '伏笔.md', '角色.md', '设定.md', '脑洞.md', '项目.json']) {
+    assert.ok(fs.existsSync(path.join(proj(dir), f)), f)
+  }
+  const state = JSON.parse(fs.readFileSync(path.join(proj(dir), '项目.json'), 'utf8'))
+  assert.equal(state.target, 30)
+  assert.equal(state.branchMode, 'ask')
+  assert.equal(h.created.length, 1)
+  assert.match(h.created[0].objective, /完本流程\.md/u)
+  assert.equal(h.created[0].maxGoalRounds, 40)
+  assert.match(fs.readFileSync(path.join(proj(dir), '完本流程.md'), 'utf8'), /ask_user_question/u)
+})
+
+test('/novel refuses while another goal is active and without an idea', async () => {
+  const h = host()
+  assert.equal((await h.run('novel', '')).kind, 'error')
+  h.setGoal({ phase: 'active', objective: 'other' })
+  assert.equal((await h.run('novel', '某个脑洞')).kind, 'error')
+  assert.equal(fs.existsSync(path.join(cwd, 'novel_projects')), false)
+})
+
+test('/novel falls back to turn-by-turn without a goal service', async () => {
+  const h = host({ goals: false })
+  const r = await h.run('novel', '末日种田 --auto')
+  assert.equal(r.kind, 'success')
+  assert.equal(h.followups.length, 1)
+  assert.match(h.followups[0].content.at(-1).text, /完本流程\.md/u)
+})
+
+test('/novel-continue imports a txt file and targets done + N', async () => {
+  const file = path.join(cwd, '旧作.txt')
+  fs.writeFileSync(file, '第一章 开端\n他醒了。\n\n第二章 出门\n他出门了。\n第3章 回家\n他回来了。\n')
+  const h = host()
+  const r = await h.run('novel-continue', '旧作.txt 5章')
+  assert.equal(r.kind, 'success', r.text)
+  assert.deepEqual(fs.readdirSync(path.join(proj('旧作'), '正文')).sort(), ['第1章_开端.md', '第2章_出门.md', '第3章_回家.md'])
+  assert.equal(JSON.parse(fs.readFileSync(path.join(proj('旧作'), '项目.json'), 'utf8')).target, 8)
+  assert.match(fs.readFileSync(path.join(proj('旧作'), '完本流程.md'), 'utf8'), /续写/u)
+  assert.equal(h.created.at(-1).maxGoalRounds, 15)
+})
+
+test('/novel-continue without any project errors', async () => {
+  assert.equal((await host().run('novel-continue', '')).kind, 'error')
+})
+
+test('/novel-study computes stats and applies to project', async () => {
+  const h = host()
+  await h.run('novel', '测试书 3章')
+  const [book] = fs.readdirSync(path.join(cwd, 'novel_projects'))
+  fs.writeFileSync(path.join(cwd, 'ref.txt'), '第一章 雨\n“走吧。”\n他没动。\n雨很大。\n')
+  const r = await h.run('novel-study', `ref.txt --to ${book}`)
+  assert.equal(r.kind, 'success', r.text)
+  const prompt = h.followups.at(-1).content.at(-1).text
+  assert.match(prompt, /平均句长/u)
+  assert.match(prompt, /写作规范\.md/u)
+  assert.ok(fs.existsSync(path.join(cwd, 'novel_projects', '_风格档案')))
+  assert.equal((await h.run('novel-study', 'missing.txt')).kind, 'error')
+})
+
+test('helper commands resolve the latest project', async () => {
+  const h = host()
+  await h.run('novel', '测试书 3章')
+  const [book] = fs.readdirSync(path.join(cwd, 'novel_projects')).filter((n) => !n.startsWith('_'))
+  const body = path.join(proj(book), '正文')
+  fs.writeFileSync(path.join(body, '第1章_起.md'), '# 第1章 起\n\n“你好。”他说。\n')
+  fs.writeFileSync(path.join(body, '第3章_终.md'), '# 第3章 终\n\n结束了。\n')
+  for (const c of ['novel-outline', 'novel-cast', 'novel-review', 'novel-spark']) {
+    assert.equal((await h.run(c, '')).kind, 'success', c)
+  }
+  assert.equal((await h.run('novel-rewrite', '1 节奏快点')).kind, 'success')
+  assert.equal((await h.run('novel-rewrite', '9')).kind, 'error')
+  assert.equal((await h.run('novel-idea', '')).kind, 'error')
+  assert.equal((await h.run('novel-idea', '会说话的猫')).kind, 'success')
+  const stats = await h.run('novel-stats', '')
+  assert.match(stats.text, /2 章/u)
+  assert.match(stats.text, /缺章：2/u)
+  assert.match((await h.run('novel-world', '')).text, /世界时钟/u)
+  assert.equal((await h.run('novel-role', '')).kind, 'success')
+  const exp = await h.run('novel-export', 'html')
+  assert.equal(exp.kind, 'success', exp.text)
+  const html = fs.readdirSync(path.join(proj(book), '导出')).find((f) => f.endsWith('.html'))
+  assert.match(fs.readFileSync(path.join(proj(book), '导出', html), 'utf8'), /第3章 终/u)
+  assert.ok(fs.existsSync(path.join(proj(book), '目录.md')))
+})
+
+test('importer helpers', () => {
+  assert.equal(splitChapters('没有章节标题的一段文字').length, 1)
+  assert.equal(decodeText(Buffer.from([0xef, 0xbb, 0xbf, 0x61])), 'a')
+  const gbk = Buffer.from([0xc4, 0xe3, 0xba, 0xc3]) // 你好 in GBK
+  assert.equal(decodeText(gbk), '你好')
+  const s = textStats('“走。”\n他走了。')
+  assert.ok(s.dialogueRatio > 0)
+})

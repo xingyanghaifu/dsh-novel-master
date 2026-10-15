@@ -1,0 +1,10 @@
+node_modules/
+novel_projects/
+*.tmp
+*.log
+.DS_Store
+*.tgz
+dist/
+coverage/
+.idea/
+.vscode/

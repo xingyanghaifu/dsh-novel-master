@@ -1,0 +1,45 @@
+/**
+ * Shared helpers for command handlers: cwd, project resolution, results.
+ */
+import { latestProject, listProjects, projectDir } from './project.js'
+import { splitProject } from './args.js'
+import { userMessage } from './message.js'
+import fs from 'node:fs'
+
+/** Working directory of the receiving agent's session. */
+export function agentCwd(invocation) {
+  return invocation.agent?.session?.header?.cwd ?? process.cwd()
+}
+
+export const ok = (text) => ({ kind: 'success', text })
+export const fail = (text) => ({ kind: 'error', text })
+
+/**
+ * Resolve which project a command targets: a leading existing project name,
+ * otherwise the most recently touched project.
+ * @returns {{ project?: string, note: string }}
+ */
+export function resolveProject(cwd, rest) {
+  const split = splitProject(rest, listProjects(cwd))
+  if (split.project !== undefined) return split
+  return { project: latestProject(cwd), note: split.note }
+}
+
+/** Error text used when a command needs a project and none exists. */
+export const NO_PROJECT = '还没有小说项目。先用 /novel <脑洞> 开一本，或 /novel-continue <小说文件> 导入已有作品。'
+
+/**
+ * Queue a model task on the agent and return a short receipt.
+ * @param {object} invocation
+ * @param {string} prompt - full task for the model.
+ * @param {string} receipt - text shown to the user.
+ */
+export function queueTask(invocation, prompt, receipt) {
+  invocation.agent.followup(userMessage(prompt, invocation.attachments ?? []))
+  return ok(receipt)
+}
+
+/** True when the project directory exists. */
+export function projectExists(cwd, name) {
+  return name !== undefined && fs.existsSync(projectDir(cwd, name))
+}

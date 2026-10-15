@@ -1,0 +1,49 @@
+{
+  "name": "dsh-novel-master",
+  "version": "1.1.0",
+  "description": "小说创作大师：DeepSeek Harness 斜杠命令插件——一键完本、续写、拆书、大纲、人设、改写、审校、世界推演与导出",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "preset/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USERNAME/dsh-novel-master.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/dsh-novel-master/issues"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/dsh-novel-master#readme",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "novel",
+    "writing",
+    "小说"
+  ],
+  "author": "YOUR_NAME",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "cordis": {
+    "description": "小说创作大师：13 个斜杠命令，一键完本、续写、拆书、改写、审校等功能",
+    "service": {
+      "required": ["commands"],
+      "optional": ["goals"]
+    }
+  }
+}
