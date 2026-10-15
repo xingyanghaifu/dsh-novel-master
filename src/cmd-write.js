@@ -12,6 +12,7 @@ import { userMessage } from './message.js'
 import { safeName } from './project.js'
 import { finishObjective } from './prompts.js'
 import { WORKFLOW_FILE, ensureProject, prepareRun, uniqueName } from './workflow.js'
+import { validateChapterTarget, validateProjectName, formatError, formatSuccess } from './validators.js'
 
 /** Optional goal service; undefined when the host does not compose it. */
 function goalsOf(ctx) {
@@ -26,7 +27,14 @@ function goalsOf(ctx) {
 function goalConflict(ctx, invocation) {
   const current = goalsOf(ctx)?.get(invocation.agent)
   if (current === undefined || current.phase === 'complete') return undefined
-  return fail(`这个会话已经有一个进行中的目标（${current.phase}）：\n${current.objective}\n\n先 /goal clear（或新开一个会话）再开始。`)
+  return fail(formatError(
+    `这个会话已经有进行中的目标（${current.phase}）`,
+    [
+      '/goal pause   # 暂停当前目标',
+      '/goal clear   # 清除并开始新目标',
+      '或者新开一个会话'
+    ]
+  ))
 }
 
 /** Start the writing loop through a goal, or fall back to a single queued task. */
@@ -42,12 +50,19 @@ function launch(ctx, invocation, name, target, done, receipt) {
       // At least one chapter per round, plus slack for planning and checks.
       maxGoalRounds: Math.max(1, target - done) + 10,
     })
-    return ok(`${receipt}\n\n已启动目标：自动一轮轮写到第 ${target} 章。随时可以 /goal pause 暂停、/goal resume 继续。`)
+    
+    const statusDetails = {
+      '📝 进度': `${done}/${target} 章`,
+      '🎯 剩余': `${target - done} 章`,
+      '🔄 模式': '自动多轮（目标驱动）'
+    }
+    
+    return ok(formatSuccess(receipt, statusDetails) + '\n\n💡 提示：可用 /goal pause 暂停、/goal resume 继续')
   }
   invocation.agent.followup(userMessage(
     `请读取 novel_projects/${name}/${WORKFLOW_FILE} 并按它执行。当前环境没有目标服务：每次回复写 1-3 章，用户说"继续"再往下写。`,
   ))
-  return ok(`${receipt}\n\n（当前环境没有目标服务，改为逐轮写作：每轮写完说"继续"。）`)
+  return ok(`${receipt}\n\n⚠️ 当前环境没有目标服务，改为手动模式：\n  每轮写完说"继续"才会接着写下一轮`)
 }
 
 /** `/novel <脑洞> [60章|20万字] [--auto]` */
@@ -60,7 +75,13 @@ export function novelCommand(ctx) {
       const cwd = agentCwd(invocation)
       const options = extractOptions(invocation.rawInput)
       if (options.rest.length === 0) {
-        return fail('用法：/novel <脑洞> [60章|20万字] [--auto]\n例：/novel 网管发现网吧的电脑能修仙 80章')
+        return fail(formatError(
+          '缺少必需参数：脑洞',
+          [
+            '/novel 网管发现网吧的电脑能修仙 80章',
+            '/novel 末日求生：我有一座避难所 60章 --auto'
+          ]
+        ))
       }
       const conflict = goalConflict(ctx, invocation)
       if (conflict !== undefined) return conflict
@@ -75,7 +96,11 @@ export function novelCommand(ctx) {
         note: '',
       })
       return launch(ctx, invocation, name, target, done,
-        `新书已建好：novel_projects/${name}/\n目标 ${target} 章，分岔点${options.auto ? '自动决定' : '会问你选哪条路'}。`)
+        formatSuccess(`新书「${name}」创建成功`, {
+          '📁 项目路径': `novel_projects/${name}/`,
+          '📝 目标章数': `${target} 章`,
+          '🎯 分岔模式': options.auto ? '自动决策' : '手动选择'
+        }))
     },
   }
 }
@@ -131,7 +156,11 @@ export function continueCommand(ctx) {
       const target = done + add
       prepareRun(cwd, name, { mode: 'continue', branchMode: options.auto ? 'auto' : 'ask', note, target })
       return launch(ctx, invocation, name, target, done,
-        `${receipt}\n现有 ${done} 章，续写 ${add} 章，到第 ${target} 章。`)
+        formatSuccess(`继续写作「${name}」`, {
+          '📚 已完成': `${done} 章`,
+          '📝 续写目标': `+${add} 章 → ${target} 章`,
+          '🎯 分岔模式': options.auto ? '自动决策' : '手动选择'
+        }))
     },
   }
 }

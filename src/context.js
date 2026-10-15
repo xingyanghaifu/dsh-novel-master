@@ -4,6 +4,7 @@
 import { latestProject, listProjects, projectDir } from './project.js'
 import { splitProject } from './args.js'
 import { userMessage } from './message.js'
+import { formatError, formatSuccess } from './validators.js'
 import fs from 'node:fs'
 
 /** Working directory of the receiving agent's session. */
@@ -26,7 +27,13 @@ export function resolveProject(cwd, rest) {
 }
 
 /** Error text used when a command needs a project and none exists. */
-export const NO_PROJECT = '还没有小说项目。先用 /novel <脑洞> 开一本，或 /novel-continue <小说文件> 导入已有作品。'
+export const NO_PROJECT = formatError(
+  '还没有小说项目',
+  [
+    '/novel 网管发现网吧电脑能修仙 80章',
+    '/novel-continue 小说.txt 20章'
+  ]
+)
 
 /**
  * Queue a model task on the agent and return a short receipt.
