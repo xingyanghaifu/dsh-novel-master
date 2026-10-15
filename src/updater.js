@@ -1,5 +1,28 @@
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { ProxyAgent } from 'undici'
+
+/** Keep proxy use local to update checks; never change the process dispatcher. */
+export function createUpdateTransport(readProxy = () => '') {
+  let current = '', dispatcher
+  return {
+    async fetch(url, options) {
+      const proxy = String(readProxy() || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '').trim()
+      if (proxy !== current) {
+        if (proxy) {
+          const parsed = new URL(proxy)
+          if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('更新代理只支持 http(s) URL')
+        }
+        const previous = dispatcher
+        dispatcher = proxy ? new ProxyAgent(proxy) : undefined
+        current = proxy
+        if (previous) previous.close().catch(() => {})
+      }
+      return globalThis.fetch(url, { ...options, ...(dispatcher ? { dispatcher } : {}) })
+    },
+    dispose() { const previous = dispatcher; dispatcher = undefined; current = ''; if (previous) previous.close().catch(() => {}) },
+  }
+}
 
 export const REPOSITORY = 'xingyanghaifu/dsh-novel-master'
 export const PACKAGE_NAME = 'dsh-novel-master'
@@ -99,6 +122,10 @@ export function createUpdater(ctx, options = {}) {
         // Never set approvedBuilds: only DSH/user authorization may allow install scripts.
         const result = await service.installBundle(target.spec, { enabled: bundle?.enabled ?? true, requestId })
         shared.lastResult = { ...result, requested: target, finishedAt: new Date().toISOString() }
+        if (['applied', 'restart-required'].includes(result.application) && typeof options.reload === 'function') {
+          try { shared.lastResult.codeReload = await options.reload() }
+          catch (error) { shared.lastResult.codeReload = { application: 'failed', diagnostic: messageOf(error) } }
+        }
         return { ...(await status()), busy: false, requestId: null, result: shared.lastResult }
       } finally {
         bounded.removeEventListener('abort', cancel)
@@ -125,17 +152,22 @@ export function createUpdater(ctx, options = {}) {
 export function updateCommand(ctx, updater = createUpdater(ctx)) {
   return {
     name: 'novel-update', definitionId: 'dsh-novel-master/novel-update',
-    description: '检查或拉取小说创作大师更新（check | apply）',
-    input: { hint: 'check | apply' },
+    description: '检查、拉取更新或重载小说创作大师（check | apply | reload）',
+    input: { hint: 'check | apply | reload' },
     handler: async ({ rawInput = '', signal }) => {
       try {
         const action = rawInput.trim() || 'check'
-        if (!['check', 'apply'].includes(action)) return { kind: 'error', text: '用法：/novel-update check 或 /novel-update apply' }
+        if (!['check', 'apply', 'reload'].includes(action)) return { kind: 'error', text: '用法：/novel-update check、apply 或 reload' }
+        if (action === 'reload') {
+          const result = await updater.reload()
+          return { kind: result.application === 'applied' ? 'success' : 'error', text: `代码重载：${result.application}。${result.diagnostic ?? ''}` }
+        }
         const state = action === 'check' ? await updater.check({ signal }) : await updater.apply({ signal })
         if (state.result) {
           const result = state.result
-          const failed = ['failed', 'cancelled', 'overridden'].includes(result.application)
-          return { kind: failed ? 'error' : 'success', text: `更新结果：${result.application}。${result.error?.diagnostic ?? result.error?.code ?? ''}${result.application === 'restart-required' ? ' 请重启 DSH。' : ''}${result.pendingBuilds?.length ? ` 需要用户在插件管理器单独批准构建脚本：${result.pendingBuilds.join(', ')}` : ''}` }
+          const failed = ['failed', 'cancelled', 'overridden'].includes(result.application) || result.codeReload?.application === 'failed'
+          const reloaded = result.codeReload?.application === 'applied'
+          return { kind: failed ? 'error' : 'success', text: `更新安装：${result.application}。${result.error?.diagnostic ?? result.error?.code ?? ''}${result.codeReload ? ` 代码重载：${result.codeReload.application}。${result.codeReload.diagnostic ?? ''}` : ''}${result.application === 'restart-required' ? (reloaded ? ' Host 代码已切换，新增界面仍可能需要刷新或重启。' : ' 请重启 DSH。') : ''}${result.pendingBuilds?.length ? ` 需要用户在插件管理器单独批准构建脚本：${result.pendingBuilds.join(', ')}` : ''}` }
         }
         return { kind: 'success', text: `运行版本：${state.running.version}（${state.running.commit ?? '提交未知'}）\n磁盘版本：${state.disk.version}（${state.disk.commit ?? '提交未知'}）\nmain 最新：${state.latest.version}（${state.latest.commit}）\n${state.updateAvailable === false ? '磁盘已是该提交。' : state.updateAvailable === null ? '版本相同但本地提交未知，可拉取以确认。' : '可使用 /novel-update apply 拉取此固定提交。'}` }
       } catch (error) { return { kind: 'error', text: `更新失败：${messageOf(error)}` } }

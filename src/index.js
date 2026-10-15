@@ -31,7 +31,8 @@ import {
 import { marketCommand } from './cmd-market.js'
 import { withProjectsDirectory } from './project.js'
 import { EXTRA_COMMANDS } from './cmd-extra.js'
-import { installUpdater } from './updater.js'
+import { createUpdateTransport, installUpdater } from './updater.js'
+import { selfReload } from './reload.js'
 
 export const name = 'novel-master'
 
@@ -108,6 +109,9 @@ export const Config = z.object({
       COMMAND_KEYS.map(([key, title]) => [key, live(z.boolean().default(true)).description(title)]),
     ),
   ).description('命令开关'),
+  updateProxy: live(z.string().default(''))
+    .description('更新检查代理')
+    .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
   projectsDir: live(z.string().default('novel_projects'))
     .description('项目目录')
     .comment('小说项目存放的相对路径（相对于工作目录）'),
@@ -214,7 +218,12 @@ export function apply(ctx, config = {}) {
   // Volatile references update in place; apply() is not rerun for those edits.
   const offSettings = ctx.on('settings/document-updated', reconcile)
   const offReload = ctx.on('app-boot/config-reload', reconcile)
-  installUpdater(ctx)
+  const updateTransport = createUpdateTransport(() => readField(config, 'updateProxy'))
+  ctx.on('dispose', () => updateTransport.dispose())
+  installUpdater(ctx, {
+    fetch: updateTransport.fetch,
+    reload: async () => { const result = await selfReload(ctx); return { ...result, application: result.status } },
+  })
   ctx.on('dispose', () => {
     disposed = true
     offSettings?.()

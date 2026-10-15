@@ -44,10 +44,11 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [notice, setNotice] = useState('')
       const [directory, setDirectory] = useState('')
+      const [proxy, setProxy] = useState('')
       const alive = useRef(true)
       const saving = useRef(false)
       const operation = useRef(null)
-      const acceptForm = value => { setForm(value); setDirectory(value.value?.projectsDir ?? 'novel_projects') }
+      const acceptForm = value => { setForm(value); setDirectory(value.value?.projectsDir ?? 'novel_projects'); setProxy(value.value?.updateProxy ?? '') }
       useEffect(() => {
         alive.current = true
         const controller = new AbortController()
@@ -83,15 +84,18 @@ window.__ModuleLoader__.load({
           const next = await api(action, { body: {}, signal: controller.signal, timeoutMs: action === 'apply' ? 195000 : 20000 })
           if (!alive.current) return
           if (action === 'reload') {
-            setNotice(next.diagnostic ?? `重载结果：${next.application ?? (next.ok ? '成功' : '未完成')}`)
+            const message = next.diagnostic ?? `重载结果：${next.application ?? (next.ok ? '成功' : '未完成')}`
+            if (next.application === 'applied') setNotice(message)
+            else setError(message)
           } else {
             setState(next)
             if (next.result) {
               const result = next.result
               const detail = result.error?.diagnostic ?? result.error?.code ?? ''
               const scripts = result.pendingBuilds?.length ? ` 构建脚本未获自动批准，请在插件管理器处理：${result.pendingBuilds.join(', ')}。` : ''
-              const text = `安装结果：${result.application}。${detail}${scripts}${result.application === 'restart-required' ? ' 请重启 DSH。' : ''}`
-              if (['failed', 'cancelled', 'overridden'].includes(result.application)) setError(text)
+              const reload = result.codeReload ? ` 代码重载：${result.codeReload.application}。${result.codeReload.diagnostic ?? ''}` : ''
+              const text = `安装结果：${result.application}。${detail}${scripts}${reload}${result.application === 'restart-required' ? (result.codeReload?.application === 'applied' ? ' Host 代码已切换；界面请刷新，新增页面仍可能需要重启。' : ' 请重启 DSH。') : ''}`
+              if (['failed', 'cancelled', 'overridden'].includes(result.application) || result.codeReload?.application === 'failed') setError(text)
               else setNotice(text)
             }
           }
@@ -129,6 +133,10 @@ window.__ModuleLoader__.load({
         ),
         h('section', { style: box, 'aria-label': '插件更新' },
           h('h3', null, '插件更新'),
+          form && h('form', { onSubmit: event => { event.preventDefault(); save({ updateProxy: proxy.trim() }) } },
+            h('label', { style: row }, '更新检查代理', h('input', { value: proxy, disabled: locked, placeholder: 'http://127.0.0.1:7897', 'aria-label': '更新检查代理', onChange: event => setProxy(event.target.value) })),
+            h('button', { type: 'submit', disabled: locked }, '保存更新代理')),
+          h('p', null, '留空使用代理环境变量或直连；安装仍使用 DSH 插件管理器的网络设置。'),
           h('p', null, `当前运行：${version(state?.running)}`),
           h('p', null, `磁盘安装：${version(state?.disk)}`),
           h('p', null, `main 最新：${state?.latest ? version(state.latest) : '尚未检查'}`),

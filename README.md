@@ -20,12 +20,15 @@ github:xingyanghaifu/dsh-novel-master
 
 更新入口参考 Our Free Model 的检查/拉取流程：检查固定 GitHub 仓库的最新提交，拉取时交给 DSH 插件管理器安装该确定提交，而不是直接覆盖运行中的文件。不保存 GitHub 令牌，也不自动批准依赖安装脚本。
 
+直连 GitHub 超时时，可在设置页填写「更新检查代理」，例如本地代理 `http://127.0.0.1:7897`。该地址只是示例，请使用自己实际的代理端口；留空使用 `HTTPS_PROXY` / `HTTP_PROXY` 或直连。安装下载沿用 DSH 插件管理器网络设置。代理设置可热更新，不修改整个 DSH 的全局网络配置。
+
 ```text
 /novel-update check
 /novel-update apply
+/novel-update reload
 ```
 
-更新结果区分安装成功、需要重启和失败；界面代码更新后可能需要刷新当前页面。配置热更新与插件代码更新属于不同操作。
+更新结果区分安装成功、代码重载、需要重启和失败。安装成功后会尝试代码热重载；也可以点「重载插件」或执行 `reload`。兼容性适配层只在宿主提供已识别的 Loader/cache 能力时切换运行实例，失败时尝试恢复旧缓存与实例并报告恢复状态，不支持的宿主会明确要求重启。新增客户端页面首次加载仍可能需要重启；界面代码更新后可刷新当前页面。配置热更新与插件代码更新属于不同操作。
 
 ## 命令
 
@@ -59,7 +62,7 @@ github:xingyanghaifu/dsh-novel-master
 | `/novel-backup ...` | 创建快照、列出快照、恢复预览/执行及差异比较 |
 | `/novel-merge ...` | 将选定章节合为新文件，保留源文件 |
 | `/novel-split ...` | 将选定章节分成新文件，保留源文件 |
-| `/novel-update check\|apply` | 检查和拉取固定提交更新 |
+| `/novel-update check\|apply\|reload` | 检查、拉取固定提交更新及重载代码 |
 
 ```text
 /novel-compare "参考作品.txt"

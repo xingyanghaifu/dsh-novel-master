@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
-import { createUpdater, fetchLatest, installUpdater, updateCommand } from '../src/updater.js'
+import { createUpdateTransport, createUpdater, fetchLatest, installUpdater, updateCommand } from '../src/updater.js'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -31,6 +31,26 @@ function setup(extra = {}) {
   return { ctx, manager, calls, options, updater: createUpdater(ctx, options) }
 }
 
+test('update proxy is request-local, reuses an agent and changes on the next request', async () => {
+  const original = globalThis.fetch
+  const calls = []
+  let proxy = 'http://127.0.0.1:7897'
+  const transport = createUpdateTransport(() => proxy)
+  globalThis.fetch = async (_url, options) => { calls.push(options); return response({}) }
+  try {
+    await transport.fetch('https://example.test', {})
+    await transport.fetch('https://example.test', {})
+    assert.ok(calls[0].dispatcher)
+    assert.equal(calls[0].dispatcher, calls[1].dispatcher)
+    proxy = 'http://127.0.0.1:7898'
+    await transport.fetch('https://example.test', {})
+    assert.notEqual(calls[0].dispatcher, calls[2].dispatcher)
+    proxy = 'file:///wrong'
+    await assert.rejects(transport.fetch('https://example.test', {}), /只支持/)
+    assert.equal(calls.length, 3)
+  } finally { globalThis.fetch = original; transport.dispose() }
+})
+
 test('resolve main to a full SHA before fetching the manifest; installs only that pin with no build approvals', async () => {
   const fetches = []
   const { updater, calls } = setup({ options: { fetch: transport(fetches) } })
@@ -45,6 +65,34 @@ test('resolve main to a full SHA before fetching the manifest; installs only tha
   assert.equal(state.result.application, 'applied')
   assert.equal(state.busy, false)
   assert.equal(state.running.commit, OTHER, 'install success must not relabel the old runtime')
+})
+
+test('successful install invokes code reload and preserves both outcomes', async () => {
+  let reloads = 0
+  const { updater } = setup({ options: { reload: async () => { reloads++; return { application: 'applied' } } } })
+  await updater.check()
+  const state = await updater.apply()
+  assert.equal(reloads, 1)
+  assert.equal(state.result.application, 'applied')
+  assert.equal(state.result.codeReload.application, 'applied')
+})
+
+test('failed install does not reload; failed reload remains visible after a successful install', async () => {
+  let reloads = 0
+  const broken = setup({ manager: { installBundle: async () => ({ application: 'failed' }) }, options: { reload: async () => { reloads++; return { application: 'applied' } } } })
+  await broken.updater.check()
+  await broken.updater.apply()
+  assert.equal(reloads, 0)
+  const h = setup({ options: { reload: async () => { throw new Error('reload broke') } } })
+  await h.updater.check()
+  const state = await h.updater.apply()
+  assert.equal(state.result.application, 'applied')
+  assert.equal(state.result.codeReload.application, 'failed')
+  assert.match(state.result.codeReload.diagnostic, /reload broke/)
+  const command = updateCommand(h.ctx, h.updater)
+  const result = await command.handler({ rawInput: 'reload' })
+  assert.equal(result.kind, 'error')
+  assert.match(result.text, /reload broke/)
 })
 
 test('rejects malformed SHA and wrong package without invoking the manager', async () => {
