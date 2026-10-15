@@ -2,8 +2,8 @@
  * Advanced analysis commands for novel writing.
  * Provides conflict analysis, pacing analysis, virtual reader feedback, etc.
  */
-import { agentCwd, fail, ok, projectExists, queueTask, resolveProject } from './context.js'
-import { listChapters, projectDir, readProjectFile } from './project.js'
+import { agentCwd, fail, projectExists, queueTask, resolveProject } from './context.js'
+import { listChapters, projectRelativeDir } from './project.js'
 import { formatError, formatSuccess } from './validators.js'
 
 /** Resolve the target project or return an error result. */
@@ -11,7 +11,33 @@ function target(invocation) {
   const cwd = agentCwd(invocation)
   const { project, note } = resolveProject(cwd, invocation.rawInput)
   if (!projectExists(cwd, project)) return { error: fail(formatError('还没有小说项目')) }
-  return { cwd, project, note, dir: `novel_projects/${project}` }
+  return { cwd, project, note, dir: projectRelativeDir(project) }
+}
+
+/** Validate an explicit chapter selection; never silently fall back on bad input. */
+function selectChapters(chapters, note, latest = false) {
+  const selector = note.trim()
+  if (!selector) {
+    return { selected: latest ? chapters.slice(-1) : chapters, rangeText: latest ? '最近一章' : '全书' }
+  }
+  const match = selector.match(/^(\d+)(?:\s*-\s*(\d+))?$/u)
+  if (!match) return { error: fail(formatError('章节范围格式错误，请使用章节号 N 或范围 N-M')) }
+  const start = Number(match[1])
+  const end = Number(match[2] ?? match[1])
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) {
+    return { error: fail(formatError('章节范围无效，起始章节必须为正整数且不能大于结束章节')) }
+  }
+  const selected = chapters.filter(c => c.number >= start && c.number <= end)
+  const numbers = new Set(selected.map(c => c.number))
+  // Require every requested chapter, including both endpoints, to exist.
+  if (numbers.size !== end - start + 1) {
+    return { error: fail(formatError(`指定章节不存在或范围内缺章：第 ${start}${end === start ? '' : `-${end}`} 章`)) }
+  }
+  return { selected, rangeText: end === start ? `第 ${start} 章` : `第 ${start}-${end} 章` }
+}
+
+function chapterFiles(dir, chapters) {
+  return chapters.map(c => `- ${JSON.stringify(`${dir}/正文/${c.file}`)}`).join('\n')
 }
 
 /**
@@ -32,17 +58,10 @@ export function conflictCommand() {
         return fail(formatError('这本书还没有正文'))
       }
 
-      // 解析章节范围
-      let rangeText = '全书'
-      let chapterScope = chapters.map(c => c.number)
-      
-      const rangeMatch = t.note.match(/(\d+)-(\d+)/)
-      if (rangeMatch) {
-        const start = parseInt(rangeMatch[1])
-        const end = parseInt(rangeMatch[2])
-        chapterScope = chapters.filter(c => c.number >= start && c.number <= end).map(c => c.number)
-        rangeText = `第 ${start}-${end} 章`
-      }
+      const scope = selectChapters(chapters, t.note)
+      if (scope.error) return scope.error
+      const { selected, rangeText } = scope
+      const chapterScope = selected.map(c => c.number)
 
       const prompt = `【冲突设计分析】项目 ${t.dir}
 
@@ -54,7 +73,8 @@ export function conflictCommand() {
 - 读 ${t.dir}/设定.md - 了解世界观规则
 - 读 ${t.dir}/角色.md - 了解人物关系和目标
 - 读 ${t.dir}/大纲.md - 了解情节走向
-- 读 ${t.dir}/正文/ 对应章节 - 分析已写内容
+- 只读取以下正文文件进行分析，不要扩大范围：
+${chapterFiles(t.dir, selected)}
 
 ## 2. 冲突类型分析
 
@@ -171,7 +191,8 @@ export function paceCommand() {
 
 ## 1. 逐章分析
 
-读取所有正文文件，对每一章进行分析：
+读取以下全部正文文件，对每一章进行分析：
+${chapterFiles(t.dir, chapters)}
 
 ### A. 节奏快慢判断
 - **快节奏**：事件密集、短句多、对话多、动作场景
@@ -298,17 +319,11 @@ export function readerCommand() {
       if (t.note.includes('老读者')) persona = '老读者'
       if (t.note.includes('挑剔')) persona = '挑剔读者'
 
-      // 解析章节范围
-      let rangeText = '最近一章'
-      let chapterScope = [chapters[chapters.length - 1].number]
-      
-      const rangeMatch = t.note.match(/(\d+)-(\d+)/)
-      if (rangeMatch) {
-        const start = parseInt(rangeMatch[1])
-        const end = parseInt(rangeMatch[2])
-        chapterScope = chapters.filter(c => c.number >= start && c.number <= end).map(c => c.number)
-        rangeText = `第 ${start}-${end} 章`
-      }
+      const scopeNote = t.note.replace(/--persona\s+(新手(?:读者)?|老读者|挑剔(?:读者)?)(?=\s|$)/gu, '').trim()
+      const scope = selectChapters(chapters, scopeNote, true)
+      if (scope.error) return scope.error
+      const { selected, rangeText } = scope
+      const chapterScope = selected.map(c => c.number)
 
       const personaDescriptions = {
         '新手读者': `
@@ -340,6 +355,9 @@ export function readerCommand() {
       }
 
       const prompt = `【虚拟读者反馈】项目 ${t.dir}
+
+阅读范围：${rangeText}（章节号：${chapterScope.join(', ')}）。只分析以下正文文件，不要扩大范围：
+${chapterFiles(t.dir, selected)}
 
 ## 角色设定
 
@@ -468,7 +486,7 @@ export function dialogueCommand() {
 
 ### 1. 读取文件
 - 读 ${t.dir}/角色.md - 了解每个角色的性格、说话习惯、口头禅
-- 读 ${t.dir}/正文/第${chapterNum}章_*.md - 提取所有对话
+- 读 ${JSON.stringify(`${t.dir}/正文/${chapter.file}`)} - 提取所有对话
 
 ### 2. 对话提取与归类
 
@@ -608,21 +626,15 @@ export function emotionCommand() {
         return fail(formatError('这本书还没有正文'))
       }
 
-      // 解析章节范围
-      let rangeText = '全书'
-      let chapterScope = chapters.map(c => c.number)
-      
-      const rangeMatch = t.note.match(/(\d+)-(\d+)/)
-      if (rangeMatch) {
-        const start = parseInt(rangeMatch[1])
-        const end = parseInt(rangeMatch[2])
-        chapterScope = chapters.filter(c => c.number >= start && c.number <= end).map(c => c.number)
-        rangeText = `第 ${start}-${end} 章`
-      }
+      const scope = selectChapters(chapters, t.note)
+      if (scope.error) return scope.error
+      const { selected, rangeText } = scope
+      const chapterScope = selected.map(c => c.number)
 
       const prompt = `【情感曲线分析】项目 ${t.dir}
 
-分析范围：${rangeText}
+分析范围：${rangeText}（章节号：${chapterScope.join(', ')}）。只分析以下正文文件，不要扩大范围：
+${chapterFiles(t.dir, selected)}
 
 ## 分析任务
 

@@ -29,6 +29,9 @@ import {
   readerCommand,
 } from './cmd-analysis.js'
 import { marketCommand } from './cmd-market.js'
+import { withProjectsDirectory } from './project.js'
+import { EXTRA_COMMANDS } from './cmd-extra.js'
+import { installUpdater } from './updater.js'
 
 export const name = 'novel-master'
 
@@ -63,6 +66,7 @@ const COMMAND_KEYS = [
   ['dialogue', '对话增强 (/novel-dialogue)'],
   ['emotion', '情感曲线 (/novel-emotion)'],
   ['market', '市场分析 (/novel-market)'],
+  ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
 ]
 
 /**
@@ -98,7 +102,7 @@ function live(schema) {
 export const Config = z.object({
   enabled: live(z.boolean().default(true))
     .description('启用插件')
-    .comment('关闭后所有命令都不会注册'),
+    .comment('关闭后移除创作命令；配置页和更新入口仍可用'),
   commands: z.object(
     Object.fromEntries(
       COMMAND_KEYS.map(([key, title]) => [key, live(z.boolean().default(true)).description(title)]),
@@ -156,17 +160,18 @@ export function definitions(ctx) {
     { key: 'dialogue', factory: dialogueCommand },
     { key: 'emotion', factory: emotionCommand },
     { key: 'market', factory: marketCommand },
+    ...EXTRA_COMMANDS,
   ]
 }
 
 /** Wrap a handler so unexpected failures become a readable error, not a crash. */
-function guarded(definition, logger) {
+function guarded(definition, logger, config) {
   return {
     ...definition,
     definitionId: `${DEFINITION_PREFIX}/${definition.name}`,
     handler: async (invocation) => {
       try {
-        return await definition.handler(invocation)
+        return await withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () => definition.handler(invocation))
       } catch (error) {
         logger?.warn?.(`[novel-master] /${definition.name} failed: ${error?.stack ?? error}`)
         return { kind: 'error', text: `/${definition.name} 出错了：${error?.message ?? String(error)}` }
@@ -176,42 +181,46 @@ function guarded(definition, logger) {
 }
 
 export function apply(ctx, config = {}) {
-  // 整个插件被禁用
-  if (readField(config, 'enabled') === false) return
-
   let logger = ctx.logger
   try {
     if (typeof ctx.logger === 'function') logger = ctx.logger('novel-master') ?? ctx.logger
   } catch { /* fall back to the context logger */ }
 
-  const commandsConfig = config?.commands ?? {}
-  const disposers = []
-
-  for (const { key, factory } of definitions(ctx)) {
-    // 这个命令被禁用了，跳过注册
-    if (readField(commandsConfig, key) === false) {
-      logger?.info?.(`[novel-master] 命令已禁用: /${key}`)
-      continue
+  const registered = new Map()
+  const entries = definitions(ctx)
+  let disposed = false
+  const remove = (key) => {
+    const dispose = registered.get(key)
+    if (!dispose) return
+    registered.delete(key)
+    try { dispose() } catch (error) {
+      logger?.warn?.(`[novel-master] 命令清理失败 ${key}: ${error?.message ?? error}`)
     }
-
-    try {
-      const definition = factory()
-      const disposer = ctx.commands.register(guarded(definition, logger))
-      disposers.push(disposer)
-      logger?.info?.(`[novel-master] 命令已注册: /${definition.name}`)
-    } catch (error) {
-      logger?.warn?.(`[novel-master] 命令注册失败 ${key}: ${error?.message ?? error}`)
+  }
+  const reconcile = () => {
+    if (disposed) return
+    for (const { key, factory } of entries) {
+      const wanted = readField(config, 'enabled') !== false && readField(config.commands, key) !== false
+      if (!wanted) { remove(key); continue }
+      if (registered.has(key)) continue
+      try {
+        registered.set(key, ctx.commands.register(guarded(factory(), logger, config)))
+      } catch (error) {
+        logger?.warn?.(`[novel-master] 命令注册失败 ${key}: ${error?.message ?? error}`)
+      }
     }
   }
 
-  // 插件卸载时自动注销所有命令
+  // Volatile references update in place; apply() is not rerun for those edits.
+  const offSettings = ctx.on('settings/document-updated', reconcile)
+  const offReload = ctx.on('app-boot/config-reload', reconcile)
+  installUpdater(ctx)
   ctx.on('dispose', () => {
-    for (const dispose of disposers) {
-      try {
-        dispose()
-      } catch { /* ignore cleanup errors */ }
-    }
+    disposed = true
+    offSettings?.()
+    offReload?.()
+    for (const key of [...registered.keys()]) remove(key)
   })
-
-  logger?.info?.(`[novel-master] 已加载 ${disposers.length} 个命令`)
+  reconcile()
+  logger?.info?.(`[novel-master] 已加载 ${registered.size} 个创作命令；配置热更新已启用`)
 }

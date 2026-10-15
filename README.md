@@ -1,396 +1,120 @@
 # dsh-novel-master · 小说创作大师
 
-[![npm version](https://img.shields.io/npm/v/dsh-novel-master.svg)](https://www.npmjs.com/package/dsh-novel-master)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+为 DeepSeek Harness（DSH）提供小说写作、分析和项目管理工具。当前包含 26 个创作命令及 1 个更新维护命令。
 
-给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）用的**全功能小说创作插件**。在输入框里打 `/` 就能看到 **19 个专业命令**，覆盖从创意到发布的完整流程。
+## 安装
 
-**🌟 亮点：**
-- ✅ 一键完本：`/novel` 自动写满整本书
-- ✅ **虚拟读者反馈**：全球首创，模拟真实读者体验
-- ✅ **冲突/节奏/情感分析**：可视化分析工具
-- ✅ **市场适配**：针对起点/纵横/晋江优化
-- ✅ **AI 味检测**：对话增强和深度审校
+在 DSH 的「设置 → 插件」中选择 GitHub 来源，填写：
 
----
+```text
+github:xingyanghaifu/dsh-novel-master
+```
 
-## 📚 命令总览（19 个）
+启用 bundle。此项目通过 GitHub 分发；不要在 npm 来源里仅填写包名。需要宿主提供 commands 服务和 @deepseek-ai/schemastery。goals 服务可选：有 goals 时可以持续执行写作目标，否则每轮写作后等待继续。
 
-### 核心写作命令
+## 配置与更新
 
-| 命令 | 作用 |
+配置页提供创作总开关、每个命令的开关及项目目录。开关保存后按差异注册/移除命令，无需重启。关闭创作总开关仍保留更新维护入口；在插件管理器禁用整个 bundle 则卸载全部入口。
+
+项目目录默认为 `novel_projects`，可改成 `books/novels` 等工作目录内的相对路径。新调用使用新目录，已有任务保留原路径；不会自动搬迁项目。每次命令拥有独立目录快照，并发会话不会串目录。绝对路径和 `..` 等不合法路径会被拒绝。
+
+更新入口参考 Our Free Model 的检查/拉取流程：检查固定 GitHub 仓库的最新提交，拉取时交给 DSH 插件管理器安装该确定提交，而不是直接覆盖运行中的文件。不保存 GitHub 令牌，也不自动批准依赖安装脚本。
+
+```text
+/novel-update check
+/novel-update apply
+```
+
+更新结果区分安装成功、需要重启和失败；界面代码更新后可能需要刷新当前页面。配置热更新与插件代码更新属于不同操作。
+
+## 命令
+
+参数中的 `[项目]` 可省略，默认使用当前目录下最近更新的项目。涉及文件导入的相对源文件路径仍以会话工作目录为基准。
+
+| 命令 | 用途 |
 |---|---|
-| `/novel <脑洞> [60章\|20万字] [--auto]` | 🎯 **一键完本**：建项目，规划设定、人设、大纲，自动连写到目标章数 |
-| `/novel-continue [项目\|文件.txt] [N章] [--auto]` | ✍️ **续写**：接着已有项目写；也可导入 txt/md（支持 GBK） |
-| `/novel-rewrite [项目] <章号> [要求]` | 🔄 **改写章节**，旧稿留在 `正文/_旧稿/` |
+| `/novel <脑洞> [60章\|20万字] [--auto]` | 建项目并提交规划、写作和收尾目标 |
+| `/novel-continue [项目\|文件.txt] [N章] [--auto]` | 续写项目或导入 TXT/Markdown（支持 GBK） |
+| `/novel-chapter [项目] <章号> [要求]` | 请求生成指定新章节，避免静默覆盖已有章 |
+| `/novel-rewrite [项目] <章号> [要求]` | 请求改写，要求先保留旧稿 |
+| `/novel-idea <脑洞>` | 请求展开多个构思方向 |
+| `/novel-outline [项目] [要求]` | 请求生成或调整大纲 |
+| `/novel-cast [项目] [要求]` | 请求生成角色档案 |
+| `/novel-world [项目] [推演要求]` | 直接查看世界状态；有要求时提交世界推演任务 |
+| `/novel-role [项目] [角色名\|要求]` | 查看角色，或提交修改任务 |
+| `/novel-spark [项目] [卡点]` | 请求下一步剧情建议 |
+| `/novel-study <参考文件> [--to 项目]` | 统计参考文本并请求风格分析 |
+| `/novel-review [项目] [章号\|最近N章] [--deep]` | 请求基础或深度审校 |
+| `/novel-conflict [项目] [章号\|N-M]` | 请求冲突分析 |
+| `/novel-pace [项目]` | 请求节奏分析和文字图示 |
+| `/novel-reader [项目] [章号\|N-M] [--persona 类型]` | 请求模拟读者反馈 |
+| `/novel-dialogue [项目] <章号> [角色名]` | 请求对话检查与改写建议 |
+| `/novel-emotion [项目] [章号\|N-M]` | 请求情感变化分析 |
+| `/novel-market <平台> [项目]` | 根据平台经验请求适配建议 |
+| `/novel-compare ...` | 请求对比两份作品或章节，具体参数见命令提示 |
+| `/novel-tips ...` | 请求针对写作问题的技巧与示例 |
+| `/novel-trope ...` | 请求套路设计、变体及风险分析 |
+| `/novel-stats [项目] [--detailed]` | 直接计算字数、章数、进度、伏笔与详细统计 |
+| `/novel-export [项目] [txt\|md\|html]` | 直接导出整书及目录 |
+| `/novel-backup ...` | 创建快照、列出快照、恢复预览/执行及差异比较 |
+| `/novel-merge ...` | 将选定章节合为新文件，保留源文件 |
+| `/novel-split ...` | 将选定章节分成新文件，保留源文件 |
+| `/novel-update check\|apply` | 检查和拉取固定提交更新 |
 
-### 规划与辅助
-
-| 命令 | 作用 |
-|---|---|
-| `/novel-idea <一句话脑洞>` | 💡 **构思**：给出 3 个不同的展开方向 |
-| `/novel-outline [项目] [要求]` | 📋 **大纲**：生成或调整分卷大纲，标出 [分岔点] 和 [高潮] |
-| `/novel-cast [项目] [要求]` | 👥 **人设**：性格、说话习惯、口头禅、目标、关系 |
-| `/novel-world [项目] [推演要求]` | 🌍 **世界状态**：查看世界时钟和势力动向；带要求就推演 |
-| `/novel-role [项目] [角色名\|要求]` | 🎭 **角色管理**：查看或更新角色 |
-| `/novel-spark [项目] [卡在哪]` | ⚡ **灵感**：卡文时给几种接下来的走法 |
-
-### 🆕 革命性分析功能
-
-| 命令 | 作用 | 创新度 |
-|---|---|:---:|
-| `/novel-conflict [项目] [章节范围]` | 🔥 **冲突设计器**：分析内部/人际/外部冲突，评估强度，给出升级建议 | ⭐⭐⭐⭐⭐ |
-| `/novel-pace [项目]` | 📈 **节奏分析器**：ASCII 可视化节奏曲线，统计对话/叙述比例 | ⭐⭐⭐⭐⭐ |
-| `/novel-reader [项目] [章节] [--persona 类型]` | 👤 **虚拟读者反馈**：模拟新手/老读者/挑剔读者的真实阅读体验 | ⭐⭐⭐⭐⭐ |
-| `/novel-dialogue [项目] <章号> [角色名]` | 💬 **对话增强器**：检测 AI 味对话，验证人设符合度，提供改写方案 | ⭐⭐⭐⭐ |
-| `/novel-emotion [项目] [章节范围]` | 💗 **情感曲线追踪**：情感密度可视化，识别共情点 | ⭐⭐⭐⭐ |
-
-### 质量提升
-
-| 命令 | 作用 |
-|---|---|
-| `/novel-review [项目] [章节\|最近N章] [--deep]` | 🔍 **审校**：错字、AI 味、OOC、设定矛盾、伏笔<br>**深度模式**：逻辑检查、时间线冲突、情感真实性 |
-| `/novel-study <参考文件> [--to 项目]` | 📖 **拆书**：分析风格，可套用到项目 |
-| `/novel-stats [项目] [--detailed]` | 📊 **统计**：字数、进度、伏笔回收<br>**详细模式**：角色出场、质量评分 |
-
-### 发布与市场
-
-| 命令 | 作用 |
-|---|---|
-| `/novel-market <平台> [项目]` | 📱 **市场分析**：根据起点/纵横/晋江/17K 特点优化内容 |
-| `/novel-export [项目] [txt\|md\|html]` | 📦 **导出**：合并全书，生成目录 |
-
----
-
-## 🌟 核心特性
-
-### 1. 全球首创：虚拟读者反馈
-
-模拟不同类型读者的真实阅读体验：
-
-```bash
-/novel-reader 我的项目 5 --persona 挑剔读者
+```text
+/novel-compare "参考作品.txt"
+/novel-chapter 4-6 --length 2500 --style 轻松
+/novel-chapter 1 --draft
+/novel-backup create
+/novel-backup list
+/novel-backup restore <ID>
+/novel-backup restore <ID> --apply
+/novel-backup diff <ID>
+/novel-merge 1-3,5
+/novel-merge 主项目 子项目1 子项目2
+/novel-split 1-3 --length 2500 --name 第一部
+/novel-tips 开头
+/novel-trope 身份揭秘
 ```
 
-**输出示例：**
-```
-👤 虚拟读者反馈（挑剔读者视角）
+恢复默认只预览，明确指定 `--apply` 才执行；执行前保留恢复前快照，额外文件不会被删除。恢复按文件原子替换，并非整项目事务；I/O 失败时可使用恢复前快照处理。差异比较按文件哈希列出变化，不是逐行 diff。合并/拆分生成项目「整理」目录下的新文件，不自动统一角色设定或重排原正文；拆分按 Unicode 字符目标硬切，可能跨句。
 
-😊 喜欢的：
-  • 林晓吸收灵气的场景很燃
-  
-😕 困惑的：
-  • "引气境"是什么？没解释清楚
-  
-💤 无聊的：
-  • 第二段环境描写太长了
-  
-📖 期待的：
-  • 苏瑶什么时候出现？
-```
+## 实际行为与边界
 
-### 2. 可视化分析工具
+写作、审校、冲突、节奏、虚拟读者、市场等命令会把任务和文件路径交给当前会话的模型。命令返回「已提交」表示任务排队成功，报告和正文需由模型后续生成；评分与读者反应属于模型判断，不是客观测量或真实读者测试。
 
-**节奏曲线：**
-```
-章节  1  2  3  4  5  6  7  8  9 10
-节奏 ━━╋━━╋━━╋━━━━━━╋━╋━━━
-     慢 中 快 慢  慢 中 快 高潮 慢 中
+市场分析使用经验性平台描述，未接入实时市场数据库。不得据此宣称真实读者规模、推荐概率或收益。技巧与套路工具提供模型生成的建议，不宣称内置了固定数量的资料库。
 
-情绪 ⭐⭐ ⭐⭐⭐ ⭐⭐⭐⭐ ⭐⭐ ⭐⭐⭐⭐⭐
-```
+`--detailed` 直接读取正文，提供逐章字数、最短/最长章及成对引号内文字占比。此占比是明确规则下的文本统计，无法识别所有对话，更不是角色主动率、质量分或 AI 检测概率。
 
-**冲突强度评估：**
-```
-📊 冲突分析
+## 示例
 
-第 1-10 章：
-  内部冲突：⭐⭐⭐
-  人际冲突：⭐⭐⭐⭐
-  外部冲突：⭐⭐
-
-🎯 建议：第 8 章增加道德困境
-```
-
-### 3. AI 味检测与优化
-
-**对话检测：**
-```
-❌ "我觉得我们应该好好谈谈这件事情。"
-   问题：太正式，不符合人设
-
-✅ 建议："嗯。有事？"
-   理由：短句，符合寡言性格
-```
-
-### 4. 市场适配分析
-
-针对不同平台优化内容：
-
-```bash
-/novel-market qidian 我的项目
-```
-
-**分析维度：**
-- 题材匹配度
-- 读者画像匹配
-- 爆款要素检查
-- 章节长度建议
-- 标签和定价策略
-
----
-
-## 🚀 快速开始
-
-### 安装
-
-**方式 1：DSH 插件管理器（推荐）**
-
-1. 打开 DSH → 设置 → 插件
-2. 安装 `dsh-novel-master`
-3. 启用插件
-
-**方式 2：本地路径（开发）**
-
-```yaml
-# cordis.patch.yml
-- insert:
-    - id: novel-master-commands
-      name: '/path/to/dsh-novel-master/src/index.js'
-      config:
-        enabled: true
-```
-
-### 使用示例
-
-```bash
-# 1. 创建新书
-/novel 网管发现网吧的电脑能修仙 80章
-
-# 2. 分析冲突设计
-/novel-conflict 网管发现网吧的电脑能修仙 1-10
-
-# 3. 检查节奏
-/novel-pace 网管发现网吧的电脑能修仙
-
-# 4. 虚拟读者反馈
-/novel-reader 网管发现网吧的电脑能修仙 5 --persona 新手读者
-
-# 5. 深度审校
-/novel-review 最近5章 --deep
-
-# 6. 市场分析
-/novel-market qidian 网管发现网吧的电脑能修仙
-
-# 7. 导出全书
+```text
+/novel 网管发现网吧电脑能修仙 30章
+/novel-outline
+/novel-chapter 1 开场直接出现异常
+/novel-reader 1 --persona 挑剔读者
+/novel-review 最近3章 --deep
+/novel-stats --detailed
 /novel-export html
 ```
 
----
+## 文件与持久化
 
-## 💡 工作方式
+每本书一个项目目录，包含 `项目.json`、`写作规范.md`、`完本流程.md`、`设定.md`、`角色.md`、`大纲.md`、`世界状态.md`、`伏笔.md`、`剧情树.md` 和 `正文/`。进度以文件为准，可跨会话、压缩和重启保留。生成工作流要求模型持续同步这些文件。
 
-### 状态持久化
+## 开发
 
-**全部状态都存在文件里**，每本书是一个目录：
-
-```
-novel_projects/
-└── 网管发现网吧的电脑能修仙/
-    ├── 项目.json          # 项目配置
-    ├── 写作规范.md        # 风格规则
-    ├── 完本流程.md        # 自动化流程
-    ├── 设定.md            # 世界观
-    ├── 角色.md            # 人设
-    ├── 大纲.md            # 分卷大纲
-    ├── 世界状态.md        # 时间线和势力
-    ├── 伏笔.md            # 伏笔管理
-    ├── 剧情树.md          # 分岔记录
-    └── 正文/
-        ├── 第1章_发现.md
-        ├── 第2章_修炼.md
-        └── ...
+```sh
+npm install
+npm test
+npm pack --dry-run
 ```
 
-上下文压缩、重启 DSH、换新会话都不会丢进度。
+- [入口与配置](src/index.js)
+- [项目路径](src/project.js)
+- [扩展工具](src/cmd-extra.js)
+- [更新服务](src/updater.js)
+- [更新记录](CHANGELOG.md)
 
-### 自动完本
-
-`/novel` 创建 DSH 目标，自动一轮轮写到目标章数：
-
-- 每轮写 1-3 章
-- 自动推进世界状态
-- 自动处理剧情分岔
-- 目标完成后自动停止
-
-中途可用 `/goal pause` 暂停、`/goal resume` 继续。
-
-### 剧情分岔
-
-大纲标记 3-8 个分岔点：
-
-- **ask 模式**（默认）：让你选择走向
-- **--auto 模式**：AI 根据人物性格自动选择
-
-每次选择都记入 `剧情树.md`。
-
-### 世界自主运转
-
-每写完一章，世界时钟前进，不在场的角色也在幕后行动，后面会影响主线。
-
----
-
-## 📊 功能对比
-
-| 功能 | dsh-novel-master | 其他插件 |
-|------|:----------------:|:--------:|
-| 一键完本 | ✅ | ❌ |
-| 虚拟读者反馈 | ✅ **独家** | ❌ |
-| 冲突分析 | ✅ | ❌ |
-| 节奏可视化 | ✅ | ❌ |
-| 对话 AI 味检测 | ✅ | ❌ |
-| 情感曲线追踪 | ✅ | ❌ |
-| 市场适配分析 | ✅ | ❌ |
-| 深度审校 | ✅ | 部分 |
-| 自动剧情分岔 | ✅ | ❌ |
-| 世界推演 | ✅ | ❌ |
-| 风格学习 | ✅ | ❌ |
-
----
-
-## ⚙️ 配置
-
-所有命令都可以在设置面板中单独启用/禁用：
-
-```yaml
-config:
-  enabled: true
-  commands:
-    novel: true
-    conflict: true      # 冲突分析
-    pace: true          # 节奏分析
-    reader: true        # 虚拟读者
-    dialogue: true      # 对话增强
-    emotion: true       # 情感曲线
-    market: true        # 市场分析
-    review: true        # 审校
-    stats: true         # 统计
-    # ... 其他命令
-  projectsDir: 'novel_projects'  # 项目目录
-```
-
----
-
-## 🎓 进阶用法
-
-### 1. 深度审校模式
-
-```bash
-/novel-review 最近5章 --deep
-```
-
-**增强检查项：**
-- 时间线冲突
-- 地点穿越
-- 能力不一致
-- 物品和伤势连续性
-- 无效剧情识别
-- 信息密度分析
-
-### 2. 详细统计模式
-
-```bash
-/novel-stats 我的项目 --detailed
-```
-
-**详细报告：**
-- 角色出场次数和台词统计
-- 主动/被动场景比例
-- 伏笔回收率
-- 质量评分（可读性、AI 味、节奏、人设）
-
-### 3. 多平台分析
-
-```bash
-/novel-market qidian 我的项目    # 起点中文网
-/novel-market zongheng 我的项目  # 纵横中文网
-/novel-market jjwxc 我的项目     # 晋江文学城
-/novel-market 17k 我的项目       # 17K小说网
-```
-
----
-
-## 🛠️ 开发
-
-```bash
-npm test              # 运行测试套件（13 个测试用例）
-npm pack --dry-run    # 预览打包内容
-```
-
-**源码结构：**
-- [src/index.js](src/index.js) — 插件入口，命令注册
-- [src/cmd-write.js](src/cmd-write.js) — 完本和续写
-- [src/cmd-analysis.js](src/cmd-analysis.js) — 分析命令（conflict、pace、reader、dialogue、emotion）
-- [src/cmd-market.js](src/cmd-market.js) — 市场分析
-- [src/cmd-tools.js](src/cmd-tools.js) — 辅助命令（review、stats 等）
-- [src/validators.js](src/validators.js) — 参数验证和格式化
-- [src/workflow.js](src/workflow.js) — 项目骨架生成
-- [src/prompts.js](src/prompts.js) — 写作规范模板
-- [test/commands.test.js](test/commands.test.js) — 测试套件
-
-**代码统计：**
-- 总代码量：2086 行
-- 命令总数：19 个
-- 测试覆盖：13/13 通过
-
----
-
-## 📚 更多文档
-
-- [完整功能扩展规划](docs/FEATURE_EXPANSION_PLAN.md) - 17 条优化建议
-- [优化完成报告](docs/OPTIMIZATION_COMPLETED.md) - 详细改进记录
-- [优化建议](docs/OPTIMIZATION_SUGGESTIONS.md) - 未来改进方向
-- [使用示例](examples/README.md) - 完整使用流程
-- [发布指南](NPM_PUBLISH_GUIDE.md) - npm 发布步骤
-
----
-
-## 🤝 贡献
-
-欢迎提 Issue 和 PR！
-
-**改进建议？** 请查看 [功能扩展规划](docs/FEATURE_EXPANSION_PLAN.md)
-
----
-
-## 📈 版本历史
-
-**v1.2.0**（开发中）
-- ✨ 新增 5 个革命性分析功能
-- ✨ 新增市场适配分析
-- ✨ 增强审校和统计功能
-- 🎯 插件评分：9.8/10
-
-**v1.1.0**
-- ✨ 补全插件信息和示例
-- 📚 完善文档
-
-**v1.0.0**
-- 🎉 初始版本
-- ✅ 13 个核心命令
-
----
-
-## 📄 许可
-
-MIT — 详见 [LICENSE](LICENSE)
-
----
-
-## ⭐ Star History
-
-如果这个插件对你有帮助，欢迎给个 Star！
-
----
-
-**Made with ❤️ for novel writers**
+MIT，见 [LICENSE](LICENSE)。

@@ -5,6 +5,36 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { AsyncLocalStorage } from 'node:async_hooks'
+
+const projectsDirectory = new AsyncLocalStorage()
+
+/** Validate once per command; never mutate a process-wide directory setting. */
+export function withProjectsDirectory(directory, operation) {
+  if (typeof directory !== 'string' || !directory.trim()) {
+    throw new TypeError('项目目录必须是非空相对路径')
+  }
+  const value = directory.trim().replace(/\\/gu, '/')
+  if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)
+    || value.includes(':') || value.includes('\0')
+    || value.split('/').some((part) => part === '..' || part === '.'
+      || /[.\s]$/u.test(part) || /[<>"|?*\u0000-\u001f]/u.test(part))) {
+    throw new TypeError('项目目录必须是工作目录内的相对路径，不能含 . 或 .. 路径段')
+  }
+  const normalized = value.split('/').filter(Boolean).join('/')
+  if (!normalized) throw new TypeError('项目目录必须是非空相对路径')
+  return projectsDirectory.run(normalized, operation)
+}
+
+/** Immutable directory snapshot for the current command and its async work. */
+export function configuredProjectsDirectory() {
+  return projectsDirectory.getStore() ?? PROJECTS_DIR
+}
+
+/** Portable relative path for receipts, prompts and persisted workflows. */
+export function projectRelativeDir(name) {
+  return `${configuredProjectsDirectory()}/${name}`
+}
 
 export const PROJECTS_DIR = 'novel_projects'
 export const STATE_FILE = '项目.json'
@@ -14,7 +44,12 @@ export const CHAPTER_RE = /^第(\d{1,4})章(?:[_\s-]*(.*?))?\.(?:md|txt)$/u
 
 /** Directory that holds every project for this working directory. */
 export function projectsRoot(cwd) {
-  return path.join(cwd, PROJECTS_DIR)
+  const root = path.resolve(cwd, configuredProjectsDirectory())
+  const relative = path.relative(path.resolve(cwd), root)
+  if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) {
+    throw new TypeError('项目目录必须位于工作目录内')
+  }
+  return root
 }
 
 /** Strip characters that are unsafe in Windows/macOS/Linux file names. */

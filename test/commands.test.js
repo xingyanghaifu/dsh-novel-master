@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { apply, inject, name, Config } from '../src/index.js'
+import { apply, inject, name, Config, definitions } from '../src/index.js'
 import { chapterTarget, extractOptions, leadingChapter } from '../src/args.js'
 import { splitChapters, decodeText } from '../src/importer.js'
 import { textStats } from '../src/cmd-study.js'
@@ -31,19 +31,32 @@ function host({ goals = true, config = {} } = {}) {
     get: () => current,
     create: (_agent, req) => { current = { ...req, phase: 'active' }; created.push(req); return current },
   }
+  const listeners = new Map()
   const ctx = {
     logger: { warn() {}, info() {} },
-    commands: { register: (d) => { commands.set(d.name, d); return () => commands.delete(d.name) } },
+    commands: { register: (d) => {
+      assert.equal(commands.has(d.name), false, `duplicate command ${d.name}`)
+      commands.set(d.name, d)
+      return () => { if (commands.get(d.name) === d) commands.delete(d.name) }
+    } },
     get: (key) => (key === 'goals' && goals ? goalService : undefined),
-    on: () => () => {}, // Returns disposer
+    on: (event, listener) => {
+      const set = listeners.get(event) ?? new Set()
+      listeners.set(event, set)
+      set.add(listener)
+      return () => set.delete(listener)
+    },
   }
+  const emit = (event, ...args) => { for (const listener of [...(listeners.get(event) ?? [])]) listener(...args) }
   apply(ctx, config)
   const followups = []
   const agent = { session: { header: { cwd } }, followup: (m) => followups.push(m) }
   const run = (cmd, rawInput = '', attachments = []) =>
     commands.get(cmd).handler({ agent, rawInput, attachments, signal: new AbortController().signal })
-  return { commands, created, followups, run, setGoal: (g) => { current = g } }
+  return { commands, created, followups, run, emit, setGoal: (g) => { current = g } }
 }
+
+const CREATIVE_COUNT = definitions({}).length
 
 const proj = (n) => path.join(cwd, 'novel_projects', n)
 
@@ -59,7 +72,7 @@ test('plugin metadata and Config schema are valid', () => {
   assert.equal(resolved.issues, undefined)
   assert.equal(readConfig(resolved.value, 'enabled'), true)
   assert.equal(readConfig(resolved.value, 'projectsDir'), 'novel_projects')
-  assert.equal(Object.keys(resolved.value.commands).length, 19)
+  assert.equal(Object.keys(resolved.value.commands).length, CREATIVE_COUNT)
   for (const key of Object.keys(resolved.value.commands)) {
     assert.equal(readConfig(resolved.value.commands, key), true, `${key} should default to true`)
   }
@@ -73,7 +86,7 @@ test('plugin metadata and Config schema are valid', () => {
 
 test('config.enabled: false disables all commands', () => {
   const h = host({ config: { enabled: false } })
-  assert.equal(h.commands.size, 0)
+  assert.deepEqual([...h.commands.keys()], ['novel-update'])
 })
 
 test('config.commands selective disable', () => {
@@ -83,17 +96,59 @@ test('config.commands selective disable', () => {
   assert.equal(h.commands.has('novel-export'), false)
   assert.equal(h.commands.has('novel-continue'), true)
   assert.equal(h.commands.has('novel-outline'), true)
-  assert.equal(h.commands.size, 16) // 19 - 3 disabled
+  assert.equal(h.commands.size, CREATIVE_COUNT - 3 + 1) // update maintenance command remains available
 })
 
-test('default config enables all 19 commands', () => {
+test('default config enables every creative command and update maintenance', () => {
   const h = host()
-  assert.equal(h.commands.size, 19)
+  assert.equal(h.commands.size, CREATIVE_COUNT + 1)
   for (const [n, d] of h.commands) {
     assert.match(n, /^[a-z][a-z0-9_-]*$/u)
     assert.ok(d.description.length > 0)
     assert.ok(d.definitionId.startsWith('dsh-novel-master/'))
   }
+})
+
+test('live config toggles reconcile without duplicate registrations and dispose cleanly', () => {
+  const config = Config['~standard'].validate({ enabled: false }).value
+  const h = host({ config })
+  assert.deepEqual([...h.commands.keys()], ['novel-update'])
+  config.enabled[VOLATILE_REF](true)
+  h.emit('settings/document-updated', 'include:novel-master', 1)
+  assert.equal(h.commands.size, CREATIVE_COUNT + 1)
+  const unchanged = h.commands.get('novel-continue')
+  config.commands.novel[VOLATILE_REF](false)
+  h.emit('settings/document-updated', 'include:novel-master', 2)
+  h.emit('app-boot/config-reload')
+  assert.equal(h.commands.has('novel'), false)
+  assert.equal(h.commands.get('novel-continue'), unchanged)
+  assert.equal(h.commands.size, CREATIVE_COUNT)
+  config.commands.novel[VOLATILE_REF](true)
+  h.emit('app-boot/config-reload')
+  assert.equal(h.commands.has('novel'), true)
+  config.enabled[VOLATILE_REF](false)
+  h.emit('settings/document-updated', 'include:novel-master', 3)
+  assert.deepEqual([...h.commands.keys()], ['novel-update'])
+  config.enabled[VOLATILE_REF](true)
+  h.emit('app-boot/config-reload')
+  h.emit('dispose')
+  assert.equal(h.commands.size, 0)
+  h.emit('app-boot/config-reload')
+  h.emit('settings/document-updated', 'include:novel-master', 4)
+  assert.equal(h.commands.size, 0)
+})
+
+test('directory setting changes apply on the next command invocation', async () => {
+  const config = Config['~standard'].validate({ projectsDir: 'books/first' }).value
+  const h = host({ config, goals: false })
+  assert.equal((await h.run('novel', '第一本 3章')).kind, 'success')
+  assert.ok(fs.existsSync(path.join(cwd, 'books/first')))
+  config.projectsDir[VOLATILE_REF]('books/second')
+  assert.equal((await h.run('novel', '第二本 3章')).kind, 'success')
+  assert.ok(fs.existsSync(path.join(cwd, 'books/second')))
+  assert.equal(fs.existsSync(path.join(cwd, 'novel_projects')), false)
+  config.projectsDir[VOLATILE_REF]('../outside')
+  assert.equal((await h.run('novel', '不应创建 3章')).kind, 'error')
 })
 
 test('option parsing', () => {

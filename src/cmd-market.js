@@ -1,340 +1,90 @@
-/**
- * Market analysis and platform adaptation commands.
- * Helps authors optimize their novels for different publishing platforms.
- */
-import { agentCwd, fail, ok, projectExists, queueTask, resolveProject } from './context.js'
-import { listChapters, readProjectFile } from './project.js'
+/** Heuristic writing-fit suggestions, not live platform research. */
+import { agentCwd, fail, projectExists, queueTask, resolveProject } from './context.js'
+import { listChapters, projectRelativeDir } from './project.js'
 import { formatError, formatSuccess } from './validators.js'
 
-/** Resolve the target project or return an error result. */
-function target(invocation) {
-  const cwd = agentCwd(invocation)
-  const { project, note } = resolveProject(cwd, invocation.rawInput)
-  if (!projectExists(cwd, project)) return { error: fail(formatError('还没有小说项目')) }
-  return { cwd, project, note, dir: `novel_projects/${project}` }
+const platforms = {
+  qidian: '起点中文网', qd: '起点中文网', 起点: '起点中文网',
+  zongheng: '纵横中文网', zh: '纵横中文网', 纵横: '纵横中文网',
+  jjwxc: '晋江文学城', jj: '晋江文学城', 晋江: '晋江文学城',
+  '17k': '17K小说网', chuangshi: '创世中文网', 创世: '创世中文网',
 }
 
-/**
- * /novel-market - 市场适配分析
- * 根据不同网文平台特点优化内容
- */
+// These are prompts for editorial consideration, not measured audience profiles.
+const profiles = {
+  '起点中文网': '可从类型叙事、主线目标和连载推进方式讨论适配；不能将男频或爽文视为所有分区的统一要求。',
+  '纵横中文网': '可从情节推进、人物动机与长线叙事的清晰度讨论适配；不能据此断言某题材当前热销。',
+  '晋江文学城': '可从人物关系、情感线或其他核心叙事线的连贯性讨论适配；不同频道题材差异大，不能假定所有作品都必须以恋爱为主。',
+  '17K小说网': '可从连载结构、故事辨识度和持续创作能力讨论适配；没有实时依据时，不能声称新人更容易签约或竞争更小。',
+  '创世中文网': '仅提供一般类型小说与连载结构的编辑建议。未核实该品牌当前独立投稿入口、频道政策或读者构成，投稿前须查验官方当前说明；不能假定入口仍可用。',
+}
+
 export function marketCommand() {
   return {
     name: 'novel-market',
-    description: '市场分析：根据起点、纵横、晋江等平台特点优化内容',
+    description: '市场适配建议：基于正文的启发式评估，不含实时市场数据',
     input: { hint: '<平台名> [项目名]' },
     handler: (invocation) => {
-      // 解析平台和项目名
       const rawInput = invocation.rawInput.trim()
-      const parts = rawInput.split(/\s+/)
-      
-      if (parts.length === 0) {
-        return fail(formatError(
-          '请指定平台名称',
-          [
-            '/novel-market qidian 我的项目',
-            '/novel-market zongheng 我的项目',
-            '/novel-market jjwxc 我的项目'
-          ]
-        ))
+      if (!rawInput) {
+        return fail(formatError('请指定平台名称', ['/novel-market qidian 我的项目', '/novel-market jjwxc 我的项目']))
       }
-
-      const platformInput = parts[0].toLowerCase()
-      const projectInput = parts.slice(1).join(' ')
-
-      // 平台映射
-      const platformMap = {
-        'qidian': '起点中文网',
-        'qd': '起点中文网',
-        '起点': '起点中文网',
-        'zongheng': '纵横中文网',
-        'zh': '纵横中文网',
-        '纵横': '纵横中文网',
-        'jjwxc': '晋江文学城',
-        'jj': '晋江文学城',
-        '晋江': '晋江文学城',
-        '17k': '17K小说网',
-        'chuangshi': '创世中文网',
-        '创世': '创世中文网'
-      }
-
-      const platform = platformMap[platformInput]
-      
+      const [platformInput, ...projectParts] = rawInput.split(/\s+/u)
+      const platform = platforms[platformInput.toLowerCase()]
       if (!platform) {
-        return fail(formatError(
-          '不支持的平台',
-          [
-            '支持的平台：',
-            '  qidian / 起点  - 起点中文网',
-            '  zongheng / 纵横 - 纵横中文网',
-            '  jjwxc / 晋江   - 晋江文学城',
-            '  17k           - 17K小说网'
-          ]
-        ))
+        return fail(formatError('不支持的平台', ['支持：qidian / 起点、zongheng / 纵横、jjwxc / 晋江、17k、chuangshi / 创世']))
       }
-
-      // 解析项目
       const cwd = agentCwd(invocation)
-      const { project } = resolveProject(cwd, projectInput)
-      
-      if (!projectExists(cwd, project)) {
-        return fail(formatError('还没有小说项目'))
-      }
-
-      const dir = `novel_projects/${project}`
+      const projectInput = projectParts.join(' ')
+      const { project, note } = resolveProject(cwd, projectInput)
+      // An explicit name must resolve exactly; do not silently analyze the latest book.
+      if (projectInput && note.trim()) return fail(formatError(`找不到指定项目：${projectInput}`))
+      if (!projectExists(cwd, project)) return fail(formatError('还没有小说项目'))
+      const dir = projectRelativeDir(project)
       const chapters = listChapters(cwd, project)
-      
-      if (chapters.length === 0) {
-        return fail(formatError('这本书还没有正文'))
-      }
-
-      const prompt = `【市场适配分析】平台：${platform}
+      if (!chapters.length) return fail(formatError('这本书还没有正文'))
+      const totalChars = chapters.reduce((sum, chapter) => sum + chapter.chars, 0)
+      const averageChars = Math.round(totalChars / chapters.length)
+      const chapterFiles = chapters.slice(0, 5)
+        .map(chapter => `- ${JSON.stringify(`${dir}/正文/${chapter.file}`)}`).join('\n')
+      const prompt = `【市场适配建议（启发式）】平台：${platform}
 项目：${dir}
 
-## 任务
+## 数据边界（必须遵守）
+本命令没有联网，也没有实时市场数据。这是基于本地正文的启发式编辑建议，不是实际市场调研。
+禁止编造读者人数、年龄分布、订阅量、收入、签约/推荐位概率、成功率或市场份额。
+禁止声称已完成真实读者调查或实际市场研究，禁止把主观匹配评价写成统计概率，禁止承诺收益或增长数字。
+平台政策、热度、投稿入口、收费或更新要求若无可核验的当前官方来源，明确写“未核实”，不得伪装成现行规定。
 
-分析《${project}》在 ${platform} 的适配情况，给出具体优化建议。
+## 已计算的本地统计
+正文共 ${chapters.length} 章，总计 ${totalChars} 字，平均 ${averageChars} 字/章（四舍五入）。
+统计口径：去除 Markdown 标题行、空白及部分 Markdown 标记；来自所有正文文件，不代表平台字数统计。
 
-## 1. 读取文件
+## 阅读材料
+- ${JSON.stringify(`${dir}/脑洞.md`)}
+- ${JSON.stringify(`${dir}/设定.md`)}
+- ${JSON.stringify(`${dir}/角色.md`)}
+- ${JSON.stringify(`${dir}/大纲.md`)}
+辅助文件如不存在应注明，不要编造其内容。开头样本为以下实际文件（最多五章）：
+${chapterFiles}
+不要将开头样本判断泛化成已经阅读全书。
 
-- 读 ${dir}/脑洞.md - 了解创意
-- 读 ${dir}/设定.md - 了解世界观
-- 读 ${dir}/角色.md - 了解人物设定
-- 读 ${dir}/大纲.md - 了解情节结构
-- 读 ${dir}/正文/ 前 5 章 - 了解开头和风格
+## 平台讨论背景（非实时画像，需按频道核实）
+${profiles[platform]}
 
-## 2. 平台特征数据库
-
-### 起点中文网特征
-**读者画像：**
-- 主要：男性 18-35 岁
-- 偏好：玄幻、都市、科幻、游戏
-- 付费意愿：高（起点订阅制）
-
-**内容特点：**
-- 爽文节奏快，打脸频繁
-- 金手指/系统流欢迎
-- 章节长度：3500-4500 字
-- 更新频率：日更 2 章以上
-- 前 3 章要抓人
-- 女主不宜太早出现（男频）
-
-**爆款要素：**
-- 新颖设定 + 熟悉套路
-- 主角快速变强
-- 装逼打脸
-- 土豪角色（月票、打赏）
-- 多条感情线
-
-**标签热度：**
-- 热门：系统流、重生、穿越、无敌
-- 中等：都市修真、异能、游戏异界
-- 冷门：慢热、文艺、沉重
-
----
-
-### 纵横中文网特征
-**读者画像：**
-- 主要：男性 20-40 岁
-- 偏好：历史、军事、都市、玄幻
-- 付费意愿：中高
-
-**内容特点：**
-- 偏重剧情和逻辑
-- 历史军事类优势明显
-- 章节长度：3000-4000 字
-- 可以慢热，但要有深度
-- 战争、权谋类受欢迎
-
-**爆款要素：**
-- 历史架空题材
-- 军事战争
-- 智斗权谋
-- 真实感强
-- 人物有深度
-
----
-
-### 晋江文学城特征
-**读者画像：**
-- 主要：女性 16-35 岁
-- 偏好：言情、耽美、古言、现言
-- 付费意愿：高
-
-**内容特点：**
-- 重视感情线
-- 人物刻画细腻
-- 章节长度：2500-3500 字
-- 可以慢热铺垫
-- 文笔要求较高
-
-**爆款要素：**
-- CP 感强
-- 人设鲜明
-- 感情线曲折
-- 甜宠/虐文明确
-- 金手指可以有但不能太夸张
-
----
-
-### 17K 小说网特征
-**读者画像：**
-- 主要：男性 18-30 岁
-- 偏好：玄幻、都市、历史
-- 付费意愿：中等
-
-**内容特点：**
-- 相对包容
-- 新人友好
-- 章节长度：2500-3500 字
-- 更新压力较小
-
-**爆款要素：**
-- 稳定更新
-- 有特色即可
-- 套路不要太老
-
-## 3. 适配分析输出
-
-\`\`\`
-📱 《${project}》× ${platform} 适配分析
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 基础匹配度：XX/100
-
-【题材匹配】⭐⭐⭐⭐☆ (4/5)
-  你的题材：[从设定.md 提取]
-  平台优势题材：[对应平台的强项]
-  → 评价：[是否匹配]
-
-【读者画像匹配】⭐⭐⭐☆☆ (3/5)
-  你的目标读者：[推断]
-  平台主流读者：[平台数据]
-  → 评价：[匹配程度]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ 符合平台特点：
-
-  1. [具体优点]
-     → 说明：[为什么符合]
-  
-  2. [具体优点]
-     → 说明：[为什么符合]
-  
-  3. [具体优点]
-     → 说明：[为什么符合]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚠️  需要优化的地方：
-
-  1. 章节长度不符
-     现状：平均 ${chapters.length > 0 ? 'XXXX' : '0'} 字/章
-     建议：[平台要求] 字/章
-     → 如何调整：[具体方法]
-  
-  2. [其他问题]
-     现状：[...]
-     建议：[...]
-     → 如何调整：[具体方法]
-  
-  3. [其他问题]
-     现状：[...]
-     建议：[...]
-     → 如何调整：[具体方法]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎯 ${platform} 爆款要素检查：
-
-  ✅ [已具备的要素]
-  ✅ [已具备的要素]
-  ⚠️  [部分具备的要素]
-  ❌ [缺失的要素]
-  ❌ [缺失的要素]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📈 优化方案：
-
-【立即可改】
-  1. [具体操作]
-     预期效果：[...]
-  
-  2. [具体操作]
-     预期效果：[...]
-
-【长期规划】
-  1. [方向性建议]
-     实施难度：⭐⭐⭐
-     预期收益：⭐⭐⭐⭐
-  
-  2. [方向性建议]
-     实施难度：⭐⭐
-     预期收益：⭐⭐⭐⭐⭐
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 平台策略建议：
-
-【标签选择】
-  推荐标签：[标签1]、[标签2]、[标签3]
-  避免标签：[不适合的标签]
-
-【简介写法】
-  [给出适合该平台的简介建议]
-
-【更新节奏】
-  建议：[每日/每周更新量]
-  理由：[...]
-
-【定价策略】（如适用）
-  建议：[定价建议]
-  理由：[...]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 预估数据：
-
-  潜在读者规模：⭐⭐⭐⭐☆
-  竞争激烈程度：⭐⭐⭐☆☆
-  推荐位机会：⭐⭐⭐☆☆
-  
-  综合评估：[适合/较适合/需优化后再投/不太适合]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎯 总结建议：
-
-[3-5 句话总结，包括：
-1. 这本书最适合哪个平台
-2. 当前平台的主要问题
-3. 优先要改的 3 件事]
-
-💡 如果想分析其他平台，使用：
-  /novel-market <平台名> ${project}
-\`\`\`
-
-## 4. 分析要求
-
-1. **数据真实**：基于实际文本内容分析，不编造
-2. **建议具体**：给出可执行的优化方案，不只是泛泛而谈
-3. **客观评价**：优缺点都要说，不一味吹捧
-4. **多维度**：从题材、节奏、长度、风格等多方面分析
-
-开始分析吧！`
-
-      return queueTask(
-        invocation,
-        prompt,
-        formatSuccess(`开始分析《${project}》在 ${platform} 的适配情况`, {
-          '📱 目标平台': platform,
-          '📖 分析项目': project,
-          '📊 分析维度': '题材/读者/爆款要素/优化方案'
-        })
-      )
-    }
+## 输出任务
+1. 从上述文本提取题材、主线、人物与叙事风格，引用具体章节或段落作为依据。
+2. 讨论与目标平台可能的内容适配，分别标出文本事实、编辑判断和待核实的平台信息。不提供伪精确的匹配分或概率。
+3. 检查开篇吸引力、人物动机、节奏与连载结构；章节长度现状使用实际平均 ${averageChars} 字/章，不凭空填写平台硬性字数要求。
+4. 给出可执行的修改建议、取舍与验证方法；效果仅作为假设，不能承诺读者增长或收入。
+5. 建议符合实际故事内容的标签和简介方向，更新计划以作者可持续能力为依据。收费与投稿政策只提醒核对官方说明。
+6. 最后列出不确定性和投稿前需核实的信息，明确“本报告是启发式建议，不含实时市场数据”。`
+      return queueTask(invocation, prompt, formatSuccess(`开始为《${project}》生成 ${platform} 适配建议（非实时市场调研）`, {
+        '📱 目标平台': platform,
+        '📖 分析项目': project,
+        '📝 实际平均字数': `${averageChars} 字/章`,
+        '📊 数据边界': '本地文本 + 启发式建议，无实时市场数据',
+      }))
+    },
   }
 }

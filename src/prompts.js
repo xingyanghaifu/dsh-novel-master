@@ -4,6 +4,8 @@
  * messages only point at them.
  */
 
+import { projectRelativeDir } from './project.js'
+
 /** Human-like writing rules, seeded into every project's 写作规范.md. */
 export const STYLE_RULES = `# 写作规范
 
@@ -52,5 +54,5 @@ export const WORLD_RULES = `## 世界要自己转
 
 /** Goal objective; the goal round driver repeats it every round. */
 export function finishObjective(name, target) {
-  return `《${name}》一键完本：读取 novel_projects/${name}/完本流程.md 并严格执行，直到正文写满 ${target} 章、完成收尾检查。`
+  return `《${name}》一键完本：读取 ${projectRelativeDir(name)}/完本流程.md 并严格执行，直到正文写满 ${target} 章、完成收尾检查。`
 }

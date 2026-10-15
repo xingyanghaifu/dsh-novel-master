@@ -4,7 +4,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { STYLE_RULES, WORLD_RULES } from './prompts.js'
-import { CHAPTER_DIR, RULES_FILE, listChapters, projectDir, readState, writeState } from './project.js'
+import { CHAPTER_DIR, RULES_FILE, listChapters, projectDir, projectRelativeDir, readState, writeState } from './project.js'
 
 export const WORKFLOW_FILE = '完本流程.md'
 
@@ -50,7 +50,7 @@ export function renderWorkflow(s) {
 
 - 目标：正文写满第 ${s.target} 章（开始时已有 ${s.done} 章）
 - 分岔模式：${s.branchMode}（ask = 用 ask_user_question 问用户；auto = 自己按人物逻辑选）
-${s.note ? `- 用户这次的要求：${s.note}\n` : ''}- 所有文件都在 novel_projects/${s.name}/ 下。上下文随时会被压缩：要记住的东西一律写进文件，别只记在脑子里。
+${s.note ? `- 用户这次的要求：${s.note}\n` : ''}- 所有文件都在 ${projectRelativeDir(s.name)}/ 下。上下文随时会被压缩：要记住的东西一律写进文件，别只记在脑子里。
 
 ## 每一轮都这样做
 1. 先读：项目.json、写作规范.md、本文件、世界状态.md。再用 glob 看 正文/ 现在写到第几章。

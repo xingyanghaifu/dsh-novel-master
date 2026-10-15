@@ -9,7 +9,7 @@ import { chapterTarget, extractOptions } from './args.js'
 import { NO_PROJECT, agentCwd, fail, ok, projectExists, resolveProject } from './context.js'
 import { decodeText, splitChapters, writeImportedChapters } from './importer.js'
 import { userMessage } from './message.js'
-import { safeName } from './project.js'
+import { safeName, projectRelativeDir } from './project.js'
 import { finishObjective } from './prompts.js'
 import { WORKFLOW_FILE, ensureProject, prepareRun, uniqueName } from './workflow.js'
 import { validateChapterTarget, validateProjectName, formatError, formatSuccess } from './validators.js'
@@ -60,7 +60,7 @@ function launch(ctx, invocation, name, target, done, receipt) {
     return ok(formatSuccess(receipt, statusDetails) + '\n\n💡 提示：可用 /goal pause 暂停、/goal resume 继续')
   }
   invocation.agent.followup(userMessage(
-    `请读取 novel_projects/${name}/${WORKFLOW_FILE} 并按它执行。当前环境没有目标服务：每次回复写 1-3 章，用户说"继续"再往下写。`,
+    `请读取 ${projectRelativeDir(name)}/${WORKFLOW_FILE} 并按它执行。当前环境没有目标服务：每次回复写 1-3 章，用户说"继续"再往下写。`,
   ))
   return ok(`${receipt}\n\n⚠️ 当前环境没有目标服务，改为手动模式：\n  每轮写完说"继续"才会接着写下一轮`)
 }
@@ -97,7 +97,7 @@ export function novelCommand(ctx) {
       })
       return launch(ctx, invocation, name, target, done,
         formatSuccess(`新书「${name}」创建成功`, {
-          '📁 项目路径': `novel_projects/${name}/`,
+          '📁 项目路径': `${projectRelativeDir(name)}/`,
           '📝 目标章数': `${target} 章`,
           '🎯 分岔模式': options.auto ? '自动决策' : '手动选择'
         }))
@@ -138,7 +138,7 @@ export function continueCommand(ctx) {
         const dir = ensureProject(cwd, name)
         const count = writeImportedChapters(dir, splitChapters(decodeText(fs.readFileSync(imported.file))))
         note = imported.note
-        receipt = `已导入《${name}》共 ${count} 章到 novel_projects/${name}/正文/。`
+        receipt = `已导入《${name}》共 ${count} 章到 ${projectRelativeDir(name)}/正文/。`
       } else {
         const resolved = resolveProject(cwd, options.rest)
         if (!projectExists(cwd, resolved.project)) return fail(NO_PROJECT)

@@ -6,14 +6,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { leadingChapter } from './args.js'
 import { NO_PROJECT, agentCwd, fail, ok, projectExists, queueTask, resolveProject } from './context.js'
-import { CHAPTER_DIR, RULES_FILE, listChapters, projectDir, readProjectFile, readState } from './project.js'
+import { CHAPTER_DIR, RULES_FILE, countChars, listChapters, projectDir, projectRelativeDir, readProjectFile, readState } from './project.js'
 
 /** Resolve the target project or return an error result. */
 function target(invocation) {
   const cwd = agentCwd(invocation)
   const { project, note } = resolveProject(cwd, invocation.rawInput)
   if (!projectExists(cwd, project)) return { error: fail(NO_PROJECT) }
-  return { cwd, project, note, dir: `novel_projects/${project}` }
+  return { cwd, project, note, dir: projectRelativeDir(project) }
 }
 
 /** Factory for commands that hand one task to the model. */
@@ -322,7 +322,7 @@ export function statsCommand() {
       if (t.error) return t.error
       
       // 检查是否启用详细模式
-      const detailedMode = t.note.includes('--detailed')
+      const detailedMode = /(?:^|\s)--detailed(?:\s|$)/u.test(t.note)
       
       const state = readState(t.cwd, t.project) ?? {}
       const chapters = listChapters(t.cwd, t.project)
@@ -349,6 +349,28 @@ export function statsCommand() {
       if (missing.length) lines.push(`缺章：${missing.slice(0, 20).join('、')}${missing.length > 20 ? '…' : ''}`)
       const thin = chapters.filter((c) => avg && c.chars < avg * 0.4).map((c) => c.number)
       if (thin.length) lines.push(`明显偏短的章：${thin.slice(0, 20).join('、')}`)
+      if (detailedMode) {
+        lines.push('', '详细统计（正文字符不含空白、Markdown 标记及标题；对话为成对引号内文字的占比）')
+        if (chapters.length === 0) {
+          lines.push('暂无章节；最短/最长章：无；全书对话占比：0.0%')
+        } else {
+          let dialogueTotal = 0
+          for (const chapter of chapters) {
+            const text = readProjectFile(t.cwd, t.project, `${CHAPTER_DIR}/${chapter.file}`) ?? ''
+            const prose = text.replace(/^#+\s.*$/gmu, '')
+            const dialogueChars = [...prose.matchAll(/“([^”]*)”|「([^」]*)」|『([^』]*)』|"([^"]*)"/gu)]
+              .reduce((sum, match) => sum + countChars(match.slice(1).find((part) => part !== undefined) ?? ''), 0)
+            dialogueTotal += dialogueChars
+            const ratio = chapter.chars ? (dialogueChars / chapter.chars) * 100 : 0
+            lines.push(`第 ${chapter.number} 章${chapter.title ? ` ${chapter.title}` : ''}：${chapter.chars} 字；对话占比 ${ratio.toFixed(1)}%${chapter.chars === 0 ? '（空章）' : ''}`)
+          }
+          const shortest = chapters.reduce((best, chapter) => chapter.chars < best.chars ? chapter : best)
+          const longest = chapters.reduce((best, chapter) => chapter.chars > best.chars ? chapter : best)
+          lines.push(`最短章：第 ${shortest.number} 章，${shortest.chars} 字`)
+          lines.push(`最长章：第 ${longest.number} 章，${longest.chars} 字`)
+          lines.push(`全书对话占比：${(total ? dialogueTotal / total * 100 : 0).toFixed(1)}%`)
+        }
+      }
       return ok(lines.join('\n'))
     },
   }

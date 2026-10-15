@@ -1,117 +1,42 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.2.0] - 2024-XX-XX
-
-### 🌟 Revolutionary Features Added
-
-#### 5 Game-Changing Analysis Commands
-- **`/novel-conflict`** - Conflict Designer: Analyze internal/interpersonal/external conflicts with intensity ratings
-- **`/novel-pace`** - Pace Analyzer: ASCII visualization of rhythm curves, dialogue/narration statistics
-- **`/novel-reader`** - Virtual Reader Feedback: World's first feature to simulate real reader experiences (novice/veteran/critic)
-- **`/novel-dialogue`** - Dialogue Enhancer: Detect AI-flavor dialogue, verify character consistency
-- **`/novel-emotion`** - Emotion Tracker: Visualize emotional density and identify empathy points
-
-#### 3 Enhanced Commands
-- **`/novel-review --deep`** - Deep Review: Added logic checks, timeline conflicts, emotional authenticity
-- **`/novel-stats --detailed`** - Detailed Statistics: Character appearance stats, quality scores, plot recovery rate
-- **`/novel-market <platform>`** - Market Analysis: Platform-specific optimization for Qidian/Zongheng/Jjwxc/17K
-
-### ✨ Improvements
-- Added comprehensive parameter validation with user-friendly error messages
-- Enhanced progress feedback with emoji and structured output
-- Created 250-line validators module for input validation
-- Improved error messages with examples and formatting
-
-### 📚 Documentation
-- Complete rewrite of README.md with feature showcase
-- Added FEATURE_COMPARISON.md - detailed comparison with competitors
-- Added FEATURE_EXPANSION_PLAN.md - 17 optimization suggestions
-- Added OPTIMIZATION_COMPLETED.md - optimization completion report
-- Enhanced package.json with more keywords
-
-### 🧪 Testing
-- Updated test suite for 19 commands
-- All 13 tests passing
-- Verified command registration and configuration
-
-### 📊 Statistics
-- Total commands: 19 (up from 13)
-- Total code: 2086 lines (up from 1068)
-- New files: 3 (cmd-analysis.js, cmd-market.js, validators.js)
-- Plugin rating: 9.8/10 (up from 8.5)
-
-### 🏆 Core Competitiveness
-- World's first virtual reader feedback feature
-- Most comprehensive novel creation toolchain
-- Market adaptation analysis for major platforms
-- Industry-leading innovation
-
----
-
-## [1.1.0] - 2024-XX-XX
+## 1.3.0
 
 ### Added
-- Complete plugin metadata and examples
-- Sample novel file (examples/sample-novel.txt)
-- Examples documentation (examples/README.md)
-- NPM publishing guide
 
-### Improved
-- Enhanced documentation
-- Better project structure
+- 独立小说设置页与更新维护入口：检查固定 GitHub 仓库，按完整提交 SHA 交给 DSH 插件管理器拉取。
+- 7 个创作/管理命令：作品对比、指定章节生成、备份（含恢复及差异比较）、合并、拆分、技巧建议和套路设计。
+- 配置事件监听：总开关、单个命令开关变更后增量更新注册，不重复注册已有命令；卸载清理监听与注册。
+- 请求级项目目录：配置目录影响后续调用，并发调用隔离；提示词、工作流、回执和实际文件路径统一。
+- 实际详细统计：逐章字数、最短/最长章、成对引号内文字占比及全书加权比例。
 
----
+### Fixed
 
-## [1.0.0] - 2024-XX-XX
+- Config 改用宿主支持的 Standard Schema，修复安装后激活时缺失 validate 的错误。
+- 章节范围与单章参数校验；拒绝倒序、缺失章节，避免静默分析错误范围。
+- 修正市场命令空输入、平台匹配和实际章节平均字数。
+- 补充热更新、目录并发隔离、备份恢复及更新流程回归测试。
 
-### Added
-- Initial release with 13 core commands:
-  - `/novel` - One-click novel completion
-  - `/novel-continue` - Continue writing or import
-  - `/novel-study` - Learn from reference texts
-  - `/novel-outline` - Outline management
-  - `/novel-cast` - Character profiles
-  - `/novel-rewrite` - Rewrite chapters
-  - `/novel-review` - Review and fix issues
-  - `/novel-idea` - Brainstorm ideas
-  - `/novel-spark` - Get inspiration
-  - `/novel-world` - World state management
-  - `/novel-role` - Character management
-  - `/novel-stats` - Statistics
-  - `/novel-export` - Export novel
+### Documentation
 
-### Features
-- File-based persistent state
-- Automatic novel completion with DSH goals
-- Plot branching (ask/auto modes)
-- World simulation and advancement
-- Style learning from reference texts
-- Anti-AI flavor writing rules
-- Import from txt/md files (GBK support)
-- Foreshadowing tracking
+- 明确 GitHub 安装来源，删除尚未发布到 npm 的安装暗示。
+- 删除无证据的「全球首创」「独家」、竞争对手缺失和自评分数声明。
+- 明确模型任务提交与已完成分析的区别；市场建议不包含实时市场数据。
+- 不再把未实现的角色主动率、质量分宣传为直接统计功能。
 
-### Technical
-- Pure Node.js implementation
-- No external dependencies
-- Full test coverage
-- MIT license
+## 1.2.0
 
----
+- 新增冲突、节奏、虚拟读者、对话、情感和市场分析的模型任务工作流。
+- 深度审校追加逻辑、连续性、剧情及情感检查提示。
+- 初版声明了详细统计参数，但未完成实际输出；由 1.3.0 补齐。
+- 增加 bundle patch，支持 DSH 插件管理器从 GitHub 安装。
 
-## Legend
-- 🌟 Revolutionary Features
-- ✨ Improvements
-- 🐛 Bug Fixes
-- 📚 Documentation
-- 🧪 Testing
-- ⚠️ Deprecations
-- 🔒 Security
+## 1.1.0
 
-[1.2.0]: https://github.com/xingyanghaifu/dsh-novel-master/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/xingyanghaifu/dsh-novel-master/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/xingyanghaifu/dsh-novel-master/releases/tag/v1.0.0
+- 补充元数据、示例和开发文档。
+
+## 1.0.0
+
+- 初始 13 个命令，文件持久化、goals 写作目标、剧情分岔、世界推演、参考文本风格学习及文本导入。
+
+发布页面：https://github.com/xingyanghaifu/dsh-novel-master/releases
