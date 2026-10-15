@@ -1,18 +1,24 @@
 # Changelog
 
-## 1.1.0 (2025-01-15)
+## 1.1.0 (2026-10-15)
 
 ### 新增
 - ✨ 配置面板支持：可以在 DSH 插件设置里选择启用/禁用每个命令
 - ✨ `Config` Schema 导出，支持插件设置 UI
 - 📦 完善的 npm 包元数据（repository、bugs、homepage）
+- 📖 添加示例文件：`examples/sample-novel.txt` 和使用说明
 
 ### 改进
 - 📝 更新 README，添加两种安装方式说明
 - 📝 添加配置示例和完整的文档
+- 📝 补全 package.json 的作者和仓库信息
 - 🔧 添加 `.npmignore` 优化打包体积
 
-## 1.0.0 (2025-01-15)
+### 修复
+- 🐛 修复测试中的 `ctx.on` 模拟问题
+- 🐛 修复配置加载时的默认值处理
+
+## 1.0.0 (2026-10-15)
 
 ### 初始发布
 - 13 个斜杠命令：`/novel`、`/novel-continue`、`/novel-study`、`/novel-outline`、`/novel-cast`、`/novel-rewrite`、`/novel-review`、`/novel-idea`、`/novel-spark`、`/novel-world`、`/novel-role`、`/novel-stats`、`/novel-export`
@@ -20,3 +26,5 @@
 - 剧情分岔（ask / auto）记在 `剧情树.md`；每章推进一次世界时钟和幕后行动
 - 拆书时先做客观统计，再写风格档案，可以套用到项目的 `写作规范.md`
 - 导入 txt/md 时自动识别 UTF-8 / GB18030 编码并拆章；导出支持 txt / md / html
+- 完整的测试覆盖（13 个测试用例）
+- 详细的中英文文档

@@ -11,20 +11,22 @@
   "files": [
     "src/",
     "preset/",
+    "examples/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "test": "node --test \"test/*.test.js\""
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_USERNAME/dsh-novel-master.git"
+    "url": "git+https://github.com/xinyanghaifu/dsh-novel-master.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/dsh-novel-master/issues"
+    "url": "https://github.com/xinyanghaifu/dsh-novel-master/issues"
   },
-  "homepage": "https://github.com/YOUR_USERNAME/dsh-novel-master#readme",
+  "homepage": "https://github.com/xinyanghaifu/dsh-novel-master#readme",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -34,7 +36,7 @@
     "writing",
     "小说"
   ],
-  "author": "YOUR_NAME",
+  "author": "xinyanghaifu <3174332008@qq.com>",
   "license": "MIT",
   "engines": {
     "node": ">=20"
