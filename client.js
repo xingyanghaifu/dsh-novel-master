@@ -133,6 +133,8 @@ window.__ModuleLoader__.load({
       const [loading, setLoading] = useState(!form)
       const [toast, setToast] = useState('')
       const [availableModels, setAvailableModels] = useState(FALLBACK_MODELS)
+      const [showTutorial, setShowTutorial] = useState(false)
+      const [tutorialStep, setTutorialStep] = useState(0)
       const alive = useRef(true)
       const saving = useRef(false)
       const operation = useRef(null)
@@ -199,6 +201,8 @@ window.__ModuleLoader__.load({
       }
 
       async function loadModels(signal) {
+        if (!alive.current || signal?.aborted) return
+        
         const ctx = props?.ctx
         if (ctx?.remote?.llm && typeof ctx.remote.llm.listProviders === 'function') {
           try {
@@ -206,6 +210,9 @@ window.__ModuleLoader__.load({
               ctx.remote.llm.listProviders(),
               typeof ctx.remote.llm.listConfigurableProviders === 'function' ? ctx.remote.llm.listConfigurableProviders() : { ok: false },
             ])
+            
+            if (!alive.current || signal?.aborted) return
+            
             const list = []
             const seen = new Set()
             const add = (p, m, l, efforts) => {
@@ -225,29 +232,34 @@ window.__ModuleLoader__.load({
               }
             }
             if (list.length > 0) {
-              if (alive.current) setAvailableModels(list)
+              if (alive.current && !signal?.aborted) setAvailableModels(list)
               return
             }
-          } catch {}
+          } catch (err) {
+            if (!alive.current || signal?.aborted) return
+          }
         }
 
         try {
           const res = await api('models', { signal })
-          if (alive.current && Array.isArray(res?.models) && res.models.length > 0) {
+          if (alive.current && !signal?.aborted && Array.isArray(res?.models) && res.models.length > 0) {
             setAvailableModels(res.models)
           }
-        } catch {}
+        } catch (err) {
+          // Ignore errors in loadModels
+        }
       }
 
       async function load(signal) {
+        if (!alive.current || signal?.aborted) return
         setLoading(true)
         const results = await Promise.allSettled([api('settings', { signal }), api('status', { signal })])
         if (!alive.current || signal?.aborted) return
         if (results[0].status === 'fulfilled') acceptForm(results[0].value)
         if (results[1].status === 'fulfilled') setState(results[1].value)
         const failures = results.filter(result => result.status === 'rejected').map(result => result.reason.message)
-        if (failures.length) setError(failures.join('\n'))
-        setLoading(false)
+        if (failures.length && alive.current) setError(failures.join('\n'))
+        if (alive.current) setLoading(false)
         loadModels(signal).catch(() => {})
       }
       useEffect(() => {
@@ -257,7 +269,12 @@ window.__ModuleLoader__.load({
         return () => { alive.current = false; controller.abort(); operation.current?.abort(); activityRequest.current?.abort(); if (toastTimer.current) clearTimeout(toastTimer.current) }
       }, [])
 
-      async function refresh() { setError(''); await load() }
+      async function refresh(signal) { 
+        if (!alive.current) return
+        setError('')
+        const controller = signal ?? new AbortController()
+        await load(controller.signal)
+      }
       async function save(patch) {
         if (!form || saving.current || operation.current || activityRequest.current || busy || state?.busy) return
         saving.current = true; setBusy('save'); setError(''); setNotice('')
@@ -265,7 +282,11 @@ window.__ModuleLoader__.load({
           const next = await api('settings', { body: { patch, revision: form.revision } })
           if (alive.current) { acceptForm(next, patch); setNotice('配置已保存。') }
         } catch (reason) {
-          if (alive.current) { await refresh(); if (alive.current) setError(`保存失败：${reason.message}`) }
+          if (alive.current) { 
+            const refreshController = new AbortController()
+            await refresh(refreshController.signal)
+            if (alive.current) setError(`保存失败：${reason.message}`) 
+          }
         } finally { saving.current = false; if (alive.current) setBusy('') }
       }
       async function run(action) {
