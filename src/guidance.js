@@ -177,43 +177,107 @@ ${guidanceOutput}
 }
 
 /**
- * 执行引导-写作流程
- * @param {object} options - 执行选项
- * @param {object} options.context - 项目上下文
- * @param {object} options.guidanceConfig - 引导配置
- * @param {function} options.callGuidanceModel - 调用引导模型的函数
- * @param {function} options.callWritingModel - 调用写作模型的函数
- * @param {string} options.taskType - 任务类型
- * @returns {Promise<{guidance: string, content: string}>} 引导输出与最终内容
+ * 性能监控器
  */
-export async function executeGuidedWriting(options) {
-  const {
-    context,
-    guidanceConfig,
-    callGuidanceModel,
-    callWritingModel,
-    taskType = 'chapter'
-  } = options
-  
-  if (!guidanceConfig.enabled || !guidanceConfig.provider || !guidanceConfig.model) {
-    throw new Error('引导模型未正确配置')
+class PerformanceMonitor {
+  constructor() {
+    this.metrics = {
+      guidanceTime: 0,
+      writingTime: 0,
+      totalTime: 0,
+      guidanceTokens: 0,
+      writingTokens: 0,
+    }
   }
+
+  startGuidance() {
+    this._guidanceStart = Date.now()
+  }
+
+  endGuidance(tokens = 0) {
+    if (this._guidanceStart) {
+      this.metrics.guidanceTime = Date.now() - this._guidanceStart
+      this.metrics.guidanceTokens = tokens
+      delete this._guidanceStart
+    }
+  }
+
+  startWriting() {
+    this._writingStart = Date.now()
+  }
+
+  endWriting(tokens = 0) {
+    if (this._writingStart) {
+      this.metrics.writingTime = Date.now() - this._writingStart
+      this.metrics.writingTokens = tokens
+      delete this._writingStart
+    }
+  }
+
+  getMetrics() {
+    this.metrics.totalTime = this.metrics.guidanceTime + this.metrics.writingTime
+    return { ...this.metrics }
+  }
+
+  formatReport() {
+    const m = this.getMetrics()
+    return `
+【性能报告】
+- 引导模型耗时: ${(m.guidanceTime / 1000).toFixed(2)}s (${m.guidanceTokens} tokens)
+- 写作模型耗时: ${(m.writingTime / 1000).toFixed(2)}s (${m.writingTokens} tokens)
+- 总耗时: ${(m.totalTime / 1000).toFixed(2)}s
+    `.trim()
+  }
+}
+
+/**
+ * 调用引导模型生成大纲
+ * @param {object} options - 调用选项
+ * @returns {Promise<{text: string, tokens: number}>}
+ */
+async function generateGuidance(options) {
+  const { guidanceConfig, context, taskType, callGuidanceModel, monitor, onProgress } = options
   
-  // 步骤1：调用引导模型生成大纲
+  if (onProgress) onProgress('引导模型正在分析项目状态与上下文...')
+  
   const guidanceSystem = buildGuidanceSystem(guidanceConfig.guidanceStyle, taskType)
   const guidancePrompt = buildGuidancePrompt(context)
   
-  const guidanceResult = await callGuidanceModel({
-    provider: guidanceConfig.provider,
-    model: guidanceConfig.model,
-    reasoningEffort: guidanceConfig.reasoningEffort || undefined,
-    system: guidanceSystem,
-    prompt: guidancePrompt,
-  })
+  monitor?.startGuidance()
   
-  const guidanceOutput = guidanceResult.text || guidanceResult.content || String(guidanceResult)
+  try {
+    const result = await callGuidanceModel({
+      provider: guidanceConfig.provider,
+      model: guidanceConfig.model,
+      reasoningEffort: guidanceConfig.reasoningEffort || undefined,
+      system: guidanceSystem,
+      prompt: guidancePrompt,
+    })
+    
+    const text = result.text || result.content || String(result)
+    const tokens = result.usage?.total_tokens || result.tokens || 0
+    
+    monitor?.endGuidance(tokens)
+    
+    if (onProgress) onProgress('引导模型已生成详细写作大纲')
+    
+    return { text, tokens }
+  } catch (error) {
+    monitor?.endGuidance(0)
+    throw error
+  }
+}
+
+/**
+ * 调用写作模型生成内容
+ * @param {object} options - 调用选项
+ * @returns {Promise<{text: string, tokens: number}>}
+ */
+async function generateContent(options) {
+  const { guidanceOutput, guidanceConfig, context, callWritingModel, monitor, onProgress } = options
   
-  // 步骤2：将引导输出传递给写作模型
+  if (onProgress) onProgress('写作模型正在根据大纲生成章节文字...')
+  
   const writingSystem = buildWritingSystemWithGuidance(guidanceOutput)
   
   // 确定写作模型路由
@@ -224,18 +288,146 @@ export async function executeGuidedWriting(options) {
     throw new Error('写作模型未指定，且无法从会话推断')
   }
   
-  const writingResult = await callWritingModel({
-    provider: writingProvider,
-    model: writingModel,
-    reasoningEffort: guidanceConfig.writingReasoningEffort || undefined,
-    system: writingSystem,
-    prompt: context.writingPrompt || '请按照大纲要求完成本章创作。',
-  })
+  monitor?.startWriting()
   
-  const writingOutput = writingResult.text || writingResult.content || String(writingResult)
-  
-  return {
-    guidance: guidanceOutput,
-    content: writingOutput,
+  try {
+    const result = await callWritingModel({
+      provider: writingProvider,
+      model: writingModel,
+      reasoningEffort: guidanceConfig.writingReasoningEffort || undefined,
+      system: writingSystem,
+      prompt: context.writingPrompt || '请按照大纲要求完成本章创作。',
+    })
+    
+    const text = result.text || result.content || String(result)
+    const tokens = result.usage?.total_tokens || result.tokens || 0
+    
+    monitor?.endWriting(tokens)
+    
+    if (onProgress) onProgress('章节生成完成')
+    
+    return { text, tokens }
+  } catch (error) {
+    monitor?.endWriting(0)
+    throw error
   }
+}
+
+/**
+ * 执行引导-写作流程（带降级策略）
+ * @param {object} options - 执行选项
+ * @param {object} options.context - 项目上下文
+ * @param {object} options.guidanceConfig - 引导配置
+ * @param {function} options.callGuidanceModel - 调用引导模型的函数
+ * @param {function} options.callWritingModel - 调用写作模型的函数
+ * @param {function} options.fallbackToSingleModel - 降级到单模型的函数
+ * @param {function} options.onProgress - 进度回调函数
+ * @param {string} options.taskType - 任务类型
+ * @returns {Promise<{guidance: string, content: string, metrics: object, usedFallback: boolean}>}
+ */
+export async function executeGuidedWriting(options) {
+  const {
+    context,
+    guidanceConfig,
+    callGuidanceModel,
+    callWritingModel,
+    fallbackToSingleModel,
+    onProgress,
+    taskType = 'chapter'
+  } = options
+  
+  // 验证配置
+  if (!guidanceConfig.enabled || !guidanceConfig.provider || !guidanceConfig.model) {
+    throw new Error('引导模型未正确配置')
+  }
+  
+  const monitor = new PerformanceMonitor()
+  
+  try {
+    // 步骤1：调用引导模型生成大纲
+    const guidanceResult = await generateGuidance({
+      guidanceConfig,
+      context,
+      taskType,
+      callGuidanceModel,
+      monitor,
+      onProgress,
+    })
+    
+    // 步骤2：调用写作模型生成内容
+    const contentResult = await generateContent({
+      guidanceOutput: guidanceResult.text,
+      guidanceConfig,
+      context,
+      callWritingModel,
+      monitor,
+      onProgress,
+    })
+    
+    return {
+      guidance: guidanceResult.text,
+      content: contentResult.text,
+      metrics: monitor.getMetrics(),
+      usedFallback: false,
+    }
+  } catch (error) {
+    // 降级策略：如果引导模型失败，回退到单模型模式
+    if (fallbackToSingleModel && typeof fallbackToSingleModel === 'function') {
+      if (onProgress) {
+        onProgress(`引导模型调用失败（${error.message}），自动降级为单模型模式...`)
+      }
+      
+      try {
+        const fallbackResult = await fallbackToSingleModel(context)
+        return {
+          guidance: null,
+          content: fallbackResult.text || fallbackResult.content || String(fallbackResult),
+          metrics: monitor.getMetrics(),
+          usedFallback: true,
+          fallbackReason: error.message,
+        }
+      } catch (fallbackError) {
+        throw new Error(`引导模型和单模型均失败：${error.message} | ${fallbackError.message}`)
+      }
+    }
+    
+    throw error
+  }
+}
+
+import fs from 'node:fs'
+import path from 'node:path'
+
+/**
+ * 保存引导大纲到项目目录
+ * @param {string} projectDir - 项目目录
+ * @param {number} chapterNumber - 章节号
+ * @param {string} guidanceContent - 引导大纲内容
+ * @returns {string} 保存的文件路径
+ */
+export function saveGuidanceOutline(projectDir, chapterNumber, guidanceContent) {
+  
+  const guidanceDir = path.join(projectDir, '引导大纲')
+  
+  // 确保引导大纲目录存在
+  if (!fs.existsSync(guidanceDir)) {
+    fs.mkdirSync(guidanceDir, { recursive: true })
+  }
+  
+  const filename = `第${chapterNumber}章-大纲.md`
+  const filepath = path.join(guidanceDir, filename)
+  
+  // 添加元数据头部
+  const metadata = `# 第${chapterNumber}章 引导大纲
+
+生成时间: ${new Date().toLocaleString('zh-CN')}
+
+---
+
+${guidanceContent}
+`
+  
+  fs.writeFileSync(filepath, metadata, 'utf8')
+  
+  return filepath
 }

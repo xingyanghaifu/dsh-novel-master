@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { ProxyAgent } from 'undici'
+import { discoverHostModels } from './models-discovery.js'
 
 /** Keep proxy use local to update checks; never change the process dispatcher. */
 export function createUpdateTransport(readProxy = () => '') {
@@ -248,6 +249,7 @@ export function installUpdater(ctx, options = {}) {
           if (!options.intelligence) return send(res, 503, { error: '智能运行时尚未加载' })
           return send(res, 200, await options.intelligence.status())
         }
+        if (req.method === 'GET' && action === '/models') return send(res, 200, await discoverHostModels(ctx))
         if (req.method === 'GET' && action === '/settings') return send(res, 200, document())
         if (req.method !== 'POST') return send(res, 405, { error: 'method-not-allowed' })
         if (!allowedWrite(req)) return send(res, 403, { error: 'same-origin-json-required' })

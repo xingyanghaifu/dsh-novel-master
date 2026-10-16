@@ -65,7 +65,7 @@ export async function callText(ctx, request) {
       if (!Array.isArray(providers) || !providers.some(provider => provider.id === route.provider)) fail('unknown-provider', '指定 provider 未注册')
       const info = await life.bounded(llm.resolveModelInfo(route.provider, route.model, life.signal))
       if (info?.provider !== route.provider || info?.id !== route.model) fail('route-mismatch', '适配器返回的模型身份与请求路由不一致')
-      if (route.reasoningEffort !== undefined && !info.reasoning?.efforts?.some(effort => effort.id === route.reasoningEffort)) fail('unsupported-effort', '模型不支持指定 reasoningEffort')
+      if (route.reasoningEffort !== undefined && info.reasoning?.efforts && !info.reasoning.efforts.some(effort => effort.id === route.reasoningEffort)) fail('unsupported-effort', '模型不支持指定 reasoningEffort')
       const options = {
         ...route, system, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
         tools: [], maxTokens, signal: life.signal,
