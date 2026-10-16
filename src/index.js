@@ -111,6 +111,16 @@ export const Config = z.object({
       COMMAND_KEYS.map(([key, title]) => [key, live(z.boolean().default(true)).description(title)]),
     ),
   ).description('命令开关'),
+  guidance: z.object({
+    enabled: live(z.boolean().default(false)).description('启用引导模型'),
+    provider: live(z.string().default('')).description('引导模型 Provider').comment('引导模型负责任务拆解、上下文分析与详细大纲生成；启用后写作命令会先调用引导模型。'),
+    model: live(z.string().default('')).description('引导模型 ID'),
+    reasoningEffort: live(z.string().default('')).description('引导推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
+    writingProvider: live(z.string().default('')).description('写作模型 Provider').comment('写作模型接收引导模型的详细指令执行文字生成；全部留空使用会话主模型。'),
+    writingModel: live(z.string().default('')).description('写作模型 ID'),
+    writingReasoningEffort: live(z.string().default('')).description('写作推理强度').comment('留空使用模型默认值。'),
+    guidanceStyle: live(z.string().default('detailed')).description('引导风格').comment('detailed=详细拆解；outline=简明大纲；creative=创意增强。'),
+  }).description('引导-写作分离'),
   learning: z.object({
     enabled: live(z.boolean().default(false)).description('启用自主学习总结'),
     autoSummarize: live(z.boolean().default(true)).description('自动总结小说任务输出'),
@@ -118,9 +128,11 @@ export const Config = z.object({
     storageDir: live(z.string().default('novel_learning')).description('学习存储地址').comment('支持绝对地址或工作目录相对地址；按工作目录与实际 provider/model 隔离，变更后不自动迁移记录。'),
     summaryProvider: live(z.string().default('')).description('摘要模型 Provider').comment('和摘要模型一起填写；全部留空使用被总结输出的实际模型路由。'),
     summaryModel: live(z.string().default('')).description('摘要模型 ID'),
+    summaryReasoningEffort: live(z.string().default('')).description('摘要模型思考/推理强度').comment('留空使用模型默认强度，可选 low / medium / high 等。'),
     maxInputChars: live(z.natural().min(1000).max(24000).default(12000)).description('总结输入字符上限'),
     maxRecords: live(z.natural().min(1).max(10000).default(500)).description('每个模型的记录上限').comment('达到上限停止追加，不删除旧记录。'),
     cooldownSeconds: live(z.natural().min(0).max(86400).default(60)).description('自动总结最小间隔（秒）'),
+    topics: live(z.array(z.string()).default([])).description('总结学习重点维度').comment('留空为全维度分析；可勾选人设心流、叙事节奏、黄金钩子、文风修辞、冲突张力、世界观演化等。'),
   }).description('学习总结'),
   decision: z.object({
     enabled: live(z.boolean().default(false)).description('启用决策 AI'),

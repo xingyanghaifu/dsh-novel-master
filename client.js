@@ -7,9 +7,39 @@ window.__ModuleLoader__.load({
     const { createElement: h, useState, useEffect, useRef } = React
     const API = new URL('api/novel-master/', document.baseURI).pathname
     const CSS = `
-.nm-settings{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-raised:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-3,Canvas));--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 15%,transparent));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);--nm-error:var(--dsw-alias-state-error-primary,#c84d55);max-width:1120px;margin:0 auto;padding:24px;color:var(--nm-text);font-size:13px;line-height:1.6;display:flex;flex-direction:column;gap:20px}
-.nm-settings *{box-sizing:border-box}.nm-settings [hidden]{display:none!important}.nm-settings h2,.nm-settings h3,.nm-settings h4,.nm-settings p{margin:0}.nm-settings h2{font-size:26px;font-weight:750;letter-spacing:-.7px}.nm-settings h3{font-size:17px;font-weight:700}.nm-settings h4{font-size:14px;font-weight:650}.nm-settings .nm-muted{color:var(--nm-muted);font-size:12px}.nm-settings .nm-hero{padding:26px;border-radius:22px;border:1px solid var(--nm-border);background:radial-gradient(ellipse at 95% 0%,color-mix(in srgb,var(--nm-accent) 13%,transparent),transparent 65%),linear-gradient(145deg,var(--nm-raised),var(--nm-card));display:flex;flex-direction:column;gap:20px}.nm-settings .nm-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.nm-settings .nm-between{justify-content:space-between}.nm-settings .nm-brand{display:flex;align-items:center;gap:15px}.nm-settings .nm-logo{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card));border:1px solid color-mix(in srgb,var(--nm-accent) 25%,transparent)}.nm-settings .nm-logo svg{width:28px;height:28px}.nm-settings .nm-badge,.nm-settings .nm-chip{font-size:11px;border:1px solid var(--nm-border);border-radius:999px;padding:4px 10px;display:inline-flex;align-items:center;gap:7px;background:var(--nm-card);color:var(--nm-muted)}.nm-settings .nm-badge{color:var(--nm-accent);font-weight:650}.nm-settings .nm-chip i{width:6px;height:6px;border-radius:50%;background:var(--nm-muted)}.nm-settings .nm-chip[data-on=true] i{background:var(--nm-good)}.nm-settings .nm-tabs{display:flex;gap:5px;padding:5px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:14px;overflow:auto}.nm-settings .nm-tabs button{flex:1;white-space:nowrap;border:0;background:transparent;border-radius:10px;color:var(--nm-muted);padding:10px 16px}.nm-settings .nm-tabs button[aria-selected=true]{background:var(--nm-raised);color:var(--nm-accent);box-shadow:0 2px 7px color-mix(in srgb,CanvasText 7%,transparent);font-weight:650}.nm-settings button{font:inherit;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-raised);padding:7px 12px;transition:background .15s,border-color .15s,box-shadow .15s}.nm-settings button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-raised))}.nm-settings button:focus-visible,.nm-settings input:focus-visible,.nm-settings summary:focus-visible{outline:2px solid var(--nm-accent);outline-offset:3px}.nm-settings button:disabled{opacity:.45;cursor:not-allowed}.nm-settings .nm-primary{background:color-mix(in srgb,var(--nm-accent) 14%,var(--nm-card));border-color:color-mix(in srgb,var(--nm-accent) 55%,var(--nm-border));color:var(--nm-accent);font-weight:650}.nm-settings .nm-quiet{background:transparent;border-color:transparent;color:var(--nm-muted);font-size:12px}.nm-settings .nm-stack{display:flex;flex-direction:column;gap:18px}.nm-settings .nm-card{padding:22px;border:1px solid var(--nm-border);border-radius:17px;background:var(--nm-card);display:flex;flex-direction:column;gap:18px;min-width:0}.nm-settings .nm-cardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.nm-settings .nm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.nm-settings .nm-wide{grid-column:1/-1}.nm-settings .nm-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.nm-settings .nm-search{flex:1;min-width:200px}.nm-settings input:not([type=checkbox]){font:inherit;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-bg);padding:10px 12px;transition:border-color .15s}.nm-settings input:not([type=checkbox]):focus{border-color:var(--nm-accent)}.nm-settings input:disabled{opacity:.55}.nm-settings .nm-field{display:flex;flex-direction:column;gap:7px;min-width:0}.nm-settings .nm-field>span{font-weight:550;font-size:12px;color:var(--nm-muted)}.nm-settings .nm-switch{display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;cursor:pointer;min-height:42px}.nm-settings .nm-switch input{position:absolute;right:0;top:50%;transform:translateY(-50%);width:38px;height:22px;opacity:0;margin:0;cursor:pointer}.nm-settings .nm-switch input:focus-visible + .nm-track{outline:2px solid var(--nm-accent);outline-offset:4px}.nm-settings .nm-track{width:38px;height:22px;border-radius:99px;border:1px solid var(--nm-border);background:var(--nm-bg);position:relative;flex:none;pointer-events:none;transition:background .18s}.nm-settings .nm-track:after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--nm-muted);transition:transform .18s,background .18s}.nm-settings .nm-switch input:checked + .nm-track{background:color-mix(in srgb,var(--nm-accent) 20%,var(--nm-bg));border-color:var(--nm-accent)}.nm-settings .nm-switch input:checked + .nm-track:after{transform:translateX(16px);background:var(--nm-accent)}.nm-settings .nm-switch:has(input:disabled){opacity:.55;cursor:not-allowed}.nm-settings .nm-switchcopy{display:flex;flex-direction:column;gap:3px;min-width:0}.nm-settings .nm-switchcopy strong{font-size:13px;font-weight:600}.nm-settings .nm-switchcopy small{font-size:11px;color:var(--nm-muted);line-height:1.5}.nm-settings .nm-group{padding:0;border:0;min-width:0;margin:0}.nm-settings .nm-group legend{font-weight:650;font-size:15px;margin-bottom:8px;width:100%}.nm-settings .nm-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}.nm-settings .nm-feature{padding:13px 14px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-bg);transition:border-color .16s}.nm-settings .nm-feature:hover{border-color:color-mix(in srgb,var(--nm-accent) 50%,var(--nm-border))}.nm-settings .nm-feature code{font-size:10px;color:var(--nm-muted);overflow-wrap:anywhere}.nm-settings .nm-savebar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:16px;border-top:1px solid var(--nm-border);flex-wrap:wrap}.nm-settings .nm-dirty{color:var(--nm-accent);font-size:12px}.nm-settings .nm-callout{padding:14px 16px;border-radius:12px;border:1px solid color-mix(in srgb,var(--nm-accent) 24%,var(--nm-border));background:color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card));color:var(--nm-muted);font-size:12px}.nm-settings .nm-alert{padding:16px 18px;border-radius:13px;border:1px solid color-mix(in srgb,var(--nm-error) 40%,var(--nm-border));background:color-mix(in srgb,var(--nm-error) 6%,var(--nm-card));display:flex;align-items:center;justify-content:space-between;gap:12px;white-space:pre-wrap;overflow-wrap:anywhere}.nm-settings .nm-success{border-color:color-mix(in srgb,var(--nm-good) 40%,var(--nm-border));background:color-mix(in srgb,var(--nm-good) 6%,var(--nm-card))}.nm-settings details{border:1px solid var(--nm-border);border-radius:12px;padding:13px 15px}.nm-settings summary{cursor:pointer;color:var(--nm-muted);font-weight:550}.nm-settings details[open]>summary{margin-bottom:16px}.nm-settings .nm-metric{padding:16px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:12px;min-width:0}.nm-settings .nm-metric span{font-size:11px;color:var(--nm-muted);display:block}.nm-settings .nm-metric strong{display:block;font-size:20px;font-weight:700;margin:4px 0}.nm-settings .nm-metric code{display:block;font-size:11px;color:var(--nm-muted);overflow-wrap:anywhere}.nm-settings .nm-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.nm-settings .nm-skeleton{height:95px;border-radius:14px;background:linear-gradient(100deg,var(--nm-card),var(--nm-raised),var(--nm-card));background-size:200% 100%;animation:nm-settings-load 1.6s ease infinite}.nm-settings .nm-empty{text-align:center;padding:28px;color:var(--nm-muted)}.nm-settings .nm-footer{font-size:11px;color:var(--nm-muted);text-align:center}.nm-settings .nm-inlinecode{font-family:ui-monospace,monospace;font-size:11px;background:var(--nm-bg);padding:3px 7px;border-radius:5px;overflow-wrap:anywhere}
-@keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:14px;gap:15px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three{grid-template-columns:1fr}.nm-settings .nm-card{padding:17px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
+.nm-settings{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-raised:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-3,Canvas));--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-border-glow:color-mix(in srgb,var(--nm-accent) 26%,var(--nm-border));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);--nm-error:var(--dsw-alias-state-error-primary,#c84d55);max-width:1160px;margin:0 auto;padding:26px 24px;color:var(--nm-text);font-size:13px;line-height:1.6;display:flex;flex-direction:column;gap:22px}
+.nm-settings *{box-sizing:border-box}.nm-settings [hidden]{display:none!important}.nm-settings h2,.nm-settings h3,.nm-settings h4,.nm-settings p{margin:0}.nm-settings h2{font-size:26px;font-weight:750;letter-spacing:-.7px}.nm-settings h3{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}.nm-settings h4{font-size:14px;font-weight:650}.nm-settings .nm-muted{color:var(--nm-muted);font-size:12px}.nm-settings .nm-hero{padding:28px;border-radius:22px;border:1px solid var(--nm-border-glow);background:radial-gradient(ellipse at 95% 0%,color-mix(in srgb,var(--nm-accent) 15%,transparent),transparent 65%),linear-gradient(145deg,color-mix(in srgb,var(--nm-raised) 90%,var(--nm-accent) 5%),var(--nm-card));box-shadow:0 6px 26px -6px color-mix(in srgb,CanvasText 7%,transparent);display:flex;flex-direction:column;gap:22px}
+.nm-settings .nm-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.nm-settings .nm-between{justify-content:space-between}.nm-settings .nm-brand{display:flex;align-items:center;gap:16px}.nm-settings .nm-logo{width:54px;height:54px;display:grid;place-items:center;border-radius:18px;color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 14%,var(--nm-card));border:1px solid color-mix(in srgb,var(--nm-accent) 30%,transparent);box-shadow:0 4px 14px -3px color-mix(in srgb,var(--nm-accent) 25%,transparent)}.nm-settings .nm-logo svg{width:30px;height:30px}
+.nm-settings .nm-badge,.nm-settings .nm-chip{font-size:11px;border:1px solid var(--nm-border);border-radius:999px;padding:4px 11px;display:inline-flex;align-items:center;gap:7px;background:var(--nm-card);color:var(--nm-muted);transition:all .18s ease}.nm-settings .nm-badge{color:var(--nm-accent);font-weight:650;background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card));border-color:color-mix(in srgb,var(--nm-accent) 28%,transparent)}.nm-settings .nm-chip i{width:7px;height:7px;border-radius:50%;background:var(--nm-muted);transition:background .2s ease}.nm-settings .nm-chip[data-on=true]{color:var(--nm-text);border-color:color-mix(in srgb,var(--nm-good) 30%,var(--nm-border))}.nm-settings .nm-chip[data-on=true] i{background:var(--nm-good);box-shadow:0 0 7px var(--nm-good)}
+.nm-settings .nm-tabs{display:flex;gap:6px;padding:6px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:15px;overflow:auto}.nm-settings .nm-tabs button{flex:1;white-space:nowrap;border:0;background:transparent;border-radius:10px;color:var(--nm-muted);padding:10px 18px;font-weight:550;transition:all .18s ease}.nm-settings .nm-tabs button:hover:not([aria-selected=true]){color:var(--nm-text);background:color-mix(in srgb,CanvasText 4%,transparent)}.nm-settings .nm-tabs button[aria-selected=true]{background:var(--nm-raised);color:var(--nm-accent);box-shadow:0 2px 9px color-mix(in srgb,CanvasText 8%,transparent);font-weight:700}
+.nm-settings button{font:inherit;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-raised);padding:8px 14px;transition:background .15s,border-color .15s,box-shadow .15s,transform .1s}.nm-settings button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 8%,var(--nm-raised));transform:translateY(-1px)}.nm-settings button:active:not(:disabled){transform:translateY(0)}.nm-settings button:focus-visible,.nm-settings input:focus-visible,.nm-settings summary:focus-visible,.nm-settings select:focus-visible{outline:2px solid var(--nm-accent);outline-offset:3px}.nm-settings button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.nm-settings .nm-primary{background:color-mix(in srgb,var(--nm-accent) 15%,var(--nm-card));border-color:color-mix(in srgb,var(--nm-accent) 55%,var(--nm-border));color:var(--nm-accent);font-weight:650;box-shadow:0 2px 8px -2px color-mix(in srgb,var(--nm-accent) 30%,transparent)}.nm-settings .nm-primary:hover:not(:disabled){background:color-mix(in srgb,var(--nm-accent) 22%,var(--nm-card));border-color:var(--nm-accent)}.nm-settings .nm-quiet{background:transparent;border-color:transparent;color:var(--nm-muted);font-size:12px}.nm-settings .nm-stack{display:flex;flex-direction:column;gap:20px}
+.nm-settings .nm-card{padding:24px;border:1px solid var(--nm-border);border-radius:18px;background:linear-gradient(180deg,color-mix(in srgb,var(--nm-card) 98%,transparent),var(--nm-card));box-shadow:0 4px 18px -4px color-mix(in srgb,CanvasText 5%,transparent);display:flex;flex-direction:column;gap:18px;min-width:0;transition:border-color .2s ease,box-shadow .2s ease}.nm-settings .nm-card:hover{box-shadow:0 6px 24px -4px color-mix(in srgb,CanvasText 7%,transparent)}.nm-settings .nm-cardhead{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.nm-settings .nm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.nm-settings .nm-wide{grid-column:1/-1}.nm-settings .nm-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.nm-settings .nm-search{flex:1;min-width:220px;box-shadow:0 1px 4px color-mix(in srgb,CanvasText 4%,transparent)}
+.nm-settings input:not([type=checkbox]),.nm-settings select.nm-select{font:inherit;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-bg);padding:10px 14px;transition:border-color .15s,box-shadow .15s}.nm-settings select.nm-select{cursor:pointer}.nm-settings select.nm-select option{background:var(--nm-card);color:var(--nm-text)}.nm-settings input:not([type=checkbox]):focus,.nm-settings select.nm-select:focus{border-color:var(--nm-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--nm-accent) 15%,transparent)}.nm-settings input:disabled,.nm-settings select:disabled{opacity:.55}
+.nm-settings .nm-field{display:flex;flex-direction:column;gap:7px;min-width:0}.nm-settings .nm-field>span{font-weight:600;font-size:12px;color:var(--nm-muted)}
+.nm-settings .nm-switch{display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;cursor:pointer;min-height:44px}.nm-settings .nm-switch input{position:absolute;right:0;top:50%;transform:translateY(-50%);width:40px;height:24px;opacity:0;margin:0;cursor:pointer}.nm-settings .nm-switch input:focus-visible + .nm-track{outline:2px solid var(--nm-accent);outline-offset:4px}.nm-settings .nm-track{width:40px;height:24px;border-radius:99px;border:1px solid var(--nm-border);background:var(--nm-bg);position:relative;flex:none;pointer-events:none;transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s}.nm-settings .nm-track:after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--nm-muted);transition:transform .2s cubic-bezier(.4,0,.2,1),background .2s,box-shadow .2s}.nm-settings .nm-switch input:checked + .nm-track{background:color-mix(in srgb,var(--nm-accent) 25%,var(--nm-bg));border-color:var(--nm-accent)}.nm-settings .nm-switch input:checked + .nm-track:after{transform:translateX(16px);background:var(--nm-accent);box-shadow:0 0 8px color-mix(in srgb,var(--nm-accent) 50%,transparent)}.nm-settings .nm-switch:has(input:disabled){opacity:.55;cursor:not-allowed}
+.nm-settings .nm-switchcopy{display:flex;flex-direction:column;gap:3px;min-width:0}.nm-settings .nm-switchcopy strong{font-size:13px;font-weight:600}.nm-settings .nm-switchcopy small{font-size:11px;color:var(--nm-muted);line-height:1.5}.nm-settings .nm-group{padding:0;border:0;min-width:0;margin:0}.nm-settings .nm-group legend{font-weight:700;font-size:15px;margin-bottom:10px;width:100%;color:var(--nm-text)}.nm-settings .nm-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.nm-settings .nm-feature{padding:14px 16px;border:1px solid var(--nm-border);border-radius:13px;background:var(--nm-bg);transition:border-color .18s,transform .15s,box-shadow .15s;display:flex;flex-direction:column;justify-content:space-between;gap:8px}.nm-settings .nm-feature:hover{border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));transform:translateY(-2px);box-shadow:0 4px 14px -3px color-mix(in srgb,CanvasText 6%,transparent)}
+.nm-settings .nm-feature code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card));padding:3px 7px;border-radius:6px;border:1px solid color-mix(in srgb,var(--nm-accent) 18%,transparent);cursor:pointer;overflow-wrap:anywhere;display:inline-flex;align-items:center;gap:5px;width:fit-content;transition:all .15s ease}.nm-settings .nm-feature code:hover{background:color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card));border-color:var(--nm-accent);transform:scale(1.02)}
+.nm-settings .nm-savebar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:16px;border-top:1px solid var(--nm-border);flex-wrap:wrap}.nm-settings .nm-dirty{color:var(--nm-accent);font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}.nm-settings .nm-callout{padding:14px 18px;border-radius:13px;border:1px solid color-mix(in srgb,var(--nm-accent) 26%,var(--nm-border));background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-card));color:var(--nm-text);font-size:12px;line-height:1.6}.nm-settings .nm-alert{padding:16px 18px;border-radius:14px;border:1px solid color-mix(in srgb,var(--nm-error) 40%,var(--nm-border));background:color-mix(in srgb,var(--nm-error) 7%,var(--nm-card));display:flex;align-items:center;justify-content:space-between;gap:12px;white-space:pre-wrap;overflow-wrap:anywhere}.nm-settings .nm-success{border-color:color-mix(in srgb,var(--nm-good) 40%,var(--nm-border));background:color-mix(in srgb,var(--nm-good) 7%,var(--nm-card))}
+.nm-settings details{border:1px solid var(--nm-border);border-radius:13px;padding:14px 16px;background:color-mix(in srgb,var(--nm-bg) 60%,var(--nm-card))}.nm-settings summary{cursor:pointer;color:var(--nm-muted);font-weight:600}.nm-settings details[open]>summary{margin-bottom:16px;color:var(--nm-text)}.nm-settings .nm-metric{padding:18px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:14px;min-width:0;box-shadow:0 2px 8px color-mix(in srgb,CanvasText 3%,transparent)}.nm-settings .nm-metric span{font-size:11px;color:var(--nm-muted);display:block}.nm-settings .nm-metric strong{display:block;font-size:22px;font-weight:750;margin:6px 0;color:var(--nm-text)}.nm-settings .nm-metric code{display:block;font-size:11px;color:var(--nm-accent);overflow-wrap:anywhere}
+.nm-settings .nm-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.nm-settings .nm-skeleton{height:100px;border-radius:15px;background:linear-gradient(100deg,var(--nm-card),var(--nm-raised),var(--nm-card));background-size:200% 100%;animation:nm-settings-load 1.6s ease infinite}.nm-settings .nm-empty{text-align:center;padding:32px;color:var(--nm-muted)}.nm-settings .nm-footer{font-size:12px;color:var(--nm-muted);text-align:center;padding:12px 0}
+.nm-settings .nm-inlinecode{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-bg));color:var(--nm-accent);padding:3px 8px;border-radius:6px;border:1px solid color-mix(in srgb,var(--nm-accent) 22%,transparent);overflow-wrap:anywhere}
+.nm-settings .nm-workbench-pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;padding:16px;background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:15px}
+.nm-settings .nm-pipeline-step{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:12px;background:var(--nm-card);border:1px solid var(--nm-border);transition:all .18s ease}
+.nm-settings .nm-pipeline-step:hover{transform:translateY(-2px);border-color:var(--nm-accent);box-shadow:0 4px 12px -2px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-settings .nm-pipeline-badge{font-size:11px;font-weight:700;color:var(--nm-accent);display:inline-flex;align-items:center;gap:6px}
+.nm-settings .nm-pipeline-title{font-size:13px;font-weight:650;color:var(--nm-text)}
+.nm-settings .nm-pipeline-desc{font-size:11px;color:var(--nm-muted);line-height:1.4}
+.nm-settings .nm-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.nm-settings .nm-quick-card{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:12px;cursor:pointer;gap:12px;transition:all .16s ease}
+.nm-settings .nm-quick-card:hover{border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-bg));transform:translateY(-1px)}
+.nm-settings .nm-toast{position:fixed;bottom:26px;right:26px;z-index:9999;padding:10px 20px;border-radius:999px;background:var(--nm-raised);border:1px solid var(--nm-accent);color:var(--nm-text);font-size:12px;font-weight:600;box-shadow:0 8px 28px -4px rgba(0,0,0,0.3);display:flex;align-items:center;gap:8px;animation:nm-toast-in .2s ease-out}
+.nm-settings .nm-topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
+@keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
@@ -26,7 +56,36 @@ window.__ModuleLoader__.load({
       ['management', '管理', ['stats', 'export', 'backup', 'merge', 'split', 'tips', 'trope']],
       ['intelligence', '学习与决策', ['learn', 'memory', 'decide']],
     ]
-    const LEARNING = { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60 }
+    const PIPELINE_STEPS = [
+      { step: '01', title: '脑洞构思', cmd: '/novel-idea 你的脑洞', desc: '提炼核心看点与矛盾' },
+      { step: '02', title: '世界与人设', cmd: '/novel-cast + /novel-world', desc: '建立人物谱系与环境法则' },
+      { step: '03', title: '分卷与细纲', cmd: '/novel-outline 60章', desc: '规划每卷起承转合与钩子' },
+      { step: '04', title: '正文生成', cmd: '/novel-chapter 1', desc: '去机械化、真人作者质感' },
+      { step: '05', title: '审校与反馈', cmd: '/novel-review + /novel-reader', desc: '模拟读者画像、把控节奏' },
+    ]
+    const QUICK_ACTIONS = [
+      { label: '快速立项建书', cmd: '/novel 你的脑洞 60章 --auto', desc: '从设定到分卷一气呵成' },
+      { label: '生成指定新章节', cmd: '/novel-chapter 1 本章要写出压迫感', desc: '安全生成不覆盖原稿' },
+      { label: '拆解爆款文风', cmd: '/novel-study ./样章.txt --to 书名', desc: '提取词频习惯与黄金节奏' },
+      { label: '多重读者审校', cmd: '/novel-reader 1-3 --persona 挑刺党', desc: '挑刺党/催更党多维打分' },
+    ]
+    const LEARNING_TOPICS = [
+      { id: 'cast', label: '人设塑造与动态心流', desc: '角色的说话口吻、行事动机、反差与性格弧光' },
+      { id: 'pacing', label: '叙事节奏与黄金悬念', desc: '起承转合、章末断章钩子、信息梯度释放' },
+      { id: 'conflict', label: '矛盾升级与张力制造', desc: '多方博弈、危机压迫感、爽点爆发与情绪拉扯' },
+      { id: 'dialogue', label: '对白潜台词与真人质感', desc: '剔除AI机械腔、言外之意、符合身份的口语表达' },
+      { id: 'style', label: '文风语感与画面修辞', desc: '长短句律动、临场感烘托、动作细节特写' },
+      { id: 'world', label: '世界观细节与法则自洽', desc: '力量阶梯、设定自然带出、社会与自然法则' },
+    ]
+    const FALLBACK_MODELS = [
+      { provider: 'hajimi', model: 'gemini-3.8-flash', label: 'hajimi / gemini-3.8-flash (主会话模型)' },
+      { provider: 'workbuddy', model: 'deepseek-v4.1-flash', label: 'workbuddy / deepseek-v4.1-flash' },
+      { provider: 'our-free-model', model: 'mimo-v2.6-flash-free', label: 'our-free-model / mimo-v2.6-flash-free' },
+      { provider: 'our-free-model', model: 'space-bunny-free', label: 'our-free-model / space-bunny-free' },
+      { provider: 'workbuddy', model: 'hy4-preview-f', label: 'workbuddy / hy4-preview-f' },
+    ]
+    const GUIDANCE = { enabled: false, provider: '', model: '', reasoningEffort: '', writingProvider: '', writingModel: '', writingReasoningEffort: '', guidanceStyle: 'detailed' }
+    const LEARNING = { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', summaryReasoningEffort: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60, topics: [] }
     const DECISION = { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 }
     const short = value => value ? value.slice(0, 12) : '提交未知'
     const version = value => `${value?.version ?? '未知'} · ${short(value?.commit)}`
@@ -55,7 +114,7 @@ window.__ModuleLoader__.load({
       } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort) }
     }
 
-    function SettingsPage() {
+    function SettingsPage(props) {
       const [form, setForm] = useState(null)
       const [state, setState] = useState(null)
       const [busy, setBusy] = useState('')
@@ -63,6 +122,7 @@ window.__ModuleLoader__.load({
       const [notice, setNotice] = useState('')
       const [directory, setDirectory] = useState('')
       const [proxy, setProxy] = useState('')
+      const [guidance, setGuidance] = useState({ ...GUIDANCE, ...form?.value?.guidance })
       const [learning, setLearning] = useState({ ...LEARNING, ...form?.value?.learning })
       const [decision, setDecision] = useState({ ...DECISION, ...form?.value?.decision })
       const [activity, setActivity] = useState(null)
@@ -71,22 +131,114 @@ window.__ModuleLoader__.load({
       const [tab, setTab] = useState('features')
       const [search, setSearch] = useState('')
       const [loading, setLoading] = useState(!form)
+      const [toast, setToast] = useState('')
+      const [availableModels, setAvailableModels] = useState(FALLBACK_MODELS)
       const alive = useRef(true)
       const saving = useRef(false)
       const operation = useRef(null)
       const dirty = useRef({})
       const activityRequest = useRef(null)
+      const toastTimer = useRef(null)
+
+      const showToast = text => {
+        setToast(text)
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => { if (alive.current) setToast('') }, 2200)
+      }
+
+      const copyCommand = (cmdText, label = '') => {
+        try {
+          if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(cmdText).catch(() => {})
+          }
+        } catch {}
+        showToast(`已复制：${cmdText}`)
+      }
+
       const acceptForm = (next, saved = {}) => {
         setForm(next)
         for (const key of Object.keys(saved)) delete dirty.current[key]
         if (!dirty.current.projectsDir) setDirectory(next.value?.projectsDir ?? 'novel_projects')
         if (!dirty.current.updateProxy) setProxy(next.value?.updateProxy ?? '')
+        if (!dirty.current.guidance) setGuidance({ ...GUIDANCE, ...next.value?.guidance })
         if (!dirty.current.learning) setLearning({ ...LEARNING, ...next.value?.learning })
         if (!dirty.current.decision) setDecision({ ...DECISION, ...next.value?.decision })
       }
       const changed = (draft, original) => Object.keys(draft).some(key => String(draft[key]) !== String(original[key]))
+      const editGuidance = (key, next) => setGuidance(current => { const draft = { ...current, [key]: next }; dirty.current.guidance = changed(draft, { ...GUIDANCE, ...form?.value?.guidance }); return draft })
       const editLearning = (key, next) => setLearning(current => { const draft = { ...current, [key]: next }; dirty.current.learning = changed(draft, { ...LEARNING, ...form?.value?.learning }); return draft })
       const editDecision = (key, next) => setDecision(current => { const draft = { ...current, [key]: next }; dirty.current.decision = changed(draft, { ...DECISION, ...form?.value?.decision }); return draft })
+
+      const toggleTopic = id => {
+        setLearning(current => {
+          const currentTopics = Array.isArray(current.topics) ? current.topics : []
+          const nextTopics = currentTopics.includes(id)
+            ? currentTopics.filter(t => t !== id)
+            : [...currentTopics, id]
+          const draft = { ...current, topics: nextTopics }
+          dirty.current.learning = changed(draft, { ...LEARNING, ...form?.value?.learning })
+          return draft
+        })
+      }
+
+      const pickDirectory = async targetField => {
+        try {
+          if (typeof window !== 'undefined' && window.__DSH_DIRECTORY_PICKER__?.pick) {
+            const picked = await window.__DSH_DIRECTORY_PICKER__.pick()
+            if (picked) {
+              if (targetField === 'storageDir') editLearning('storageDir', picked)
+              else if (targetField === 'projectsDir') { setDirectory(picked); dirty.current.projectsDir = true }
+              showToast(`已选定目录：${picked}`)
+            }
+          } else {
+            showToast('请在输入框中直接输入目标文件夹路径（支持绝对或相对路径）')
+          }
+        } catch {
+          showToast('无法启动系统目录选择器，请手动输入路径。')
+        }
+      }
+
+      async function loadModels(signal) {
+        const ctx = props?.ctx
+        if (ctx?.remote?.llm && typeof ctx.remote.llm.listProviders === 'function') {
+          try {
+            const [reg, decl] = await Promise.all([
+              ctx.remote.llm.listProviders(),
+              typeof ctx.remote.llm.listConfigurableProviders === 'function' ? ctx.remote.llm.listConfigurableProviders() : { ok: false },
+            ])
+            const list = []
+            const seen = new Set()
+            const add = (p, m, l, efforts) => {
+              const k = `${p}::${m}`
+              if (!seen.has(k)) { seen.add(k); list.push({ provider: p, model: m, label: l || `${p} / ${m}`, efforts: efforts || [] }) }
+            }
+            if (reg?.ok && Array.isArray(reg.value)) {
+              for (const prov of reg.value) {
+                if (prov?.models && Array.isArray(prov.models)) {
+                  for (const m of prov.models) {
+                    const id = typeof m === 'string' ? m : m?.id
+                    const name = typeof m === 'object' && m?.name ? m.name : id
+                    const efforts = typeof m === 'object' && m?.reasoning?.efforts ? m.reasoning.efforts : []
+                    if (id) add(prov.id, id, `${prov.name || prov.id} / ${name}`, efforts)
+                  }
+                }
+              }
+            }
+            if (list.length > 0) {
+              if (alive.current) setAvailableModels(list)
+              return
+            }
+          } catch {}
+        }
+
+        try {
+          const res = await api('models', { signal })
+          if (alive.current && Array.isArray(res?.models) && res.models.length > 0) {
+            setAvailableModels(res.models)
+          }
+        } catch {}
+      }
+
       async function load(signal) {
         setLoading(true)
         const results = await Promise.allSettled([api('settings', { signal }), api('status', { signal })])
@@ -96,12 +248,13 @@ window.__ModuleLoader__.load({
         const failures = results.filter(result => result.status === 'rejected').map(result => result.reason.message)
         if (failures.length) setError(failures.join('\n'))
         setLoading(false)
+        loadModels(signal).catch(() => {})
       }
       useEffect(() => {
         alive.current = true
         const controller = new AbortController()
         load(controller.signal)
-        return () => { alive.current = false; controller.abort(); operation.current?.abort(); activityRequest.current?.abort() }
+        return () => { alive.current = false; controller.abort(); operation.current?.abort(); activityRequest.current?.abort(); if (toastTimer.current) clearTimeout(toastTimer.current) }
       }, [])
 
       async function refresh() { setError(''); await load() }
@@ -158,9 +311,29 @@ window.__ModuleLoader__.load({
         } catch (reason) { if (alive.current && !controller.signal.aborted) setActivityError(`读取活动失败：${reason.message}`) }
         finally { activityRequest.current = null; if (alive.current) setActivityBusy(false) }
       }
+      function saveGuidance(event) {
+        event.preventDefault()
+        const next = {
+          ...guidance,
+          provider: guidance.provider.trim(),
+          model: guidance.model.trim(),
+          reasoningEffort: guidance.reasoningEffort.trim(),
+          writingProvider: guidance.writingProvider.trim(),
+          writingModel: guidance.writingModel.trim(),
+          writingReasoningEffort: guidance.writingReasoningEffort.trim(),
+          guidanceStyle: guidance.guidanceStyle.trim() || 'detailed'
+        }
+        if (next.enabled && (!next.provider || !next.model)) return setError('引导模型需要明确配置提供方和模型。')
+        if (!!next.writingProvider !== !!next.writingModel) return setError('写作模型提供方和模型必须同时填写，或同时留空使用会话主模型。')
+        return save({ guidance: next })
+      }
       function saveLearning(event) {
         event.preventDefault()
         const next = { ...learning, storageDir: learning.storageDir.trim(), summaryProvider: learning.summaryProvider.trim(), summaryModel: learning.summaryModel.trim() }
+        if (!next.topics || (Array.isArray(next.topics) && next.topics.length === 0 && (!form?.value?.learning?.topics || form.value.learning.topics.length === 0))) {
+          if (!('topics' in (form?.value?.learning ?? {}))) delete next.topics
+        }
+        if (!next.summaryReasoningEffort && !('summaryReasoningEffort' in (form?.value?.learning ?? {}))) delete next.summaryReasoningEffort
         if (!next.storageDir) return setError('学习存储目录不能为空；支持绝对路径或相对路径。')
         if (!!next.summaryProvider !== !!next.summaryModel) return setError('摘要提供方和模型必须同时填写，或同时留空。')
         const ranges = { maxInputChars: [1000, 24000], maxRecords: [1, 10000], cooldownSeconds: [0, 86400] }
@@ -180,10 +353,10 @@ window.__ModuleLoader__.load({
       }
       const value = form?.value ?? {}
       const locked = !!busy || state?.busy || activityBusy
-      const commandKeys = Object.keys(value.commands ?? {}).filter(key => key !== 'update' && key !== 'novel-update')
+      const commandKeys = Object.keys(value?.commands ?? {}).filter(key => key !== 'update' && key !== 'novel-update')
       const known = new Set(GROUPS.flatMap(([, , keys]) => keys))
       const groups = [...GROUPS, ['other', '其他', commandKeys.filter(key => !known.has(key))]]
-      const enabledCount = keys => keys.filter(key => value.commands[key] !== false).length
+      const enabledCount = keys => (Array.isArray(keys) ? keys : []).filter(key => value?.commands?.[key] !== false).length
       const batch = (keys, enabled) => { if (!locked && !saving.current) return save({ commands: Object.fromEntries(keys.map(key => [key, enabled])) }) }
       const field = (label, key, draft, edit, type = 'text', props = {}) => h('label', { className: 'nm-field' }, h('span', null, label),
         h('input', { type, value: draft[key], disabled: locked, 'aria-label': label, ...props, onChange: event => edit(key, event.target.value) }))
@@ -193,56 +366,231 @@ window.__ModuleLoader__.load({
       const check = (label, key, draft, edit, description) => toggle(label, draft[key] === true, next => edit(key, next), description)
       const card = (title, description, ...children) => h('div', { className: 'nm-card' }, h('div', null, h('h3', null, title), description && h('p', { className: 'nm-muted' }, description)), ...children)
       const actionButton = (label, onClick, disabled = locked, primary = false) => h('button', { type: 'button', onClick, disabled, className: primary ? 'nm-primary' : '' }, label)
-      const saveBar = (section, label, disabled = false) => h('div', { className: 'nm-savebar' }, h('span', { className: dirty.current[section] ? 'nm-dirty' : 'nm-muted' }, dirty.current[section] ? '有未保存的修改' : '配置已同步'), h('button', { type: 'submit', className: 'nm-primary', disabled: locked || disabled }, busy === 'save' ? '正在保存…' : label))
+      const saveBar = (section, label, disabled = false) => h('div', { className: 'nm-savebar' }, h('span', { className: dirty.current[section] ? 'nm-dirty' : 'nm-muted' }, dirty.current[section] ? '● 有未保存的修改' : '✓ 配置已同步'), h('button', { type: 'submit', className: 'nm-primary', disabled: locked || disabled }, busy === 'save' ? '正在保存…' : label))
       const panel = (id, ...children) => h('section', { id: `nm-panel-${id}`, role: 'tabpanel', 'aria-labelledby': `nm-tab-${id}`, hidden: tab !== id, className: 'nm-stack', tabIndex: 0 }, ...children)
       const chip = (label, on) => h('span', { className: 'nm-chip', 'data-on': on === true }, h('i', { 'aria-hidden': true }), label)
       const query = search.trim().toLowerCase()
       const matches = key => !query || `${LABELS[key] ?? key} novel-${key}`.toLowerCase().includes(query)
-      const descriptions = { novel: '从脑洞到完整长篇', continue: '接续项目或导入作品', chapter: '按指定章号生成新稿', rewrite: '调整表达与叙事方式', idea: '展开脑洞与故事方向', outline: '搭建分卷与章节结构', cast: '建立角色档案', world: '查看或推演世界状态', role: '查看与调整角色设定', spark: '为创作卡点提供灵感', study: '拆解参考作品的风格', review: '检查逻辑与文字问题', conflict: '梳理冲突与升级空间', pace: '检查叙事节奏和张弛', reader: '模拟不同读者的反馈', dialogue: '检查人物口吻与对话', emotion: '追踪情绪变化与弧线', market: '讨论平台适配方向', compare: '对比作品差异与优势', stats: '计算字数与章节进度', export: '导出可阅读的整书文件', backup: '保留可恢复的项目快照', merge: '将选定章节合成新文件', split: '按长度拆分为新文件', tips: '获取针对性的写作建议', trope: '设计套路变体与风险', learn: '提炼可复用的写作经验', memory: '查询模型专属经验', decide: '获得有依据的取舍建议' }
+      const descriptions = { novel: '从脑洞到完整长篇', continue: '接续项目或导入作品', chapter: '按指定章号生成新稿', rewrite: '调整表达与叙事方式', idea: '展开脑洞与故事方向', outline: '搭建分卷与章节结构', cast: '建立角色档案', world: '查看或推演世界状态', role: '查看与调整角色设定', spark: '为创作卡点提供灵感', study: '拆解参考作品的风格', review: '检查逻辑与文字问题', conflict: '梳理冲突与升级空间', pace: '检查叙事节奏和张弛', reader: '模拟不同读者的反馈', dialogue: '检查人物口吻与对话', emotion: '追踪情绪变化与弧线', market: '讨论平台适配方向', compare: '作品对比差异与优势', stats: '计算字数与章节进度', export: '导出可阅读的整书文件', backup: '保留可恢复的项目快照', merge: '将选定章节合成新文件', split: '按长度拆分为新文件', tips: '获取针对性的写作建议', trope: '设计套路变体与风险', learn: '提炼可复用的写作经验', memory: '查询模型专属经验', decide: '获得有依据的取舍建议' }
       const applyPreset = keys => { if (!locked && !saving.current) return save({ commands: Object.fromEntries(commandKeys.map(key => [key, keys.includes(key)])) }) }
       const activityPanel = h('div', { className: 'nm-card' }, h('div', { className: 'nm-cardhead' }, h('div', null, h('h3', null, '智能活动'), h('p', { className: 'nm-muted' }, '按需读取实际运行状态，不推测当前模型。')), actionButton(activityBusy ? '正在读取活动…' : '读取学习与决策活动', readActivity)),
         activityError && h('p', { role: 'alert', className: 'nm-alert' }, activityError),
         activity ? h('div', { role: 'status', className: 'nm-stack' }, h('div', { className: 'nm-row' }, chip(`学习：${activity.learningEnabled === true ? '启用' : activity.learningEnabled === false ? '关闭' : '未知'}`, activity.learningEnabled), chip(`决策：${activity.decisionEnabled === true ? '启用' : activity.decisionEnabled === false ? '关闭' : '未知'}`, activity.decisionEnabled)),
           h('p', { className: 'nm-muted' }, `配置存储地址：${activity.storageDir ?? '未返回'}；最近实际目录：${activity.location ?? '尚未访问'}`),
           h('p', { className: 'nm-muted' }, `跟踪会话：${activity.trackedSessions ?? '未返回'}；活动任务：${activity.activeJobs ?? '未返回'}；本次运行写入：${activity.recordsWrittenThisRun ?? '未返回'}`), activity.lastError && h('p', { role: 'alert' }, `最近错误：${activity.lastError}`)) : h('p', { className: 'nm-muted' }, '尚未读取。使用 /novel-memory 可查询已保存的经验。'))
+
+      const workbenchCard = form && card('创作流水线工作台', '标准网文创作五阶段流转，点击指令代码可快速复制使用。',
+        h('div', { className: 'nm-workbench-pipeline' },
+          ...PIPELINE_STEPS.map(item => h('div', { className: 'nm-pipeline-step', key: item.step },
+            h('span', { className: 'nm-pipeline-badge' }, `阶段 ${item.step}`),
+            h('div', { className: 'nm-pipeline-title' }, item.title),
+            h('div', { className: 'nm-pipeline-desc' }, item.desc),
+            h('code', { className: 'nm-inlinecode', onClick: () => copyCommand(item.cmd), title: '点击复制指令' }, item.cmd)
+          ))
+        ),
+        h('div', { className: 'nm-quick-grid' },
+          ...QUICK_ACTIONS.map(item => h('div', { className: 'nm-quick-card', key: item.label, onClick: () => copyCommand(item.cmd) },
+            h('div', null, h('strong', { style: { display: 'block', marginBottom: '3px' } }, item.label), h('span', { className: 'nm-muted' }, item.desc)),
+            h('code', { className: 'nm-inlinecode' }, '复制')
+          ))
+        )
+      )
+
+      const renderReasoningSelect = (label, currentEffort, onSelectEffort, provider, model) => {
+        const curEff = currentEffort || ''
+        const targetModel = availableModels.find(x => x.provider === provider && x.model === model)
+        const efforts = targetModel?.efforts || []
+        const hasCustomEffort = curEff && !['', 'low', 'medium', 'high', 'extra_high'].includes(curEff) && !efforts.some(e => e.id === curEff)
+        return h('div', { className: 'nm-field' },
+          h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+            label,
+            h('small', { className: 'nm-muted' }, efforts.length ? `模型已声明 ${efforts.length} 档思考等级` : '留空使用默认强度')
+          ),
+          h('select', {
+            className: 'nm-select',
+            value: curEff,
+            disabled: locked,
+            'aria-label': `${label}选择器`,
+            onChange: event => {
+              const val = event.target.value
+              onSelectEffort(val)
+              showToast(val ? `思考强度已切换为：${val}` : '思考强度已切换为：默认强度')
+            }
+          },
+            h('option', { value: '' }, '⚡ 默认思考强度 (Default)'),
+            h('option', { value: 'low' }, '🌱 低思考强度 (Low · 极速响应)'),
+            h('option', { value: 'medium' }, '⚖️ 中等思考强度 (Medium · 平衡)'),
+            h('option', { value: 'high' }, '🧠 高深度思考 (High · 严密推演)'),
+            h('option', { value: 'extra_high' }, '🔥 极限思考模式 (Extra High)'),
+            hasCustomEffort && h('option', { value: curEff }, `⚙️ 自定义强度：${curEff}`),
+            ...efforts.filter(e => !['low', 'medium', 'high', 'extra_high'].includes(e.id)).map(e => h('option', { key: e.id, value: e.id }, `💡 ${e.name || e.id}`))
+          )
+        )
+      }
+
+      const renderModelSelect = (label, currentProvider, currentModel, onSelect, isSummary = false) => {
+        const curKey = currentProvider && currentModel ? `${currentProvider}::${currentModel}` : ''
+        const isCustom = curKey && !availableModels.some(m => `${m.provider}::${m.model}` === curKey)
+        return h('div', { className: 'nm-field', style: { marginBottom: '6px' } },
+          h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+            label,
+            h('small', { className: 'nm-muted' }, isCustom ? '当前选用自定义模型' : `已实时发现 ${availableModels.length} 个 DSH 可用模型`)
+          ),
+          h('select', {
+            className: 'nm-select',
+            value: curKey,
+            disabled: locked,
+            'aria-label': `${label}选择器`,
+            onChange: event => {
+              const val = event.target.value
+              if (!val) {
+                onSelect('', '')
+                showToast('已选用：跟随来源 (默认)')
+              } else {
+                const [p, m] = val.split('::')
+                onSelect(p, m)
+                const target = availableModels.find(x => x.provider === p && x.model === m)
+                showToast(`已选用：${target?.label || m}`)
+              }
+            }
+          },
+            isSummary && h('option', { value: '' }, '✨ 跟随来源 (默认，不指定独立模型)'),
+            !isSummary && h('option', { value: '', disabled: true }, '-- 请在现有模型列表中选择 --'),
+            isCustom && h('option', { value: curKey }, `⚙️ 当前配置：${currentProvider} / ${currentModel}`),
+            ...availableModels.map(m => h('option', {
+              key: `${m.provider}::${m.model}`,
+              value: `${m.provider}::${m.model}`
+            }, m.label || `${m.provider} / ${m.model}`))
+          )
+        )
+      }
+
+      const activeTopics = Array.isArray(learning.topics) ? learning.topics : []
+
       return h('div', { className: 'nm-settings' }, h('style', null, CSS),
         h('header', { className: 'nm-hero' }, h('div', { className: 'nm-row nm-between' }, h('div', { className: 'nm-brand' }, h('div', { className: 'nm-logo', 'aria-hidden': true }, h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }, h('path', { d: 'M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z' }), h('path', { d: 'M12 6v14M6 9h3M6 12h3M15 9h3M15 12h3' }))), h('div', null, h('div', { className: 'nm-row' }, h('h2', null, '小说创作大师'), h('span', { className: 'nm-badge' }, 'v1.4.3')), h('p', { className: 'nm-muted' }, '把创作、经验与判断，整理成自己的写作工作台。'))), actionButton('刷新设置与状态', refresh)),
-          h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
+          h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
         notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
-        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['learning', '学习总结'], ['decision', '决策助手'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
+        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
         panel('features', form && card('创作工作台', '关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。',
           toggle('启用小说功能', value.enabled !== false, next => save({ enabled: next }), '已运行的写作目标可通过 /goal pause 暂停。'),
-          h('form', { 'aria-label': '项目目录配置', onSubmit: event => { event.preventDefault(); if (directory.trim()) save({ projectsDir: directory.trim() }) } }, field('项目目录', 'directory', { directory }, (_, next) => { dirty.current.projectsDir = next !== (value.projectsDir ?? 'novel_projects'); setDirectory(next) }, 'text', { required: true, placeholder: 'novel_projects' }), h('p', { className: 'nm-muted' }, '相对于工作目录保存小说项目；修改地址不会自动搬迁已有文件。'), saveBar('projectsDir', '保存项目目录', !directory.trim()))),
+          h('form', { 'aria-label': '项目目录配置', onSubmit: event => { event.preventDefault(); if (directory.trim()) save({ projectsDir: directory.trim() }) } },
+            h('div', { className: 'nm-field' },
+              h('span', null, '项目目录'),
+              h('div', { className: 'nm-path-box' },
+                h('input', { type: 'text', value: directory, disabled: locked, required: true, 'aria-label': '项目目录', placeholder: 'novel_projects', onChange: event => { dirty.current.projectsDir = event.target.value !== (value.projectsDir ?? 'novel_projects'); setDirectory(event.target.value) } }),
+                actionButton('📁 浏览…', () => pickDirectory('projectsDir'), locked)
+              )
+            ),
+            h('p', { className: 'nm-muted' }, '相对于工作目录保存小说项目，也可以点击“浏览”选择自定义绝对路径。'),
+            saveBar('projectsDir', '保存项目目录', !directory.trim())
+          )),
+          workbenchCard,
           form && card('选择适合你的工具', '按创作阶段选择，开关保存后立即生效；更新维护始终保留。',
             h('div', { className: 'nm-toolbar' }, h('input', { className: 'nm-search', type: 'search', value: search, placeholder: '搜索功能名称或命令…', 'aria-label': '搜索功能', onChange: event => setSearch(event.target.value) }), actionButton('全部开启', () => batch(commandKeys, true), locked || !commandKeys.length), actionButton('全部关闭', () => batch(commandKeys, false), locked || !commandKeys.length)),
             h('div', { className: 'nm-row' }, h('span', { className: 'nm-muted' }, '快速选择'), actionButton('基础工具', () => applyPreset(['novel', 'continue', 'chapter', 'outline', 'cast', 'stats', 'export', 'backup'])), actionButton('写作进阶', () => applyPreset(GROUPS.slice(0, 4).flatMap(([, , keys]) => keys))), actionButton('完整工具', () => applyPreset(commandKeys))),
             h('p', { role: 'status', className: 'nm-muted' }, `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项创作功能${value.enabled === false ? '（总开关已关闭）' : ''}`),
             ...groups.map(([id, label, keys]) => { const available = keys.filter(key => commandKeys.includes(key)); const visible = available.filter(matches); if (!available.length || !visible.length) return null
-              return h('fieldset', { className: 'nm-group', key: id, 'aria-label': `${label}功能` }, h('legend', null, `${label} · ${enabledCount(available)} / ${available.length}`), h('div', { className: 'nm-row' }, actionButton(`${label}全开`, () => batch(available, true)), actionButton(`${label}全关`, () => batch(available, false))), h('div', { className: 'nm-features' }, ...visible.map(key => h('div', { className: 'nm-feature', key }, toggle(LABELS[key] ?? key, value.commands[key] !== false, next => batch([key], next), descriptions[key] ?? '按需加入你的创作工作流。'), h('code', null, `/${key === 'novel' ? 'novel' : `novel-${key}`}`))))) }),
+              return h('fieldset', { className: 'nm-group', key: id, 'aria-label': `${label}功能` }, h('legend', null, `${label} · ${enabledCount(available)} / ${available.length}`), h('div', { className: 'nm-row' }, actionButton(`${label}全开`, () => batch(available, true)), actionButton(`${label}全关`, () => batch(available, false))), h('div', { className: 'nm-features' }, ...visible.map(key => {
+                const cmdStr = `/${key === 'novel' ? 'novel' : `novel-${key}`}`
+                return h('div', { className: 'nm-feature', key },
+                  toggle(LABELS[key] ?? key, value?.commands?.[key] !== false, next => batch([key], next), descriptions[key] ?? '按需加入你的创作工作流。'),
+                  h('code', { onClick: () => copyCommand(cmdStr), title: '点击复制指令' }, cmdStr)
+                )
+              }))) }),
             !commandKeys.some(matches) && h('div', { className: 'nm-empty', role: 'status' }, '没有找到匹配功能，试试其他关键词。'))),
+        panel('guidance', form && !value.guidance ? card('引导配置尚未就绪', '当前 Host 尚未提供引导配置，请重载插件或重启 DSH。') : form && h('form', { className: 'nm-stack', 'aria-label': '引导配置', onSubmit: saveGuidance },
+          card('智能引导-写作分离架构', '由引导模型负责规划与拆解，写作模型专注文字生成。适合用顶尖模型引导、快速模型执行，达成质量与成本的最佳平衡。', 
+            check('启用引导模型', 'enabled', guidance, editGuidance, '引导模型会分析上下文、拆解任务、生成详细写作大纲，再交由写作模型执行。'),
+            h('div', { className: 'nm-callout' }, '💡 推荐配置：Claude Opus 5.5 引导 + Gemini 2.0 Flash 写作，兼顾质量与速度。')),
+          card('引导模型配置（规划与拆解）', '负责分析项目状态、拆解任务、生成详细执行大纲与写作要求。',
+            h('div', { className: 'nm-stack' },
+              renderModelSelect('从现有模型列表中选择引导模型', guidance.provider, guidance.model, (p, m) => { editGuidance('provider', p); editGuidance('model', m) }, false),
+              renderReasoningSelect('引导模型思考/推理强度 (Reasoning Effort)', guidance.reasoningEffort, val => editGuidance('reasoningEffort', val), guidance.provider, guidance.model),
+              h('div', { className: 'nm-grid' },
+                field('引导模型提供方', 'provider', guidance, editGuidance, 'text', { placeholder: '例如 anthropic', required: guidance.enabled }),
+                field('引导模型 ID', 'model', guidance, editGuidance, 'text', { placeholder: '例如 claude-opus-5.5', required: guidance.enabled })
+              )
+            )),
+          card('写作模型配置（文字生成）', '负责接收引导大纲并生成最终文字。留空则使用会话主模型。',
+            h('div', { className: 'nm-stack' },
+              renderModelSelect('从现有模型列表中选择写作模型', guidance.writingProvider, guidance.writingModel, (p, m) => { editGuidance('writingProvider', p); editGuidance('writingModel', m) }, true),
+              renderReasoningSelect('写作模型思考/推理强度 (Reasoning Effort)', guidance.writingReasoningEffort, val => editGuidance('writingReasoningEffort', val), guidance.writingProvider, guidance.writingModel),
+              h('div', { className: 'nm-grid' },
+                field('写作模型提供方', 'writingProvider', guidance, editGuidance, 'text', { placeholder: '留空使用会话主模型' }),
+                field('写作模型 ID', 'writingModel', guidance, editGuidance, 'text', { placeholder: '留空使用会话主模型' })
+              )
+            )),
+          card('引导风格', '决定引导模型输出的详细程度。',
+            h('div', { className: 'nm-field' },
+              h('span', null, '引导详细度'),
+              h('select', { value: guidance.guidanceStyle, disabled: locked, 'aria-label': '引导风格', onChange: event => editGuidance('guidanceStyle', event.target.value) },
+                h('option', { value: 'concise' }, '简明 (Concise) - 简短要点，适合经验丰富的写作模型'),
+                h('option', { value: 'detailed' }, '详细 (Detailed) - 完整大纲与细节要求（推荐）'),
+                h('option', { value: 'verbose' }, '极详细 (Verbose) - 包含示例与参考，适合弱写作模型')
+              )
+            ),
+            h('p', { className: 'nm-muted' }, '建议：Flash 模型使用"极详细"；GPT-4/Claude 使用"详细"；o1/DeepSeek-R1 使用"简明"。')),
+          saveBar('guidance', '保存引导配置'))),
         panel('learning', form && !value.learning ? card('学习配置尚未就绪', '当前 Host 尚未提供学习配置，请重载插件或重启 DSH。') : form && h('form', { className: 'nm-stack', 'aria-label': '学习配置', onSubmit: saveLearning },
           card('让每次创作留下经验', '从小说任务的成功输出中总结经验，按工作目录与实际提供方 / 模型分别保存。', check('启用学习', 'enabled', learning, editLearning, '保存可查询的经验，不训练模型权重，也不收集任意聊天。'), h('div', { className: 'nm-grid' }, h('div', { className: 'nm-feature' }, check('自动生成摘要', 'autoSummarize', learning, editLearning, '小说任务完成后自动总结。')), h('div', { className: 'nm-feature' }, check('复用学习记录', 'reuse', learning, editLearning, '将同模型经验加入后续任务参考。')))),
-          card('经验存储', '你决定记录保存在哪里。', field('学习存储目录', 'storageDir', learning, editLearning, 'text', { required: true, placeholder: 'novel_learning 或绝对路径' }), h('p', { className: 'nm-callout' }, '支持工作目录相对路径或绝对地址。不同工作目录与模型独立存储，切换地址不会自动迁移旧记录。')),
-          card('摘要生成模型', '留空跟随被总结结果的来源模型；指定其他模型时仍保留原始归属。', h('div', { className: 'nm-grid' }, field('摘要生成提供方', 'summaryProvider', learning, editLearning, 'text', { placeholder: '留空跟随来源' }), field('摘要生成模型', 'summaryModel', learning, editLearning, 'text', { placeholder: '填写准确的 model ID' })), h('details', null, h('summary', null, '高级设置 · 输入与存储限额'), h('div', { className: 'nm-grid' }, field('学习输入字符上限', 'maxInputChars', learning, editLearning, 'number', { required: true, min: 1000, max: 24000, step: 1 }), field('学习记录上限', 'maxRecords', learning, editLearning, 'number', { required: true, min: 1, max: 10000, step: 1 }), field('学习冷却秒数', 'cooldownSeconds', learning, editLearning, 'number', { required: true, min: 0, max: 86400, step: 1 })), h('p', { className: 'nm-muted' }, '达到记录上限停止追加，不自动删除旧资料。')), saveBar('learning', '保存学习配置'))), activityPanel),
+          card('经验存储地点（自主选择）', '您可以自由指定学习资料存储在任意本地文件夹，支持相对路径或系统绝对路径。',
+            h('div', { className: 'nm-field' },
+              h('span', null, '学习存储目录'),
+              h('div', { className: 'nm-path-box' },
+                h('input', { type: 'text', value: learning.storageDir, disabled: locked, required: true, 'aria-label': '学习存储目录', placeholder: 'novel_learning 或 C:\\MyNovels\\learning', onChange: event => editLearning('storageDir', event.target.value) }),
+                actionButton('📁 浏览目录…', () => pickDirectory('storageDir'), locked)
+              )
+            ),
+            h('p', { className: 'nm-callout' }, '提示：点击【📁 浏览目录…】可通过桌面窗口自由挑选存储文件夹；不同目录与模型相互隔离，随时可自由更换。')
+          ),
+          card('学习总结维度自由定制（人设与写作方法）', '自由勾选您希望模型重点提炼与复用的创作经验维度。全不勾选时默认进行全局综合总结。',
+            h('div', { className: 'nm-topic-grid' },
+              ...LEARNING_TOPICS.map(topic => h('div', { className: 'nm-feature', key: topic.id },
+                toggle(topic.label, activeTopics.includes(topic.id), () => toggleTopic(topic.id), topic.desc)
+              ))
+            ),
+            h('p', { className: 'nm-muted', style: { marginTop: '8px' } }, `当前已选定 ${activeTopics.length} 个重点提炼维度${activeTopics.length === 0 ? '（全局综合提取模式）' : ''}。`)
+          ),
+          card('摘要生成模型与思考强度', '留空跟随被总结结果的来源模型；指定其他模型时仍保留原始归属。',
+            h('div', { className: 'nm-stack' },
+              renderModelSelect('从现有模型列表中选择', learning.summaryProvider, learning.summaryModel, (p, m) => { editLearning('summaryProvider', p); editLearning('summaryModel', m) }, true),
+              renderReasoningSelect('摘要模型思考/推理强度 (Reasoning Effort)', learning.summaryReasoningEffort, val => editLearning('summaryReasoningEffort', val), learning.summaryProvider, learning.summaryModel),
+              h('div', { className: 'nm-grid' },
+                field('摘要生成提供方', 'summaryProvider', learning, editLearning, 'text', { placeholder: '留空跟随来源' }),
+                field('摘要生成模型', 'summaryModel', learning, editLearning, 'text', { placeholder: '填写准确的 model ID' })
+              )
+            ),
+            h('details', null, h('summary', null, '高级设置 · 输入与存储限额'), h('div', { className: 'nm-grid' }, field('学习输入字符上限', 'maxInputChars', learning, editLearning, 'number', { required: true, min: 1000, max: 24000, step: 1 }), field('学习记录上限', 'maxRecords', learning, editLearning, 'number', { required: true, min: 1, max: 10000, step: 1 }), field('学习冷却秒数', 'cooldownSeconds', learning, editLearning, 'number', { required: true, min: 0, max: 86400, step: 1 })), h('p', { className: 'nm-muted' }, '达到记录上限停止追加，不自动删除旧资料。')), saveBar('learning', '保存学习配置'))), activityPanel),
         panel('decision', form && !value.decision ? card('决策配置尚未就绪', '当前 Host 尚未提供决策配置，请重载插件或重启 DSH。') : form && h('form', { className: 'nm-stack', 'aria-label': '决策配置', onSubmit: saveDecision },
           card('为关键取舍增加第二种判断', '在剧情分岔与审校选择中，调用你指定的模型提供有依据的建议。', check('启用辅助决策', 'enabled', decision, editDecision, '返回选择、简短理由、置信度与人工复核要求。'), h('div', { className: 'nm-callout' }, '决策仅作建议；低置信度或调用失败时交回用户，永不授权删除或恢复操作。')),
-          card('决策模型', '明确指定已注册的模型路由，不根据名称推断模型能力。', h('div', { className: 'nm-grid' }, field('决策提供方', 'provider', decision, editDecision, 'text', { placeholder: 'provider ID' }), field('决策模型', 'model', decision, editDecision, 'text', { placeholder: 'model ID' })), h('details', null, h('summary', null, '高级设置 · 推理与复核'), h('div', { className: 'nm-grid' }, field('决策推理强度', 'reasoningEffort', decision, editDecision, 'text', { placeholder: '留空使用模型默认值' }), field('最低决策置信度', 'minConfidence', decision, editDecision, 'number', { required: true, min: 0, max: 1, step: 0.01 }), field('决策超时毫秒', 'timeoutMs', decision, editDecision, 'number', { required: true, min: 1000, max: 120000, step: 1 })), h('p', { className: 'nm-muted' }, '推理强度需由所选模型支持。低于置信度阈值的结果须人工复核。')), saveBar('decision', '保存决策配置'))), h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-decide 问题 | 选项A | 选项B'))),
+          card('决策模型与思考强度', '明确指定已注册的模型路由，不根据名称推断模型能力。',
+            h('div', { className: 'nm-stack' },
+              renderModelSelect('从现有模型列表中选择', decision.provider, decision.model, (p, m) => { editDecision('provider', p); editDecision('model', m) }, false),
+              renderReasoningSelect('决策模型思考/推理强度 (Reasoning Effort)', decision.reasoningEffort, val => editDecision('reasoningEffort', val), decision.provider, decision.model),
+              h('div', { className: 'nm-grid' },
+                field('决策提供方', 'provider', decision, editDecision, 'text', { placeholder: 'provider ID' }),
+                field('决策模型', 'model', decision, editDecision, 'text', { placeholder: 'model ID' })
+              )
+            ),
+            h('details', null, h('summary', null, '高级设置 · 推理与复核'), h('div', { className: 'nm-grid' }, field('决策推理强度', 'reasoningEffort', decision, editDecision, 'text', { placeholder: '留空使用模型默认值' }), field('最低决策置信度', 'minConfidence', decision, editDecision, 'number', { required: true, min: 0, max: 1, step: 0.01 }), field('决策超时毫秒', 'timeoutMs', decision, editDecision, 'number', { required: true, min: 1000, max: 120000, step: 1 })), h('p', { className: 'nm-muted' }, '推理强度需由所选模型支持。低于置信度阈值的结果须人工复核。')), saveBar('decision', '保存决策配置'))), h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-decide 问题 | 选项A | 选项B'))),
         panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
           state?.latest && h('p', { className: 'nm-callout' }, state.updateAvailable === false ? '磁盘已是此提交。' : state.updateAvailable === null ? '本地提交未知，版本号相同不能证明代码相同。' : '发现可安装的提交。检查后拉取会锁定本次完整 SHA。'),
           h('div', { className: 'nm-row' }, actionButton(busy === 'check' ? '检查中…' : '检查更新', () => run('check'), locked, true), actionButton(busy === 'apply' ? '正在拉取并安装…' : '拉取此提交', () => run('apply'), locked || !state?.latest), (busy === 'apply' || state?.busy) && actionButton('取消安装', cancel, false)), state?.result && h('p', { className: 'nm-callout' }, `最近安装结果：${state.result.application}${state.result.codeReload ? `；代码重载：${state.result.codeReload.application}` : ''}`)),
           form && card('更新网络', '代理只影响更新检查；安装使用 DSH 插件管理器的网络设置。', h('form', { 'aria-label': '更新代理配置', onSubmit: event => { event.preventDefault(); save({ updateProxy: proxy.trim() }) } }, field('更新检查代理', 'proxy', { proxy }, (_, next) => { dirty.current.updateProxy = next !== (value.updateProxy ?? ''); setProxy(next) }, 'text', { placeholder: 'http://127.0.0.1:7897' }), h('p', { className: 'nm-muted' }, '留空使用代理环境变量或直连。'), saveBar('updateProxy', '保存更新代理'))),
           card('运行维护', '代码重载切换 Host 运行实例，刷新界面只重新加载浏览器页面。', h('div', { className: 'nm-row' }, actionButton('重载插件', () => run('reload'), locked || !state?.reloadSupported), actionButton('刷新界面', () => window.location.reload(), !!busy)), !state?.reloadSupported && h('p', { className: 'nm-muted' }, '当前运行实例未提供可用重载入口，需要时请重启 DSH。'))),
+        toast && h('div', { className: 'nm-toast', role: 'status' }, toast),
         h('footer', { className: 'nm-footer' }, '创作由你掌舵 · 功能按需开启 · 配置保存后生效'))
     }
     return {
-      name: 'novel-master', inject: ['slots'],
+      name: 'novel-master', inject: ['slots', 'remote', 'remote.llm'],
       apply(ctx) {
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section', id: 'novel-master', order: 36, label: () => '小说创作大师',
-        }, props => h(SettingsPage, props)))
+        }, props => h(SettingsPage, { ...props, ctx })))
       },
     }
   },
