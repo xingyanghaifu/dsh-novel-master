@@ -195,7 +195,7 @@ class PerformanceMonitor {
   }
 
   endGuidance(tokens = 0) {
-    if (this._guidanceStart) {
+    if (this._guidanceStart !== undefined) {
       this.metrics.guidanceTime = Date.now() - this._guidanceStart
       this.metrics.guidanceTokens = tokens
       delete this._guidanceStart
@@ -207,7 +207,7 @@ class PerformanceMonitor {
   }
 
   endWriting(tokens = 0) {
-    if (this._writingStart) {
+    if (this._writingStart !== undefined) {
       this.metrics.writingTime = Date.now() - this._writingStart
       this.metrics.writingTokens = tokens
       delete this._writingStart

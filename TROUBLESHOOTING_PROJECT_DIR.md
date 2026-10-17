@@ -37,56 +37,19 @@
 
 ## 🔧 修复步骤
 
-### 方法1：通过设置界面修复（推荐）
+### 通过 DSH 设置修复（推荐）
 
-1. **打开插件设置**
-   - 在 DSH Web GUI 中点击右上角 ⚙️ 图标
-   - 找到 **小说写作大师（dsh-novel-master）** 插件
+1. 打开 DSH 的「设置 → 插件」，选择 **小说写作大师（dsh-novel-master）**。
+2. 在插件配置中编辑「项目目录」（`projectsDir`），填写工作目录内的简单相对路径，例如 `novel_projects`、`books/novels`。
+3. 保存配置，然后重新运行小说命令。
 
-2. **修改项目目录**
-   - 找到「**项目目录**」配置项
-   - 将其改为**简单的相对路径**，例如：
-     - `novel_projects`（默认推荐）
-     - `books/novels`
-     - `writing`
-
-3. **保存配置**
-   - 点击「保存项目目录」按钮
-   - 等待保存成功提示
-
-4. **重试命令**
-   ```bash
-   /novel 测试小说
-   ```
+当前版本没有独立的路径修复页面、去抖校验框或一键修复按钮。对于含 `.`/`..` 路径段，插件可能给出保持目标位置不变的建议；建议是供确认的文本，不应未经检查自动应用。越界路径、非法字符和无法证明安全等价的转换不会被静默改写。
 
 ---
 
-### 方法2：通过配置文件修复
+### 通过配置源修复
 
-如果设置界面无法访问，可以手动编辑配置文件：
-
-1. **找到配置文件**
-   
-   配置文件可能在以下位置之一：
-   - `%APPDATA%\deepseek-harness\config\cordis.yml`
-   - 或你的自定义配置文件
-
-2. **编辑配置**
-   
-   找到 `novel-master` 相关配置，修改 `projectsDir`：
-
-   ```yaml
-   plugins:
-     - id: novel-master
-       name: dsh-novel-master
-       config:
-         enabled: true
-         projectsDir: novel_projects  # ✅ 改成简单相对路径
-   ```
-
-3. **重启 DSH**
-   
-   保存文件后重启 DeepSeek Harness。
+如果无法使用 DSH 设置界面，请通过你当前配置文件的官方方式修改插件 `projectsDir`，不要依赖此文档中未确认的固定配置文件位置。保存后按 DSH 的配置加载方式重新加载或重启。
 
 ---
 
@@ -192,22 +155,7 @@ move E:\my_novels E:\dshwork\novel_projects
 
 ## 🔧 开发者说明
 
-如果你需要修改路径校验逻辑（不推荐），可以编辑：
-
-```javascript
-// dsh-novel-master/src/project.js
-export function withProjectsDirectory(directory, operation) {
-  // 校验逻辑在第 17-23 行
-  const value = directory.trim().replace(/\\/gu, '/')
-  if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)
-    || value.includes(':') || value.includes('\0')
-    || value.split('/').some((part) => part === '..' || part === '.'
-      || /[.\s]$/u.test(part) || /[<>"|?*\u0000-\u001f]/u.test(part))) {
-    throw new TypeError('项目目录必须是工作目录内的相对路径，不能含 . 或 .. 路径段')
-  }
-  // ...
-}
-```
+严格校验位于 `src/path-helper.js` 的 `strictValidateProjectDirectory()`，由 `src/project.js` 的 `withProjectsDirectory()` 调用。建议转换另由 `validateProjectDirectory()` 处理，必须保持原目标位置且通过严格校验。这里是词法路径校验，不代表额外实现了符号链接隔离。
 
 ---
 

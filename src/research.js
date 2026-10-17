@@ -26,19 +26,21 @@ class CredibilityEvaluator {
    * 评估单个来源的可信度
    */
   static evaluateSource(source) {
+    // All components use a 0–100 scale; this is a metadata heuristic, not fact verification.
     const scores = {
       sourceType: this.evaluateSourceType(source),
       timeliness: this.evaluateTimeliness(source.publishedAt),
-      fetchSuccess: source.fetched ? 20 : 0, // 成功抓取正文加分
+      fetchSuccess: source.fetched === true ? 100 : 0,
     }
+    const score = Math.max(0, Math.min(100, Math.round(scores.sourceType * 0.6 + scores.timeliness * 0.3 + scores.fetchSuccess * 0.1)))
 
-    // 基础分数计算
-    const baseScore = (scores.sourceType * 0.6 + scores.timeliness * 0.3 + scores.fetchSuccess * 0.1)
-
+    const level = this.getLevel(score)
     return {
-      score: Math.round(baseScore),
-      level: this.getLevel(baseScore),
-      badge: this.getBadge(baseScore),
+      score,
+      level,
+      label: `启发式参考（${level}）`,
+      badge: this.getBadge(score),
+      method: 'metadata-heuristic',
       breakdown: scores
     }
   }
@@ -47,51 +49,36 @@ class CredibilityEvaluator {
    * 评估来源类型可靠性
    */
   static evaluateSourceType(source) {
-    const url = source.url?.toLowerCase() || ''
-    
-    // 学术和官方来源 (90-100分)
-    if (url.includes('.edu') || url.includes('.gov') || 
-        url.includes('academic') || url.includes('scholar') ||
-        url.includes('cnki.net') || url.includes('wanfangdata')) {
-      return 95
-    }
-    
-    // 权威媒体和百科 (70-89分)
-    if (url.includes('wikipedia') || url.includes('britannica') ||
-        url.includes('news') || url.includes('media')) {
-      return 80
-    }
-    
-    // 专业垂直网站 (60-69分)
-    if (url.includes('forum') || url.includes('community')) {
-      return 65
-    }
-    
-    // 一般网站 (40-59分)
+    let hostname
+    try {
+      const parsed = new URL(source.url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) return 50
+      hostname = parsed.hostname.toLowerCase().replace(/\.$/u, '')
+    } catch { return 50 }
+    const matches = domain => hostname === domain || hostname.endsWith(`.${domain}`)
+    // Known domain suffixes, never substrings in paths, queries, or unrelated hosts.
+    if (['edu', 'gov', 'edu.cn', 'gov.cn', 'ac.uk', 'gov.uk', 'cnki.net', 'wanfangdata.com.cn'].some(matches)) return 95
+    if (['wikipedia.org', 'britannica.com', 'reuters.com', 'apnews.com', 'bbc.com', 'bbc.co.uk', 'xinhuanet.com', 'people.com.cn'].some(matches)) return 80
+    if (hostname.split('.').some(label => label === 'forum' || label === 'community')) return 65
     return 50
   }
 
   /**
-   * 评估时效性
+   * Metadata recency only: unknown, invalid, and future dates earn no bonus.
    */
   static evaluateTimeliness(publishedAt) {
-    if (!publishedAt) return 50 // 没有日期，给中等分
-
-    try {
-      const date = new Date(publishedAt)
-      const now = new Date()
-      const ageInYears = (now - date) / (1000 * 60 * 60 * 24 * 365)
-
-      if (ageInYears < 0.5) return 100  // 半年内
-      if (ageInYears < 1) return 95     // 1年内
-      if (ageInYears < 2) return 85     // 2年内
-      if (ageInYears < 3) return 75     // 3年内
-      if (ageInYears < 5) return 60     // 5年内
-      if (ageInYears < 10) return 45    // 10年内
-      return 30 // 10年以上
-    } catch {
-      return 50 // 日期解析失败
-    }
+    if (typeof publishedAt !== 'string' || !publishedAt.trim()) return 0
+    const timestamp = Date.parse(publishedAt)
+    const now = Date.now()
+    if (!Number.isFinite(timestamp) || timestamp > now) return 0
+    const ageInYears = (now - timestamp) / (1000 * 60 * 60 * 24 * 365)
+    if (ageInYears < 0.5) return 100
+    if (ageInYears < 1) return 95
+    if (ageInYears < 2) return 85
+    if (ageInYears < 3) return 75
+    if (ageInYears < 5) return 60
+    if (ageInYears < 10) return 45
+    return 30
   }
 
   /**
@@ -240,9 +227,9 @@ export function researchCommand(ctx, configuredResearch) {
       fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(record, null, 2), { flag: 'wx' })
       
       // 【新增】生成包含可信度分析的报告
-      const credibilitySection = `\n## 来源可信度评估\n${evaluatedDocuments.map(item => {
+      const credibilitySection = `\n## 来源元数据评分（启发式参考）\n仅依据域名类别、发布日期与抓取状态估算，不验证内容真伪，不代表事实可信概率；所有来源和结论均需核验。权重：来源类别 60%、时效性 30%、正文抓取 10%，各项为 0–100 分。\n${evaluatedDocuments.map(item => {
         const cred = item.credibility
-        return `- ${cred.badge} [${item.title || item.url}](${item.url}) - ${cred.score}分 (${cred.level})\n  ${item.fetched ? '✅ 已成功抓取正文' : '⚠️ 未抓取正文，仅使用摘要'}\n  来源类型评分：${cred.breakdown.sourceType}/100 | 时效性：${cred.breakdown.timeliness}/100`
+        return `- ${cred.badge} [${item.title || item.url}](${item.url}) - ${cred.score}分（${cred.label}）\n  ${item.fetched ? '✅ 已成功抓取正文' : '⚠️ 未抓取正文，仅使用摘要'}\n  来源类别估算：${cred.breakdown.sourceType}/100 | 时效性估算：${cred.breakdown.timeliness}/100`
       }).join('\n')}`
       
       const report = `# 资料检索报告
@@ -277,12 +264,12 @@ ${evaluatedDocuments.map(item => `- [${item.title || item.url}](${item.url})${it
 
 ✅ 结论已生成，保存于：${path.join(dir, `${id}.md`)}
 
-📊 来源可信度概况：
-- 平均可信度：${Math.round(avgCredibility)}分
-- 高可信度来源：${highCredCount}/${evaluatedDocuments.length}
+📊 来源元数据评分（启发式参考）：
+- 平均参考分：${Math.round(avgCredibility)}分
+- 高参考分来源：${highCredCount}/${evaluatedDocuments.length}
 - 成功抓取正文：${evaluatedDocuments.filter(d => d.fetched).length}/${evaluatedDocuments.length}
 
-💡 提示：低可信度内容请人工核验，详见报告中的逐条事实评级。`)
+💡 提示：评分仅依据元数据，不验证事实真伪；所有来源和结论均需人工核验，详见报告中的逐条事实评级。`)
     },
   }
 }
@@ -293,7 +280,7 @@ ${evaluatedDocuments.map(item => `- [${item.title || item.url}](${item.url})${it
 export function trendAnalysisCommand(ctx, configuredResearch) {
   return {
     name: 'novel-trends',
-    description: '分析当前热门小说题材和市场趋势',
+    description: '输出静态题材演示数据（非实时市场分析）',
     input: { hint: '[时间范围: 7d|30d|90d]' },
     handler: async invocation => {
       const config = configuredResearch ?? invocation.config?.research ?? {}
@@ -375,34 +362,26 @@ export function trendAnalysisCommand(ctx, configuredResearch) {
         ]
       }
       
-      // 生成报告
-      let report = `# 📈 热点题材分析报告\n\n`
-      report += `- 分析时间：${new Date(trends.analyzed).toLocaleString('zh-CN')}\n`
-      report += `- 时间范围：${timeRange === '7d' ? '最近7天' : timeRange === '30d' ? '最近30天' : '最近90天'}\n\n`
-      
-      report += `## 热门题材排行\n\n`
+      // Static examples demonstrate report formatting; no market observations are made.
+      let report = `# 📈 热点题材静态演示报告\n\n`
+      report += `> 静态演示：以下题材、分数、趋势与增长率均为预设虚构样例，不代表真实市场数据；未查询平台榜单或社交媒体。\n\n`
+      report += `- 演示生成时间：${trends.analyzed}\n`
+      report += `- 时间范围参数：${timeRange}（仅作界面演示；不同范围使用相同静态数据，未分析对应期间）\n\n`
+
+      report += `## 静态题材样例（非真实排行）\n\n`
       trends.genres.forEach((genre, index) => {
-        const trendIcon = genre.trend === 'rising' ? '🔥' : genre.trend === 'declining' ? '📉' : '📊'
-        report += `### ${index + 1}. ${trendIcon} ${genre.name} (${genre.score}分)\n`
-        report += `- **趋势**：${genre.trend === 'rising' ? '上升期' : genre.trend === 'declining' ? '衰退期' : '成熟期'} ${genre.growth}\n`
-        report += `- **描述**：${genre.description}\n`
-        report += `- **热门元素**：${genre.keywords.join('、')}\n\n`
+        report += `### 演示 ${index + 1}. ${genre.name}（虚构分数：${genre.score}）\n`
+        report += `- **虚构趋势标签**：${genre.trend}；**虚构增长率**：${genre.growth}\n`
+        report += `- **题材元素示例**：${genre.keywords.join('、')}\n\n`
       })
-      
-      report += `## 💡 创新机会点\n\n`
+
+      report += `## 静态创意组合示例（非市场机会预测）\n\n`
       trends.opportunities.forEach((opp, index) => {
-        const potentialIcon = opp.potential === 'very-high' ? '⭐⭐⭐' : opp.potential === 'high' ? '⭐⭐' : '⭐'
-        report += `### ${index + 1}. ${opp.name} ${potentialIcon}\n`
+        report += `### 演示 ${index + 1}. ${opp.name}\n`
         report += `${opp.description}\n\n`
       })
-      
-      report += `## 💡 创作建议\n\n`
-      report += `- **上升期题材**：都市修仙、星际争霸、游戏电竞 - 市场需求强劲，建议入场\n`
-      report += `- **成熟期题材**：赛博朋克 - 需要独特卖点突破\n`
-      report += `- **衰退期题材**：玄幻种田 - 不建议新手入场，老手可尝试创新融合\n\n`
       report += `---\n\n`
-      report += `*数据来源：综合网文平台榜单、社交媒体讨论热度、作品数量增长等指标*\n`
-      report += `*注意：本分析基于当前市场数据，仅供参考，创作仍需结合个人风格和喜好*`
+      report += `数据来源：插件内置静态演示样例；不包含真实市场数据，不据此判断题材需求、增长或入场时机。`
       
       return ok(report)
     },

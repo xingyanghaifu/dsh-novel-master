@@ -1,207 +1,142 @@
-/**
- * 项目目录路径验证和自动修正辅助工具
- * 提供防呆设计：自动修正、智能建议、路径规范化
- */
 import path from 'node:path'
 
-/**
- * 路径验证结果
- * @typedef {Object} PathValidationResult
- * @property {boolean} valid - 是否有效
- * @property {string} [normalized] - 规范化后的路径（如果有效）
- * @property {string} [error] - 错误信息
- * @property {string} [errorType] - 错误类型: 'absolute' | 'colon' | 'dots' | 'trailing' | 'illegal'
- * @property {string} [suggestion] - 修复建议（可自动应用的值）
- * @property {string} [message] - 用户友好的提示信息
- */
+const INVALID_SEGMENT_CHARACTERS = /[<>"|?*\u0000-\u001f]/u
+const TRAILING_DOT_OR_SPACE = /[.\s]$/u
+
+function safeSuggestion(value) {
+  try {
+    return strictValidateProjectDirectory(value)
+  } catch {
+    return undefined
+  }
+}
+
+function relativeWithinWorkingDirectory(cwd, target, flavor) {
+  if (typeof cwd !== 'string' || !cwd.trim()) return undefined
+  const paths = flavor === 'win32' ? path.win32 : path.posix
+  const workingDirectory = cwd.trim().replace(/\\/gu, '/')
+  if (!paths.isAbsolute(workingDirectory)) return undefined
+
+  const relative = paths.relative(paths.resolve(workingDirectory), paths.resolve(target))
+  if (!relative || relative === '.' || relative === '..'
+    || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) return undefined
+  return safeSuggestion(relative.replace(/\\/gu, '/'))
+}
 
 /**
- * 验证项目目录路径，并提供修复建议
- * @param {string} directory - 用户输入的目录路径
- * @param {string} [cwd] - 当前工作目录（用于从绝对路径提取相对路径）
- * @returns {PathValidationResult}
+ * Validate a configured project path and, only when it preserves the same
+ * location, offer a safe relative-path suggestion. Suggestions are advisory;
+ * callers must not silently apply them.
+ *
+ * @param {string} directory User-provided path.
+ * @param {string} [cwd] Session working directory for absolute-path conversion.
+ * @returns {{valid: boolean, normalized?: string, error?: string, errorType?: string, suggestion?: string, message: string}}
  */
 export function validateProjectDirectory(directory, cwd) {
-  // 基础检查
   if (typeof directory !== 'string' || !directory.trim()) {
     return {
       valid: false,
       error: '项目目录不能为空',
       errorType: 'empty',
-      suggestion: 'novel_projects',
-      message: '请输入项目目录，推荐使用 "novel_projects"'
+      message: '请输入相对于工作目录的项目目录。',
     }
   }
 
   const value = directory.trim().replace(/\\/gu, '/')
+  const absoluteFlavor = /^[a-z]:\//iu.test(value) || value.startsWith('//') ? 'win32'
+    : path.posix.isAbsolute(value) ? 'posix' : undefined
 
-  // 1. 检查绝对路径 - 尝试自动提取相对部分
-  if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)) {
-    let suggestion = null
-    let message = '不能使用绝对路径'
-
-    // 如果提供了工作目录，尝试提取相对路径
-    if (cwd) {
-      try {
-        const normalized = path.normalize(directory.trim())
-        const workDir = path.normalize(cwd)
-        
-        // 检查是否在工作目录内
-        if (normalized.startsWith(workDir)) {
-          const relative = path.relative(workDir, normalized).replace(/\\/g, '/')
-          
-          // 确保相对路径不含 .. 等
-          if (relative && !relative.startsWith('..') && relative !== '.') {
-            suggestion = relative
-            message = `检测到绝对路径，建议使用相对路径 "${suggestion}"`
-          }
-        } else {
-          // 不在工作目录内，提取最后几级目录作为建议
-          const segments = normalized.split(path.sep).filter(Boolean)
-          if (segments.length > 0) {
-            // 如果是盘符后直接跟目录（如 E:\novels），取最后一级
-            // 如果是多级路径（如 E:\work\novels），取最后一级或两级
-            suggestion = segments[segments.length - 1]
-            message = `路径不在工作目录内，建议使用 "${suggestion}"`
-          }
-        }
-      } catch {
-        // 路径解析失败，给出默认建议
-      }
-    }
-
-    if (!suggestion) {
-      // 尝试从路径中提取最后一级目录名
-      const segments = value.split('/').filter(Boolean)
-      if (segments.length > 0) {
-        const lastSegment = segments[segments.length - 1]
-        // 移除盘符标识（如 "E:" -> ""）
-        if (!lastSegment.includes(':')) {
-          suggestion = lastSegment
-        }
-      }
-      suggestion = suggestion || 'novel_projects'
-      message = `不能使用绝对路径 "${value}"，建议改为 "${suggestion}"`
-    }
-
+  if (absoluteFlavor) {
+    const suggestion = relativeWithinWorkingDirectory(cwd, value, absoluteFlavor)
     return {
       valid: false,
       error: '不能使用绝对路径',
       errorType: 'absolute',
-      suggestion,
-      message
+      ...(suggestion ? { suggestion } : {}),
+      message: suggestion
+        ? `绝对路径位于当前工作目录内；等价的相对路径是 "${suggestion}"。请确认后再保存。`
+        : '项目目录必须是工作目录内的相对路径。此绝对路径无法安全转换；为避免改用另一个目录，不提供自动修复建议。',
     }
   }
 
-  // 2. 检查冒号（Windows 盘符标识）
-  if (value.includes(':')) {
-    // 尝试提取冒号后的部分
-    const afterColon = value.split(':')[1]
-    const suggestion = afterColon?.replace(/^[/\\]+/, '') || 'novel_projects'
-    
-    return {
-      valid: false,
-      error: '路径不能包含冒号',
-      errorType: 'colon',
-      suggestion,
-      message: `不能包含冒号 ":"，建议改为 "${suggestion}"`
-    }
-  }
-
-  // 3. 检查空字符
   if (value.includes('\0')) {
-    return {
-      valid: false,
-      error: '路径不能包含空字符',
-      errorType: 'null',
-      suggestion: 'novel_projects',
-      message: '路径包含非法的空字符'
-    }
+    return { valid: false, error: '路径不能包含空字符', errorType: 'null', message: '路径包含非法的空字符，未提供自动修复建议。' }
   }
 
-  // 4. 检查路径段
+  if (value.includes(':')) {
+    return { valid: false, error: '路径不能包含冒号', errorType: 'colon', message: '相对路径不能包含冒号；为避免改变目录含义，请手动填写有效路径。' }
+  }
+
   const segments = value.split('/')
-  const invalidSegment = segments.find((part) => 
-    part === '..' || part === '.' || /[.\s]$/u.test(part) || /[<>"|?*\u0000-\u001f]/u.test(part)
-  )
-
-  if (invalidSegment !== undefined) {
-    let suggestion = null
-    let message = null
-
-    // 4.1 处理 . 和 ..
-    if (invalidSegment === '.' || invalidSegment === '..') {
-      // 移除所有 . 和 .. 段
-      const cleaned = segments.filter(s => s !== '.' && s !== '..' && s !== '').join('/')
-      suggestion = cleaned || 'novel_projects'
-      message = `不能包含 "." 或 ".." 路径段，建议改为 "${suggestion}"`
-      
-      return {
-        valid: false,
-        error: '不能包含 . 或 .. 路径段',
-        errorType: 'dots',
-        suggestion,
-        message
-      }
-    }
-
-    // 4.2 处理末尾空格或点
-    if (/[.\s]$/u.test(invalidSegment)) {
-      const cleaned = segments.map(s => s.replace(/[.\s]+$/g, '')).filter(Boolean).join('/')
-      suggestion = cleaned || 'novel_projects'
-      message = `路径段 "${invalidSegment}" 末尾不能有空格或点，建议改为 "${suggestion}"`
-      
-      return {
-        valid: false,
-        error: '路径段末尾不能有空格或点',
-        errorType: 'trailing',
-        suggestion,
-        message
-      }
-    }
-
-    // 4.3 处理非法字符
-    if (/[<>"|?*\u0000-\u001f]/u.test(invalidSegment)) {
-      // 移除非法字符
-      const cleaned = segments.map(s => s.replace(/[<>"|?*\u0000-\u001f]/gu, '')).filter(Boolean).join('/')
-      suggestion = cleaned || 'novel_projects'
-      message = `路径段 "${invalidSegment}" 包含非法字符（< > " | ? *），建议改为 "${suggestion}"`
-      
-      return {
-        valid: false,
-        error: '路径段包含非法字符',
-        errorType: 'illegal',
-        suggestion,
-        message
-      }
-    }
-  }
-
-  // 5. 规范化路径（移除空段、多余斜杠）
-  const normalized = segments.filter(Boolean).join('/')
-  
-  if (!normalized) {
+  const illegalSegment = segments.find(segment => INVALID_SEGMENT_CHARACTERS.test(segment))
+  if (illegalSegment !== undefined) {
     return {
       valid: false,
-      error: '路径为空',
-      errorType: 'empty',
-      suggestion: 'novel_projects',
-      message: '规范化后路径为空，建议使用 "novel_projects"'
+      error: '路径段包含非法字符',
+      errorType: 'illegal',
+      message: `路径段 "${illegalSegment}" 包含文件系统不支持的字符；未自动移除字符，以免改用不同目录。`,
     }
   }
 
-  // 6. 验证通过
-  return {
-    valid: true,
-    normalized,
-    message: normalized === value ? '路径有效' : `已规范化为 "${normalized}"`
+  const trailingSegment = segments.find(segment => segment !== '.' && segment !== '..' && TRAILING_DOT_OR_SPACE.test(segment))
+  if (trailingSegment !== undefined) {
+    return {
+      valid: false,
+      error: '路径段末尾不能有点或空格',
+      errorType: 'trailing',
+      message: `路径段 "${trailingSegment}" 末尾不能有点或空格；未自动修改目录名。`,
+    }
+  }
+
+  const hasDotSegment = segments.some(segment => segment === '.' || segment === '..')
+  const normalized = path.posix.normalize(value)
+  const escapesWorkingDirectory = normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)
+  const pointsToWorkingDirectory = normalized === '.'
+
+  if (hasDotSegment) {
+    const suggestion = !escapesWorkingDirectory && !pointsToWorkingDirectory
+      ? safeSuggestion(normalized)
+      : undefined
+    return {
+      valid: false,
+      error: '不能包含 . 或 .. 路径段',
+      errorType: 'dots',
+      ...(suggestion ? { suggestion } : {}),
+      message: suggestion
+        ? `路径含有 . 或 .. 路径段；不改变目标位置的规范相对路径是 "${suggestion}"。请确认后再保存。`
+        : '路径含有 . 或 .. 路径段，且目标位于工作目录之外或指向工作目录本身；拒绝自动修复。请手动选择工作目录内的子目录。',
+    }
+  }
+
+  if (escapesWorkingDirectory || pointsToWorkingDirectory) {
+    return {
+      valid: false,
+      error: '项目目录必须是非空相对路径且位于工作目录内',
+      errorType: 'outside-root',
+      message: '项目目录必须是工作目录内的非空子目录。',
+    }
+  }
+
+  try {
+    const strict = strictValidateProjectDirectory(value)
+    return {
+      valid: true,
+      normalized: strict,
+      message: strict === value ? '路径有效。' : `路径可规范化为 "${strict}"。`,
+    }
+  } catch (error) {
+    return {
+      valid: false,
+      error: error.message,
+      errorType: 'invalid',
+      message: error.message,
+    }
   }
 }
 
 /**
- * 严格验证（用于运行时，拒绝无效路径）
- * @param {string} directory - 目录路径
- * @throws {TypeError} 路径无效时抛出详细错误
+ * Strict validation for command execution. Keeps the project root below the
+ * working directory and rejects traversal, absolute paths, and unsafe names.
  */
 export function strictValidateProjectDirectory(directory) {
   if (typeof directory !== 'string' || !directory.trim()) {
@@ -209,80 +144,60 @@ export function strictValidateProjectDirectory(directory) {
   }
 
   const value = directory.trim().replace(/\\/gu, '/')
-  
   if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)) {
-    throw new TypeError(
-      `项目目录不能使用绝对路径"${value}"，请使用相对路径如"novel_projects"或"books/novels"。详见 TROUBLESHOOTING_PROJECT_DIR.md`
-    )
+    throw new TypeError(`项目目录不能使用绝对路径"${value}"，请使用工作目录内的相对路径。`)
   }
-  
-  if (value.includes(':')) {
-    throw new TypeError(
-      `项目目录不能包含冒号":"（如"${value}"），请使用相对路径如"novel_projects"。详见 TROUBLESHOOTING_PROJECT_DIR.md`
-    )
-  }
-  
-  if (value.includes('\0')) {
-    throw new TypeError('项目目录不能包含空字符')
-  }
-  
-  const invalidPart = value.split('/').find((part) => 
-    part === '..' || part === '.' || /[.\s]$/u.test(part) || /[<>"|?*\u0000-\u001f]/u.test(part)
-  )
-  
+  if (value.includes(':')) throw new TypeError('项目目录不能包含冒号。')
+  if (value.includes('\0')) throw new TypeError('项目目录不能包含空字符。')
+
+  const invalidPart = value.split('/').find(part => part === '..' || part === '.'
+    || TRAILING_DOT_OR_SPACE.test(part) || INVALID_SEGMENT_CHARACTERS.test(part))
   if (invalidPart !== undefined) {
     if (invalidPart === '.' || invalidPart === '..') {
-      throw new TypeError(
-        `项目目录不能包含"."或".."路径段，请使用简单相对路径如"novel_projects"，而不是"${value}"。详见 TROUBLESHOOTING_PROJECT_DIR.md`
-      )
+      throw new TypeError(`项目目录不能包含"."或".."路径段："${value}"。`)
     }
-    if (/[.\s]$/u.test(invalidPart)) {
-      throw new TypeError(
-        `项目目录的路径段"${invalidPart}"末尾不能有点或空格，请修改后重试。详见 TROUBLESHOOTING_PROJECT_DIR.md`
-      )
+    if (TRAILING_DOT_OR_SPACE.test(invalidPart)) {
+      throw new TypeError(`项目目录路径段"${invalidPart}"末尾不能有点或空格。`)
     }
-    throw new TypeError(
-      `项目目录的路径段"${invalidPart}"包含非法字符，不能使用 < > " | ? * 等字符。详见 TROUBLESHOOTING_PROJECT_DIR.md`
-    )
+    throw new TypeError(`项目目录路径段"${invalidPart}"包含非法字符。`)
   }
 
   const normalized = value.split('/').filter(Boolean).join('/')
-  if (!normalized) {
-    throw new TypeError('项目目录必须是非空相对路径')
-  }
-
+  if (!normalized) throw new TypeError('项目目录必须是非空相对路径')
   return normalized
 }
 
 /**
- * 宽松验证并自动修正（用于配置界面）
- * @param {string} directory - 用户输入
- * @param {string} [cwd] - 当前工作目录
- * @returns {{ value: string, warnings: string[] }} 修正后的值和警告信息
+ * Return a strict normalized value when safe. For invalid inputs, preserve the
+ * original value unless validation produced a semantically equivalent,
+ * independently strict-validated suggestion. Never silently fall back to a
+ * different project directory.
+ *
+ * @param {string} directory User-provided path.
+ * @param {string} [cwd] Session working directory for absolute-path conversion.
+ * @returns {{value: string, warnings: string[]}}
  */
 export function normalizeProjectDirectory(directory, cwd) {
-  const result = validateProjectDirectory(directory, cwd)
-  
+  const original = typeof directory === 'string' ? directory : ''
+  const result = validateProjectDirectory(original, cwd)
   if (result.valid) {
+    const normalizedInput = original.trim().replace(/\\/gu, '/')
     return {
       value: result.normalized,
-      warnings: result.normalized !== directory.trim().replace(/\\/gu, '/') 
-        ? [`已自动规范化为 "${result.normalized}"`]
-        : []
+      warnings: result.normalized !== normalizedInput ? [`已规范化为 "${result.normalized}"。`] : [],
     }
   }
-  
-  // 无效但有建议，返回建议值
-  if (result.suggestion) {
+
+  const suggestion = result.suggestion && safeSuggestion(result.suggestion)
+  if (suggestion) {
     return {
-      value: result.suggestion,
-      warnings: [result.message, '已自动修正，请检查是否符合预期']
+      value: suggestion,
+      warnings: [result.message, `建议值为 "${suggestion}"；应用前请确认目录位置未改变。`],
     }
   }
-  
-  // 无法修正，返回默认值
+
   return {
-    value: 'novel_projects',
-    warnings: [result.message, '已重置为默认值 "novel_projects"']
+    value: original,
+    warnings: [result.message, '未自动修改配置，请手动选择正确的项目目录。'],
   }
 }

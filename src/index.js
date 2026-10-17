@@ -30,7 +30,6 @@ import {
 } from './cmd-analysis.js'
 import { marketCommand } from './cmd-market.js'
 import { withProjectsDirectory } from './project.js'
-import { validateProjectDirectory } from './path-helper.js'
 import { EXTRA_COMMANDS } from './cmd-extra.js'
 import { createUpdateTransport, installUpdater } from './updater.js'
 import { selfReload } from './reload.js'
@@ -161,8 +160,7 @@ export const Config = z.object({
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
   projectsDir: live(z.string().default('novel_projects'))
     .description('项目目录')
-    .comment('小说项目存放的相对路径（相对于工作目录）')
-    .meta({ component: 'ProjectDirectoryInput' }),
+    .comment('小说项目存放的相对路径（相对于工作目录）'),
 })
 
 /**
@@ -279,10 +277,7 @@ export function apply(ctx, config = {}) {
     intelligence,
     reload: async () => { const result = await selfReload(ctx); return { ...result, application: result.status } },
   })
-  
-  // 安装路径验证 API
-  installPathValidationAPI(ctx, logger)
-  
+
   ctx.on('dispose', () => {
     disposed = true
     intelligence.dispose()
@@ -292,57 +287,4 @@ export function apply(ctx, config = {}) {
   })
   reconcile()
   logger?.info?.(`[novel-master] 已加载 ${registered.size} 个创作命令；配置热更新已启用`)
-}
-
-/**
- * 安装路径验证 API
- * 提供 /api/novel/validate-project-directory 端点
- */
-function installPathValidationAPI(ctx, logger) {
-  const API_PATH = '/api/novel'
-  
-  /** 发送 JSON 响应 */
-  const send = (res, status, data) => {
-    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
-    res.end(JSON.stringify(data))
-  }
-  
-  /** 挂载路由到 web 服务 */
-  const mount = (context, handler) => {
-    const web = context.webServer
-    if (!web || typeof web.all !== 'function') return
-    return web.all(API_PATH + '/:action', handler)
-  }
-  
-  const handler = async (req, res) => {
-    const action = req.params?.action
-    
-    try {
-      if (action === 'validate-project-directory' && req.method === 'POST') {
-        let body = ''
-        for await (const chunk of req) body += chunk
-        const { directory, cwd } = JSON.parse(body)
-        
-        const result = validateProjectDirectory(directory, cwd)
-        return send(res, 200, result)
-      }
-      
-      return send(res, 404, { error: 'not-found' })
-    } catch (error) {
-      logger?.warn?.(`[novel-master] 路径验证 API 错误: ${error?.stack ?? error}`)
-      return send(res, 500, { 
-        valid: false,
-        error: 'server-error',
-        message: `验证失败: ${error?.message ?? String(error)}`
-      })
-    }
-  }
-  
-  if (typeof ctx.inject === 'function') {
-    const fork = ctx.inject(['webServer'], scoped => mount(scoped, handler))
-    if (typeof fork === 'function') ctx.on('dispose', fork)
-    else if (typeof fork?.dispose === 'function') ctx.on('dispose', () => fork.dispose())
-  } else {
-    mount(ctx, handler)
-  }
 }

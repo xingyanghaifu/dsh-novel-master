@@ -8,16 +8,15 @@ export function withTaskIntelligence(enhancer, operation) {
   return taskScope.run(typeof enhancer === 'function' ? enhancer : undefined, operation)
 }
 
-export async function enhanceTaskPrompt(invocation, prompt) {
+export function enhanceTaskPrompt(invocation, prompt) {
   const enhance = taskScope.getStore()
-  const basePrompt = enhance ? await enhance(invocation, prompt) : prompt
-  
-  // 如果启用了引导模型，进一步增强提示词
-  if (invocation.config && shouldUseGuidance(invocation.config)) {
-    return await enhancePromptWithGuidance(invocation.config, invocation, basePrompt)
-  }
-  
-  return basePrompt
+  const withGuidance = basePrompt => invocation.config && shouldUseGuidance(invocation.config)
+    ? enhancePromptWithGuidance(invocation.config, invocation, basePrompt)
+    : basePrompt
+  const basePrompt = enhance ? enhance(invocation, prompt) : prompt
+  return typeof basePrompt?.then === 'function'
+    ? basePrompt.then(withGuidance)
+    : withGuidance(basePrompt)
 }
 
 export function bindNovelGoal(invocation, goal) {

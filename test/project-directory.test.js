@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { normalizeProjectDirectory, validateProjectDirectory } from '../src/path-helper.js'
 import { configuredProjectsDirectory, withProjectsDirectory, projectRelativeDir, projectsRoot, projectDir } from '../src/project.js'
 import { ensureProject, prepareRun } from '../src/workflow.js'
 import { finishObjective } from '../src/prompts.js'
@@ -27,6 +28,36 @@ function deferred() {
   const promise = new Promise((done) => { resolve = done })
   return { promise, resolve }
 }
+
+test('directory suggestions are safe, strict and preserve path meaning', () => {
+  const workspace = path.resolve(os.tmpdir(), 'novel-workspace')
+  const safe = validateProjectDirectory('books/../archive', workspace)
+  assert.equal(safe.valid, false)
+  assert.equal(safe.suggestion, 'archive')
+  assert.equal(path.resolve(workspace, safe.suggestion), path.resolve(workspace, 'books/../archive'))
+  assert.equal(normalizeProjectDirectory('books/../archive', workspace).value, 'archive')
+
+  for (const input of ['../outside', 'x:../outside', 'folder?/../../outside']) {
+    const result = validateProjectDirectory(input, workspace)
+    assert.equal(result.valid, false, input)
+    assert.equal(result.suggestion, undefined, input)
+    const normalized = normalizeProjectDirectory(input, workspace)
+    assert.equal(normalized.value, input, input)
+    assert.ok(normalized.warnings.some(warning => warning.includes('未自动修改')), input)
+  }
+
+  const insideAbsolute = process.platform === 'win32'
+    ? path.win32.join(workspace, 'books')
+    : path.posix.join(workspace, 'books')
+  const converted = validateProjectDirectory(insideAbsolute, workspace)
+  assert.equal(converted.suggestion, 'books')
+  assert.equal(path.resolve(workspace, converted.suggestion), path.resolve(insideAbsolute))
+
+  const outside = validateProjectDirectory(path.resolve(workspace, '..', 'other-workspace'), workspace)
+  assert.equal(outside.suggestion, undefined)
+  assert.equal(normalizeProjectDirectory(path.resolve(workspace, '..', 'other-workspace'), workspace).value,
+    path.resolve(workspace, '..', 'other-workspace'))
+})
 
 test('directories reject absolute, empty and traversal paths before operation executes', () => {
   for (const value of [undefined, null, 42, '', '  ', '.', '..', '../books', 'books/../other', 'books/./other', '/books', 'C:/books', 'C:books', '\\\\server\\books', 'books\\..\\other', 'books/.. /outside', 'books/a./other', 'books\0bad']) {
