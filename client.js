@@ -40,27 +40,38 @@ window.__ModuleLoader__.load({
 .nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
 @keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
-.nm-help-btn{position:absolute;top:28px;right:28px;background:var(--nm-accent);color:white;border:0;border-radius:50%;width:40px;height:40px;font-size:20px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,0.15);transition:all .2s ease;z-index:10}
-.nm-help-btn:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,0,0,0.25)}
-.nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .2s ease}
-.nm-guide-box{background:var(--nm-card);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:620px;width:90%;max-height:85vh;display:flex;flex-direction:column;animation:nm-slide-up .3s ease;overflow:hidden}
-.nm-guide-header{padding:28px;border-bottom:1px solid var(--nm-border);display:flex;align-items:center;gap:14px}
-.nm-guide-icon{font-size:42px;line-height:1}
-.nm-guide-title{font-size:22px;font-weight:750;margin:0;flex:1;color:var(--nm-text)}
-.nm-guide-close{background:transparent;border:0;color:var(--nm-muted);font-size:24px;cursor:pointer;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;transition:all .2s ease}
-.nm-guide-close:hover{background:var(--nm-bg);color:var(--nm-text)}
-.nm-guide-content{padding:28px;overflow-y:auto;flex:1;line-height:1.8}
-.nm-guide-content h4{font-size:15px;font-weight:700;margin:20px 0 10px;color:var(--nm-accent)}
-.nm-guide-content h4:first-child{margin-top:0}
-.nm-guide-content p{margin:0 0 12px}
-.nm-guide-content ul{margin:8px 0;padding-left:22px}
-.nm-guide-content li{margin:6px 0}
-.nm-guide-content code{font-family:ui-monospace,monospace;font-size:12px;background:var(--nm-bg);color:var(--nm-accent);padding:2px 8px;border-radius:6px;border:1px solid var(--nm-border)}
-.nm-guide-footer{padding:20px 28px;border-top:1px solid var(--nm-border);display:flex;justify-content:flex-end}
-.nm-guide-footer button{background:var(--nm-accent);border:1px solid var(--nm-accent);color:white;cursor:pointer;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;transition:all .2s ease}
-.nm-guide-footer button:hover{background:color-mix(in srgb,var(--nm-accent) 90%,black);transform:translateY(-1px)}
+.nm-help-btn{position:absolute;top:28px;right:28px;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.18),0 0 0 0 var(--nm-accent);transition:all .25s ease;z-index:10}
+.nm-help-btn:hover{transform:scale(1.08) rotate(5deg);box-shadow:0 8px 24px rgba(0,0,0,0.28),0 0 0 4px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
+.nm-guide-box{background:var(--nm-card);border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
+.nm-guide-header{padding:32px 32px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),var(--nm-card));border-bottom:1px solid color-mix(in srgb,var(--nm-accent) 15%,var(--nm-border));display:flex;align-items:center;gap:16px;position:relative}
+.nm-guide-icon{font-size:48px;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.12))}
+.nm-guide-title{font-size:24px;font-weight:750;margin:0;flex:1;color:var(--nm-text);letter-spacing:-.5px}
+.nm-guide-close{position:absolute;top:24px;right:24px;background:color-mix(in srgb,var(--nm-bg) 80%,transparent);border:0;color:var(--nm-muted);font-size:20px;cursor:pointer;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;transition:all .2s ease;backdrop-filter:blur(8px)}
+.nm-guide-close:hover{background:var(--nm-bg);color:var(--nm-text);transform:rotate(90deg)}
+.nm-guide-content{padding:32px;overflow-y:auto;flex:1;line-height:1.7}
+.nm-guide-intro{font-size:15px;color:var(--nm-text);margin:0 0 28px;padding:18px 20px;background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-bg));border-left:3px solid var(--nm-accent);border-radius:10px}
+.nm-guide-section{margin:20px 0;padding:20px;background:var(--nm-bg);border-radius:14px;border:1px solid var(--nm-border);transition:all .2s ease}
+.nm-guide-section:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+.nm-guide-section-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.nm-guide-section-icon{font-size:28px;line-height:1}
+.nm-guide-section-title{font-size:16px;font-weight:700;color:var(--nm-text);margin:0}
+.nm-guide-section-content{color:var(--nm-text);font-size:13px;line-height:1.7}
+.nm-guide-section-content p{margin:8px 0}
+.nm-guide-section-content ul{margin:10px 0;padding-left:0;list-style:none}
+.nm-guide-section-content li{margin:8px 0;padding-left:24px;position:relative}
+.nm-guide-section-content li:before{content:'→';position:absolute;left:0;color:var(--nm-accent);font-weight:700}
+.nm-guide-commands{display:grid;gap:10px;margin-top:12px}
+.nm-guide-cmd{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--nm-card);border:1px solid var(--nm-border);border-radius:10px;transition:all .2s ease}
+.nm-guide-cmd:hover{border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card))}
+.nm-guide-cmd code{font-family:ui-monospace,monospace;font-size:12px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:5px 12px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 20%,transparent);flex:1;font-weight:600}
+.nm-guide-cmd-desc{font-size:11px;color:var(--nm-muted);white-space:nowrap}
+.nm-guide-footer{padding:24px 32px;background:linear-gradient(to top,color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card)),transparent);border-top:1px solid color-mix(in srgb,var(--nm-accent) 12%,var(--nm-border));display:flex;align-items:center;justify-content:space-between;gap:16px}
+.nm-guide-footer-tip{font-size:12px;color:var(--nm-muted);display:flex;align-items:center;gap:8px}
+.nm-guide-footer button{background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 90%,#6366f1));border:0;color:white;cursor:pointer;font-size:14px;font-weight:650;padding:13px 32px;border-radius:12px;transition:all .2s ease;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 30%,transparent)}
+.nm-guide-footer button:hover{transform:translateY(-2px);box-shadow:0 6px 20px color-mix(in srgb,var(--nm-accent) 40%,transparent)}
 @keyframes nm-fade-in{from{opacity:0}}
-@keyframes nm-slide-up{from{transform:translateY(30px);opacity:0}}
+@keyframes nm-slide-up{from{transform:translateY(40px) scale(0.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
@@ -665,33 +676,83 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-guide-box', onClick: e => e.stopPropagation() },
             h('div', { className: 'nm-guide-header' },
               h('div', { className: 'nm-guide-icon' }, '📚'),
-              h('h3', { className: 'nm-guide-title' }, '小说创作大师 - 功能介绍'),
+              h('h3', { className: 'nm-guide-title' }, '小说创作大师'),
               h('button', { className: 'nm-guide-close', onClick: closeGuide, 'aria-label': '关闭' }, '✕')
             ),
             h('div', { className: 'nm-guide-content' },
-              h('p', null, '这是一个强大的 AI 辅助小说创作插件，帮助您轻松完成长篇小说创作。'),
-              h('h4', null, '🎯 引导-写作分离架构'),
-              h('p', null, '使用强模型引导规划 + 快速模型执行写作的双模型协作架构。'),
-              h('ul', null,
-                h('li', null, '引导模型（如 Claude Opus）负责分析上下文、拆解任务、生成详细大纲'),
-                h('li', null, '写作模型（如 Gemini Flash）接收大纲指令、专注文字生成'),
-                h('li', null, '推荐配置：Claude Opus 5.5 (引导) + Gemini 2.0 Flash (写作)')
+              h('p', { className: 'nm-guide-intro' }, '强大的 AI 辅助小说创作插件，帮助您轻松完成长篇小说创作'),
+              
+              h('div', { className: 'nm-guide-section' },
+                h('div', { className: 'nm-guide-section-header' },
+                  h('div', { className: 'nm-guide-section-icon' }, '🎯'),
+                  h('h4', { className: 'nm-guide-section-title' }, '引导-写作分离架构')
+                ),
+                h('div', { className: 'nm-guide-section-content' },
+                  h('p', null, '使用强模型引导规划 + 快速模型执行写作的双模型协作架构'),
+                  h('ul', null,
+                    h('li', null, '引导模型（如 Claude Opus）负责分析上下文、拆解任务、生成详细大纲'),
+                    h('li', null, '写作模型（如 Gemini Flash）接收大纲指令、专注文字生成'),
+                    h('li', null, '推荐配置：Claude Opus 5.5 (引导) + Gemini 2.0 Flash (写作)')
+                  )
+                )
               ),
-              h('h4', null, '📖 学习总结功能'),
-              h('p', null, '自动总结每章创作的关键信息，建立项目知识库，后续章节自动复用历史总结。'),
-              h('h4', null, '🤔 AI 决策助手'),
-              h('p', null, '在剧情分岔、审校取舍等场景提供智能建议，帮助您做出更好的创作决策。'),
-              h('h4', null, '🚀 常用命令'),
-              h('ul', null,
-                h('li', null, h('code', null, '/novel 网管发现网吧的电脑能修仙 60章'), ' - 一键完本'),
-                h('li', null, h('code', null, '/novel-continue 项目名 续写20章'), ' - 智能续写'),
-                h('li', null, h('code', null, '/novel-chapter 项目名 写第5章'), ' - 写单章'),
-                h('li', null, h('code', null, '/novel-update check'), ' - 检查更新')
+              
+              h('div', { className: 'nm-guide-section' },
+                h('div', { className: 'nm-guide-section-header' },
+                  h('div', { className: 'nm-guide-section-icon' }, '📖'),
+                  h('h4', { className: 'nm-guide-section-title' }, '学习总结功能')
+                ),
+                h('div', { className: 'nm-guide-section-content' },
+                  h('p', null, '自动总结每章创作的关键信息，建立项目知识库，后续章节自动复用历史总结')
+                )
               ),
-              h('p', null, '更多命令请使用 ', h('code', null, '/help novel'), ' 查看详细文档。')
+              
+              h('div', { className: 'nm-guide-section' },
+                h('div', { className: 'nm-guide-section-header' },
+                  h('div', { className: 'nm-guide-section-icon' }, '🤔'),
+                  h('h4', { className: 'nm-guide-section-title' }, 'AI 决策助手')
+                ),
+                h('div', { className: 'nm-guide-section-content' },
+                  h('p', null, '在剧情分岔、审校取舍等场景提供智能建议，帮助您做出更好的创作决策')
+                )
+              ),
+              
+              h('div', { className: 'nm-guide-section' },
+                h('div', { className: 'nm-guide-section-header' },
+                  h('div', { className: 'nm-guide-section-icon' }, '🚀'),
+                  h('h4', { className: 'nm-guide-section-title' }, '常用命令')
+                ),
+                h('div', { className: 'nm-guide-section-content' },
+                  h('div', { className: 'nm-guide-commands' },
+                    h('div', { className: 'nm-guide-cmd' },
+                      h('code', null, '/novel 网管发现网吧的电脑能修仙 60章'),
+                      h('span', { className: 'nm-guide-cmd-desc' }, '一键完本')
+                    ),
+                    h('div', { className: 'nm-guide-cmd' },
+                      h('code', null, '/novel-continue 项目名 续写20章'),
+                      h('span', { className: 'nm-guide-cmd-desc' }, '智能续写')
+                    ),
+                    h('div', { className: 'nm-guide-cmd' },
+                      h('code', null, '/novel-chapter 项目名 写第5章'),
+                      h('span', { className: 'nm-guide-cmd-desc' }, '写单章')
+                    ),
+                    h('div', { className: 'nm-guide-cmd' },
+                      h('code', null, '/novel-update check'),
+                      h('span', { className: 'nm-guide-cmd-desc' }, '检查更新')
+                    )
+                  ),
+                  h('p', { style: { marginTop: '12px', fontSize: '12px', color: 'var(--nm-muted)' } }, 
+                    '更多命令请使用 ', h('code', null, '/help novel'), ' 查看详细文档'
+                  )
+                )
+              )
             ),
             h('div', { className: 'nm-guide-footer' },
-              h('button', { onClick: closeGuide }, '开始使用')
+              h('div', { className: 'nm-guide-footer-tip' },
+                h('span', null, '💡'),
+                h('span', null, '点击右上角 ? 可随时查看')
+              ),
+              h('button', { onClick: closeGuide }, '开始使用 →')
             )
           )
         ),
