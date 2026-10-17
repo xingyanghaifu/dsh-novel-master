@@ -131,12 +131,13 @@ test('config.commands selective disable', () => {
   assert.equal(h.commands.has('novel-export'), false)
   assert.equal(h.commands.has('novel-continue'), true)
   assert.equal(h.commands.has('novel-outline'), true)
-  assert.equal(h.commands.size, CREATIVE_COUNT - 3 + 1) // update maintenance command remains available
+  assert.equal(h.commands.size, CREATIVE_COUNT - 1 - 3 + 1) // 资料检索默认关闭；更新维护命令仍可用
 })
 
 test('default config enables every creative command and update maintenance', () => {
   const h = host()
-  assert.equal(h.commands.size, CREATIVE_COUNT + 1)
+  assert.equal(h.commands.size, CREATIVE_COUNT)
+  assert.equal(h.commands.has('novel-research'), false) // 资料检索默认关闭
   for (const [n, d] of h.commands) {
     assert.match(n, /^[a-z][a-z0-9_-]*$/u)
     assert.ok(d.description.length > 0)
@@ -150,14 +151,14 @@ test('live config toggles reconcile without duplicate registrations and dispose 
   assert.deepEqual([...h.commands.keys()], ['novel-update'])
   config.enabled[VOLATILE_REF](true)
   h.emit('settings/document-updated', 'include:novel-master', 1)
-  assert.equal(h.commands.size, CREATIVE_COUNT + 1)
+  assert.equal(h.commands.size, CREATIVE_COUNT)
   const unchanged = h.commands.get('novel-continue')
   config.commands.novel[VOLATILE_REF](false)
   h.emit('settings/document-updated', 'include:novel-master', 2)
   h.emit('app-boot/config-reload')
   assert.equal(h.commands.has('novel'), false)
   assert.equal(h.commands.get('novel-continue'), unchanged)
-  assert.equal(h.commands.size, CREATIVE_COUNT)
+  assert.equal(h.commands.size, CREATIVE_COUNT - 1)
   config.commands.novel[VOLATILE_REF](true)
   h.emit('app-boot/config-reload')
   assert.equal(h.commands.has('novel'), true)
@@ -173,6 +174,21 @@ test('live config toggles reconcile without duplicate registrations and dispose 
   assert.equal(h.commands.size, 0)
 })
 
+test('research command registers only after its opt-in switch is enabled', () => {
+  const config = Config['~standard'].validate({ research: { enabled: false } }).value
+  const h = host({ config })
+  assert.equal(h.commands.has('novel-research'), false)
+  config.research.enabled[VOLATILE_REF](true)
+  h.emit('settings/document-updated', 'include:novel-master', 1)
+  assert.equal(h.commands.has('novel-research'), true)
+  config.commands.research[VOLATILE_REF](false)
+  h.emit('app-boot/config-reload')
+  assert.equal(h.commands.has('novel-research'), false)
+  config.commands.research[VOLATILE_REF](true)
+  config.research.enabled[VOLATILE_REF](false)
+  h.emit('settings/document-updated', 'include:novel-master', 2)
+  assert.equal(h.commands.has('novel-research'), false)
+})
 test('directory setting changes apply on the next command invocation', async () => {
   const config = Config['~standard'].validate({ projectsDir: 'books/first' }).value
   const h = host({ config, goals: false })

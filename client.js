@@ -77,7 +77,7 @@ window.__ModuleLoader__.load({
       stats: '统计', export: '导出', conflict: '冲突分析', pace: '节奏分析', reader: '虚拟读者',
       dialogue: '对话增强', emotion: '情感曲线', market: '市场分析', compare: '作品对比',
       chapter: '章节生成', tips: '写作建议', trope: '套路分析', backup: '备份', merge: '合并', split: '拆分',
-      learn: '学习记录', memory: '学习库', decide: '辅助决策',
+      learn: '学习记录', memory: '学习库', decide: '辅助决策', research: '资料检索',
     }
     const GROUPS = [
       ['writing', '写作', ['novel', 'continue', 'chapter', 'rewrite']],
@@ -117,6 +117,7 @@ window.__ModuleLoader__.load({
     const GUIDANCE = { enabled: false, provider: '', model: '', reasoningEffort: '', writingProvider: '', writingModel: '', writingReasoningEffort: '', guidanceStyle: 'detailed' }
     const LEARNING = { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', summaryReasoningEffort: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60, topics: [] }
     const DECISION = { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 }
+    const RESEARCH = { enabled: false, provider: '', model: '', reasoningEffort: '', storageDir: 'novel_research', maxResults: 5, maxSourceChars: 12000, timeoutMs: 60000 }
     
     const TUTORIAL_STEPS = [
       {
@@ -186,6 +187,7 @@ window.__ModuleLoader__.load({
       const [guidance, setGuidance] = useState({ ...GUIDANCE, ...form?.value?.guidance })
       const [learning, setLearning] = useState({ ...LEARNING, ...form?.value?.learning })
       const [decision, setDecision] = useState({ ...DECISION, ...form?.value?.decision })
+      const [research, setResearch] = useState({ ...RESEARCH, ...form?.value?.research })
       const [activity, setActivity] = useState(null)
       const [activityError, setActivityError] = useState('')
       const [activityBusy, setActivityBusy] = useState(false)
@@ -226,11 +228,13 @@ window.__ModuleLoader__.load({
         if (!dirty.current.guidance) setGuidance({ ...GUIDANCE, ...next.value?.guidance })
         if (!dirty.current.learning) setLearning({ ...LEARNING, ...next.value?.learning })
         if (!dirty.current.decision) setDecision({ ...DECISION, ...next.value?.decision })
+        if (!dirty.current.research) setResearch({ ...RESEARCH, ...next.value?.research })
       }
       const changed = (draft, original) => Object.keys(draft).some(key => String(draft[key]) !== String(original[key]))
       const editGuidance = (key, next) => setGuidance(current => { const draft = { ...current, [key]: next }; dirty.current.guidance = changed(draft, { ...GUIDANCE, ...form?.value?.guidance }); return draft })
       const editLearning = (key, next) => setLearning(current => { const draft = { ...current, [key]: next }; dirty.current.learning = changed(draft, { ...LEARNING, ...form?.value?.learning }); return draft })
       const editDecision = (key, next) => setDecision(current => { const draft = { ...current, [key]: next }; dirty.current.decision = changed(draft, { ...DECISION, ...form?.value?.decision }); return draft })
+      const editResearch = (key, next) => setResearch(current => { const draft = { ...current, [key]: next }; dirty.current.research = changed(draft, { ...RESEARCH, ...form?.value?.research }); return draft })
 
       const toggleTopic = id => {
         setLearning(current => {
@@ -249,7 +253,8 @@ window.__ModuleLoader__.load({
           if (typeof window !== 'undefined' && window.__DSH_DIRECTORY_PICKER__?.pick) {
             const picked = await window.__DSH_DIRECTORY_PICKER__.pick()
             if (picked) {
-              if (targetField === 'storageDir') editLearning('storageDir', picked)
+              if (targetField === 'storageDir') editResearch('storageDir', picked)
+              else if (targetField === 'learningStorageDir') editLearning('storageDir', picked)
               else if (targetField === 'projectsDir') { setDirectory(picked); dirty.current.projectsDir = true }
               showToast(`已选定目录：${picked}`)
             }
@@ -436,6 +441,16 @@ window.__ModuleLoader__.load({
         if (!Number.isSafeInteger(next.timeoutMs) || next.timeoutMs < 1000 || next.timeoutMs > 120000) return setError('决策超时必须为 1000 到 120000 毫秒之间的整数。')
         return save({ decision: next })
       }
+      function saveResearch(event) {
+        event.preventDefault()
+        const next = { ...research, provider: research.provider.trim(), model: research.model.trim(), reasoningEffort: research.reasoningEffort.trim(), storageDir: research.storageDir.trim(), maxResults: Number(research.maxResults), maxSourceChars: Number(research.maxSourceChars), timeoutMs: Number(research.timeoutMs) }
+        if (!!next.provider !== !!next.model || (next.enabled && (!next.provider || !next.model))) return setError('资料检索需要明确配置提供方和模型，必须成对填写。')
+        if (!next.storageDir) return setError('资料存储目录不能为空。')
+        if (!Number.isSafeInteger(next.maxResults) || next.maxResults < 1 || next.maxResults > 10) return setError('最多来源数必须为 1 到 10 之间的整数。')
+        if (!Number.isSafeInteger(next.maxSourceChars) || next.maxSourceChars < 1000 || next.maxSourceChars > 24000) return setError('单来源字符上限必须为 1000 到 24000 之间的整数。')
+        if (!Number.isSafeInteger(next.timeoutMs) || next.timeoutMs < 1000 || next.timeoutMs > 120000) return setError('检索超时必须为 1000 到 120000 毫秒之间的整数。')
+        return save({ research: next })
+      }
       const value = form?.value ?? {}
       const locked = !!busy || state?.busy || activityBusy
       const commandKeys = Object.keys(value?.commands ?? {}).filter(key => key !== 'update' && key !== 'novel-update')
@@ -559,7 +574,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
         notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
-        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
+        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
         panel('features', form && card('创作工作台', '关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。',
@@ -629,7 +644,7 @@ window.__ModuleLoader__.load({
               h('span', null, '学习存储目录'),
               h('div', { className: 'nm-path-box' },
                 h('input', { type: 'text', value: learning.storageDir, disabled: locked, required: true, 'aria-label': '学习存储目录', placeholder: 'novel_learning 或 C:\\MyNovels\\learning', onChange: event => editLearning('storageDir', event.target.value) }),
-                actionButton('📁 浏览目录…', () => pickDirectory('storageDir'), locked)
+                actionButton('📁 浏览目录…', () => pickDirectory('learningStorageDir'), locked)
               )
             ),
             h('p', { className: 'nm-callout' }, '提示：点击【📁 浏览目录…】可通过桌面窗口自由挑选存储文件夹；不同目录与模型相互隔离，随时可自由更换。')
@@ -664,7 +679,17 @@ window.__ModuleLoader__.load({
               )
             ),
             h('details', null, h('summary', null, '高级设置 · 推理与复核'), h('div', { className: 'nm-grid' }, field('决策推理强度', 'reasoningEffort', decision, editDecision, 'text', { placeholder: '留空使用模型默认值' }), field('最低决策置信度', 'minConfidence', decision, editDecision, 'number', { required: true, min: 0, max: 1, step: 0.01 }), field('决策超时毫秒', 'timeoutMs', decision, editDecision, 'number', { required: true, min: 1000, max: 120000, step: 1 })), h('p', { className: 'nm-muted' }, '推理强度需由所选模型支持。低于置信度阈值的结果须人工复核。')), saveBar('decision', '保存决策配置'))), h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-decide 问题 | 选项A | 选项B'))),
-        panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
+        
+                      panel('research', form && h('form', { className: 'nm-stack', 'aria-label': '资料检索配置', onSubmit: saveResearch }, card('联网资料检索', '默认关闭。启用后通过 /novel-research 检索并保存来源报告。', check('启用资料检索', 'enabled', research, editResearch, '检索默认关闭，需选择模型并指定目录。')),
+           card('检索模型和存储目录', '指定研究模型，并设置资料报告存储路径。', h('div', { className: 'nm-stack' },
+
+             renderModelSelect('从现有模型列表中选择检索模型', research.provider, research.model, (p, m) => { editResearch('provider', p); editResearch('model', m) }, false),
+             renderReasoningSelect('检索模型思考/推理强度 (Reasoning Effort)', research.reasoningEffort, val => editResearch('reasoningEffort', val), research.provider, research.model),
+             h('div', { className: 'nm-grid' }, field('检索模型提供方', 'provider', research, editResearch, 'text', { placeholder: 'provider ID', required: research.enabled }), field('检索模型 ID', 'model', research, editResearch, 'text', { placeholder: 'model ID', required: research.enabled })),
+             h('div', { className: 'nm-path-box' }, field('资料存储目录', 'storageDir', research, editResearch, 'text', { placeholder: 'novel_research 或绝对路径', required: true }), actionButton('📁 浏览目录…', () => pickDirectory('storageDir'), locked)),
+             h('div', { className: 'nm-grid' }, field('最多来源数', 'maxResults', research, editResearch, 'number', { min: 1, max: 10, step: 1 }), field('单来源字符上限', 'maxSourceChars', research, editResearch, 'number', { min: 1000, max: 24000, step: 1 }), field('检索超时毫秒', 'timeoutMs', research, editResearch, 'number', { min: 1000, max: 120000, step: 1 }))
+           ), saveBar('research', '保存资料检索配置')))),
+         panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
           state?.latest && h('p', { className: 'nm-callout' }, state.updateAvailable === false ? '磁盘已是此提交。' : state.updateAvailable === null ? '本地提交未知，版本号相同不能证明代码相同。' : '发现可安装的提交。检查后拉取会锁定本次完整 SHA。'),
           h('div', { className: 'nm-row' }, actionButton(busy === 'check' ? '检查中…' : '检查更新', () => run('check'), locked, true), actionButton(busy === 'apply' ? '正在拉取并安装…' : '拉取此提交', () => run('apply'), locked || !state?.latest), (busy === 'apply' || state?.busy) && actionButton('取消安装', cancel, false)), state?.result && h('p', { className: 'nm-callout' }, `最近安装结果：${state.result.application}${state.result.codeReload ? `；代码重载：${state.result.codeReload.application}` : ''}`)),
           form && card('更新网络', '代理只影响更新检查；安装使用 DSH 插件管理器的网络设置。', h('form', { 'aria-label': '更新代理配置', onSubmit: event => { event.preventDefault(); save({ updateProxy: proxy.trim() }) } }, field('更新检查代理', 'proxy', { proxy }, (_, next) => { dirty.current.updateProxy = next !== (value.updateProxy ?? ''); setProxy(next) }, 'text', { placeholder: 'http://127.0.0.1:7897' }), h('p', { className: 'nm-muted' }, '留空使用代理环境变量或直连。'), saveBar('updateProxy', '保存更新代理'))),

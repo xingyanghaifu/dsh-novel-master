@@ -34,6 +34,7 @@ import { EXTRA_COMMANDS } from './cmd-extra.js'
 import { createUpdateTransport, installUpdater } from './updater.js'
 import { selfReload } from './reload.js'
 import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from './intelligence.js'
+import { researchCommand, trendAnalysisCommand } from './research.js'
 
 export const name = 'novel-master'
 
@@ -68,6 +69,8 @@ const COMMAND_KEYS = [
   ['dialogue', '对话增强 (/novel-dialogue)'],
   ['emotion', '情感曲线 (/novel-emotion)'],
   ['market', '市场分析 (/novel-market)'],
+  ['research', '资料检索 (/novel-research)'],
+  ['trends', '热点分析 (/novel-trends)'],
   ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
   ...INTELLIGENCE_KEYS,
 ]
@@ -142,6 +145,16 @@ export const Config = z.object({
     minConfidence: live(z.number().min(0).max(1).default(0.7)).description('人工复核置信度阈值'),
     timeoutMs: live(z.natural().min(1000).max(120000).default(30000)).description('决策超时（毫秒）'),
   }).description('决策 AI'),
+  research: z.object({
+    enabled: live(z.boolean().default(false)).description('启用资料检索').comment('默认关闭；打开后才注册 /novel-research，并允许访问宿主联网检索服务。'),
+    provider: live(z.string().default('')).description('检索模型 Provider'),
+    model: live(z.string().default('')).description('检索模型 ID'),
+    reasoningEffort: live(z.string().default('')).description('检索推理强度'),
+    storageDir: live(z.string().default('novel_research')).description('资料存储目录').comment('相对路径位于工作目录内；也可填写绝对路径。保存原始来源和模型报告。'),
+    maxResults: live(z.natural().min(1).max(10).default(5)).description('最多来源数'),
+    maxSourceChars: live(z.natural().min(1000).max(24000).default(12000)).description('单来源字符上限'),
+    timeoutMs: live(z.natural().min(1000).max(120000).default(60000)).description('检索模型超时（毫秒）'),
+  }).description('资料检索'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
@@ -176,7 +189,7 @@ function readField(config, key) {
 }
 
 /** Every command definition with its config key, in menu order. */
-export function definitions(ctx, intelligence) {
+export function definitions(ctx, intelligence, config) {
   return [
     { key: 'novel', factory: () => novelCommand(ctx) },
     { key: 'continue', factory: () => continueCommand(ctx) },
@@ -197,6 +210,8 @@ export function definitions(ctx, intelligence) {
     { key: 'dialogue', factory: dialogueCommand },
     { key: 'emotion', factory: emotionCommand },
     { key: 'market', factory: marketCommand },
+    { key: 'research', factory: () => researchCommand(ctx, config?.research) },
+    { key: 'trends', factory: () => trendAnalysisCommand(ctx, config?.research) },
     ...EXTRA_COMMANDS,
     ...intelligenceDefinitions(intelligence),
   ]
@@ -210,7 +225,7 @@ function guarded(definition, logger, config, intelligence) {
     handler: async (invocation) => {
       try {
         return await withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () =>
-          intelligence.run(invocation, () => definition.handler(invocation)))
+          intelligence.run(invocation, () => definition.handler({ ...invocation, config })))
       } catch (error) {
         logger?.warn?.(`[novel-master] /${definition.name} failed: ${error?.stack ?? error}`)
         return { kind: 'error', text: `/${definition.name} 出错了：${error?.message ?? String(error)}` }
@@ -227,7 +242,7 @@ export function apply(ctx, config = {}) {
 
   const registered = new Map()
   const intelligence = installIntelligence(ctx, config)
-  const entries = definitions(ctx, intelligence)
+  const entries = definitions(ctx, intelligence, config)
   let disposed = false
   const remove = (key) => {
     const dispose = registered.get(key)
@@ -241,7 +256,7 @@ export function apply(ctx, config = {}) {
     if (disposed) return
     intelligence.reconcile()
     for (const { key, factory } of entries) {
-      const wanted = readField(config, 'enabled') !== false && readField(config.commands, key) !== false
+      const wanted = readField(config, 'enabled') !== false && readField(config.commands, key) !== false && (key !== 'research' || readField(config.research, 'enabled') === true)
       if (!wanted) { remove(key); continue }
       if (registered.has(key)) continue
       try {

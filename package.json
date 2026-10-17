@@ -1,7 +1,7 @@
 {
   "name": "dsh-novel-master",
-  "version": "1.4.3",
-  "description": "小说创作插件 for DeepSeek Harness - 29 个功能命令及更新入口，分组开关、模型隔离学习、决策 AI 与配置热更新",
+  "version": "1.5.0",
+  "description": "小说创作插件 for DeepSeek Harness - 30 个功能命令及更新入口，资料可信度评估、热点题材分析、多场景推理强度配置",
   "type": "module",
   "main": "src/index.js",
   "exports": {

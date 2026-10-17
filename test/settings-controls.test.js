@@ -8,6 +8,7 @@ const DEFAULT = {
   commands: { novel: true, continue: false, chapter: true, rewrite: true, idea: false, study: true, backup: true, learn: false, memory: true, decide: false, surprise: true, update: true },
   learning: { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60 },
   decision: { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 },
+  research: { enabled: false, provider: '', model: '', reasoningEffort: '', storageDir: 'novel_research', maxResults: 5, maxSourceChars: 12000, timeoutMs: 60000 },
 }
 function harness(options = {}) {
   const states = [], refs = [], calls = []
@@ -64,7 +65,7 @@ function harness(options = {}) {
 test('tabs mount every panel but expose only the selected accessible panel', async () => {
   const h = harness()
   const panels = () => h.nodes().filter(node => node.props.role === 'tabpanel')
-  assert.equal(panels().length, 5) // features, guidance, learning, decision, updater
+  assert.equal(panels().length, 6) // features, guidance, learning, decision, research, updater
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-features'])
   await h.click('学习总结')
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-learning'])
@@ -231,6 +232,19 @@ test('batch and field saves respect backend busy and in-flight saves', async () 
   assert.equal(h.find('button', '全部开启').props.disabled, false)
 })
 
+test('research settings require an explicit model and persist storage directory', async () => {
+  const h = harness()
+  await h.click('资料检索')
+  h.edit('启用资料检索', true)
+  await h.submit('资料检索配置')
+  assert.equal(h.calls.length, 0)
+  assert.match(h.text(h.render()), /必须成对填写/)
+  h.edit('检索模型提供方', 'academic')
+  h.edit('检索模型 ID', 'verifier')
+  h.edit('资料存储目录', 'research-library')
+  await h.submit('资料检索配置')
+  assert.deepEqual(h.calls.at(-1).body.patch.research, { ...DEFAULT.research, enabled: true, provider: 'academic', model: 'verifier', storageDir: 'research-library' })
+})
 test('activity is read only on demand and renders actual backend status and errors', async () => {
   const h = harness()
   h.render()
