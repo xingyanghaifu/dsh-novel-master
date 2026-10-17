@@ -10,7 +10,14 @@ export const INTELLIGENCE_LIMITS = Object.freeze({ inputChars: 48000, outputChar
  * caller-supplied number, so defaults cannot drift open.
  */
 export const BATCH_LIMITS = Object.freeze({ inputChars: 400000, outputChars: 120000, maxTokens: 32000, timeoutMs: 1800000, chunks: 200000 })
-const PROFILES = Object.freeze({ default: INTELLIGENCE_LIMITS, batch: BATCH_LIMITS })
+/**
+ * Bounds for a one-shot capacity probe. Deliberately far above the batch profile:
+ * the point is to let the MODEL hit its own ceiling, so the plugin's guesses must
+ * not become the thing being measured. Still finite, so a runaway stream cannot
+ * consume memory without limit.
+ */
+export const PROBE_LIMITS = Object.freeze({ inputChars: 400000, outputChars: 600000, maxTokens: 128000, timeoutMs: 3600000, chunks: 1000000 })
+const PROFILES = Object.freeze({ default: INTELLIGENCE_LIMITS, batch: BATCH_LIMITS, probe: PROBE_LIMITS })
 function limitsOf(profile) {
   if (profile === undefined) return INTELLIGENCE_LIMITS
   const limits = PROFILES[profile]
@@ -125,6 +132,84 @@ export async function callText(ctx, request) {
     throw error
   } finally {
     // Do not await a non-cooperative iterator's return; caller deadline stays strict.
+    try { Promise.resolve(iterator?.return?.()).catch(() => {}) } catch { /* cleanup cannot hide the original result */ }
+    life.dispose()
+  }
+}
+
+/**
+ * One bounded tool-free call that reports HOW the stream ended.
+ *
+ * `callText` throws on a truncated or failed run, which is correct for
+ * production but blinds a capacity probe: it cannot distinguish "the model
+ * stopped early" from "the request never started". This variant returns the
+ * partial text plus the real finish reason instead of throwing for a model-side
+ * stop, so a probe can measure where the model actually runs out.
+ */
+export async function callTextReporting(ctx, request) {
+  if (isIntelligenceCallActive()) fail('nested-intelligence-call', '辅助模型调用不能递归触发辅助学习或决策')
+  const route = routeOf(request)
+  const limits = limitsOf(request.limits)
+  const system = request.system ?? ''
+  const prompt = request.prompt
+  if (typeof system !== 'string' || typeof prompt !== 'string' || !prompt.trim() || system.length + prompt.length > limits.inputChars) fail('input-limit', '模型调用文本为空或超过输入上限')
+  const timeoutMs = integer(request.timeoutMs, 30000, 1, limits.timeoutMs, 'timeoutMs')
+  const maxTokens = integer(request.maxTokens, 2048, 1, limits.maxTokens, 'maxTokens')
+  const maxOutputChars = integer(request.maxOutputChars, limits.outputChars, 1, limits.outputChars, 'maxOutputChars')
+  const llm = ctx?.get?.('llm')
+  if (!llm || typeof llm.stream !== 'function' || typeof llm.listProviders !== 'function' || typeof llm.resolveModelInfo !== 'function') fail('llm-unavailable', '宿主没有可验证路由的 llm 服务')
+  const life = lifetime(request.signal, timeoutMs)
+  let iterator
+  try {
+    return await callScope.run(true, async () => {
+      life.signal.throwIfAborted()
+      const providers = await life.bounded(llm.listProviders())
+      if (!Array.isArray(providers) || !providers.some(provider => provider.id === route.provider)) fail('unknown-provider', '指定 provider 未注册')
+      const info = await life.bounded(llm.resolveModelInfo(route.provider, route.model, life.signal))
+      if (info?.provider !== route.provider || info?.id !== route.model) fail('route-mismatch', '适配器返回的模型身份与请求路由不一致')
+      if (route.reasoningEffort !== undefined && info.reasoning?.efforts && !info.reasoning.efforts.some(effort => effort.id === route.reasoningEffort)) fail('unsupported-effort', '模型不支持指定 reasoningEffort')
+      const options = {
+        ...route, system, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
+        tools: [], maxTokens, signal: life.signal,
+      }
+      ownedRequests.add(options)
+      iterator = llm.stream(options)[Symbol.asyncIterator]()
+      const blocks = new Map()
+      let total = 0, chunks = 0, wireChars = 0
+      const collected = () => [...blocks.values()].map(block => block.text).join('')
+      while (true) {
+        const item = await life.bounded(iterator.next())
+        if (item.done) return { text: collected(), finish: 'missing-finish', failure: '流结束但没有 finish 标记', chunks, complete: false, modelContext: info?.context }
+        const chunk = item.value
+        if (++chunks > limits.chunks) return { text: collected(), finish: 'chunk-cap', failure: '分片数超过上限', chunks, complete: false, modelContext: info?.context }
+        wireChars += typeof chunk?.text === 'string' ? chunk.text.length : typeof chunk?.argumentsDelta === 'string' ? chunk.argumentsDelta.length : 0
+        if (wireChars > limits.outputChars * 4) return { text: collected(), finish: 'wire-cap', failure: '累计内容超过上限', chunks, complete: false, modelContext: info?.context }
+        if (chunk?.type === 'finish') {
+          const kind = chunk.reason?.kind ?? 'invalid'
+          return { text: collected(), finish: kind, failure: chunk.reason?.failure?.message ?? '', chunks, complete: kind === 'stop', modelContext: info?.context }
+        }
+        const delta = chunk?.type === 'text-delta'
+        const fallback = chunk?.type === 'block-end' && chunk.block?.type === 'text'
+        if (!delta && !fallback) continue
+        if (!Number.isInteger(chunk.index) || chunk.index < 0) fail('invalid-stream', '文本分片缺少有效 index')
+        const block = blocks.get(chunk.index) ?? { text: '', deltas: false, ended: false }
+        const text = delta ? chunk.text : chunk.block.text
+        if (typeof text !== 'string' || block.ended) fail('invalid-stream', '文本分片协议无效')
+        if (delta || !block.deltas) {
+          total += text.length
+          block.text += text
+        }
+        if (delta) block.deltas = true
+        else block.ended = true
+        blocks.set(chunk.index, block)
+        // A probe wants the truth about truncation, not this cap's verdict.
+        if (total > maxOutputChars) return { text: collected(), finish: 'char-cap', failure: '超过 maxOutputChars', chunks, complete: false, modelContext: info?.context }
+      }
+    })
+  } catch (error) {
+    life.abort(error)
+    throw error
+  } finally {
     try { Promise.resolve(iterator?.return?.()).catch(() => {}) } catch { /* cleanup cannot hide the original result */ }
     life.dispose()
   }

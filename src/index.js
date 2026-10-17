@@ -36,6 +36,7 @@ import { selfReload } from './reload.js'
 import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from './intelligence.js'
 import { researchCommand, trendAnalysisCommand } from './research.js'
 import { batchCommand } from './cmd-batch.js'
+import { probeCommand, probeTool } from './cmd-probe.js'
 
 export const name = 'novel-master'
 
@@ -73,6 +74,7 @@ const COMMAND_KEYS = [
   ['research', '资料检索 (/novel-research)'],
   ['trends', '热点分析 (/novel-trends)'],
   ['batch', '批量写作 (/novel-batch)'],
+  ['probe', '输出上限实测 (/novel-probe)'],
   ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
   ...INTELLIGENCE_KEYS,
 ]
@@ -221,6 +223,7 @@ export function definitions(ctx, intelligence, config) {
     { key: 'research', factory: () => researchCommand(ctx, config?.research) },
     { key: 'trends', factory: () => trendAnalysisCommand(ctx, config?.research) },
     { key: 'batch', factory: () => batchCommand(ctx, readField(config, 'batch')) },
+    { key: 'probe', factory: () => probeCommand(ctx, readField(config, 'batch')) },
     ...EXTRA_COMMANDS,
     ...intelligenceDefinitions(intelligence),
   ]
@@ -279,6 +282,19 @@ export function apply(ctx, config = {}) {
   // Volatile references update in place; apply() is not rerun for those edits.
   const offSettings = ctx.on('settings/document-updated', reconcile)
   const offReload = ctx.on('app-boot/config-reload', reconcile)
+
+  // The probe is also reachable as a tool, so a measurement does not require the
+  // user to type a slash command. Registered separately from the command list:
+  // tools and commands are different registries.
+  let disposeProbe
+  try {
+    const tools = ctx.get('tools')
+    if (tools && typeof tools.register === 'function') {
+      disposeProbe = tools.register(probeTool(ctx, () => readField(config, 'batch'), () => ({ config: {} })))
+    }
+  } catch (error) {
+    logger?.warn?.(`[novel-master] 探测工具注册失败：${error?.message ?? error}`)
+  }
   const updateTransport = createUpdateTransport(() => readField(config, 'updateProxy'))
   ctx.on('dispose', () => updateTransport.dispose())
   installUpdater(ctx, {
@@ -290,6 +306,7 @@ export function apply(ctx, config = {}) {
   ctx.on('dispose', () => {
     disposed = true
     intelligence.dispose()
+    try { disposeProbe?.() } catch { /* tool cleanup cannot block unload */ }
     offSettings?.()
     offReload?.()
     for (const key of [...registered.keys()]) remove(key)
