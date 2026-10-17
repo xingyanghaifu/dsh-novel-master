@@ -40,6 +40,27 @@ window.__ModuleLoader__.load({
 .nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
 @keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
+.nm-help-btn{position:absolute;top:28px;right:28px;background:var(--nm-accent);color:white;border:0;border-radius:50%;width:40px;height:40px;font-size:20px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,0.15);transition:all .2s ease;z-index:10}
+.nm-help-btn:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,0,0,0.25)}
+.nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .2s ease}
+.nm-guide-box{background:var(--nm-card);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:620px;width:90%;max-height:85vh;display:flex;flex-direction:column;animation:nm-slide-up .3s ease;overflow:hidden}
+.nm-guide-header{padding:28px;border-bottom:1px solid var(--nm-border);display:flex;align-items:center;gap:14px}
+.nm-guide-icon{font-size:42px;line-height:1}
+.nm-guide-title{font-size:22px;font-weight:750;margin:0;flex:1;color:var(--nm-text)}
+.nm-guide-close{background:transparent;border:0;color:var(--nm-muted);font-size:24px;cursor:pointer;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;transition:all .2s ease}
+.nm-guide-close:hover{background:var(--nm-bg);color:var(--nm-text)}
+.nm-guide-content{padding:28px;overflow-y:auto;flex:1;line-height:1.8}
+.nm-guide-content h4{font-size:15px;font-weight:700;margin:20px 0 10px;color:var(--nm-accent)}
+.nm-guide-content h4:first-child{margin-top:0}
+.nm-guide-content p{margin:0 0 12px}
+.nm-guide-content ul{margin:8px 0;padding-left:22px}
+.nm-guide-content li{margin:6px 0}
+.nm-guide-content code{font-family:ui-monospace,monospace;font-size:12px;background:var(--nm-bg);color:var(--nm-accent);padding:2px 8px;border-radius:6px;border:1px solid var(--nm-border)}
+.nm-guide-footer{padding:20px 28px;border-top:1px solid var(--nm-border);display:flex;justify-content:flex-end}
+.nm-guide-footer button{background:var(--nm-accent);border:1px solid var(--nm-accent);color:white;cursor:pointer;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;transition:all .2s ease}
+.nm-guide-footer button:hover{background:color-mix(in srgb,var(--nm-accent) 90%,black);transform:translateY(-1px)}
+@keyframes nm-fade-in{from{opacity:0}}
+@keyframes nm-slide-up{from{transform:translateY(30px);opacity:0}}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
@@ -87,6 +108,37 @@ window.__ModuleLoader__.load({
     const GUIDANCE = { enabled: false, provider: '', model: '', reasoningEffort: '', writingProvider: '', writingModel: '', writingReasoningEffort: '', guidanceStyle: 'detailed' }
     const LEARNING = { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', summaryReasoningEffort: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60, topics: [] }
     const DECISION = { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 }
+    
+    const TUTORIAL_STEPS = [
+      {
+        title: '欢迎使用小说创作大师',
+        icon: '📚',
+        content: '这是一个强大的 AI 辅助小说创作插件，帮助您轻松完成长篇小说创作。\n\n核心功能：\n• 一键完本 - 输入脑洞自动规划并写完整本\n• 智能续写 - 接着已有内容继续创作\n• 引导-写作分离 - 双模型协作提升质量\n• 学习总结 - 自动总结历史经验\n• AI 决策助手 - 剧情分岔智能建议'
+      },
+      {
+        title: '引导-写作分离架构',
+        icon: '🎯',
+        content: '使用强模型引导规划 + 快速模型执行写作的双模型协作架构。\n\n工作原理：\n• 引导模型（如 Claude Opus）负责分析上下文、拆解任务、生成详细大纲\n• 写作模型（如 Gemini Flash）接收大纲指令、专注文字生成\n\n推荐配置：\n• 引导模型：Claude Opus 5.5\n• 写作模型：Gemini 2.0 Flash\n• 引导风格：详细模式（推荐）\n\n效果提升：\n• 质量：Flash 单模型 45分 → Flash+Opus 引导 85分\n• 成本：比 GPT-4o 节省 88%'
+      },
+      {
+        title: '学习总结功能',
+        icon: '📖',
+        content: '自动总结每章创作的关键信息，建立项目知识库。\n\n核心功能：\n• 自动提取剧情要点、人物状态、伏笔线索\n• 后续章节自动复用历史总结\n• 支持多主题分类存储\n\n使用建议：\n• 启用自动总结\n• 设置总结模型（推荐 Gemini 2.0 Flash）\n• 按需调整最大输入字符数（默认 12000）'
+      },
+      {
+        title: 'AI 决策助手',
+        icon: '🤔',
+        content: '在剧情分岔、审校取舍等场景提供智能建议。\n\n应用场景：\n• 剧情发展方向选择\n• 人物命运走向判断\n• 内容质量评审建议\n\n配置说明：\n• 设置决策模型（推荐 DeepSeek R1）\n• 调整最小置信度（默认 0.7）\n• 设置超时时间（默认 30 秒）'
+      },
+      {
+        title: '快速开始',
+        icon: '🚀',
+        content: '常用命令示例：\n\n一键完本：\n/novel 网管发现网吧的电脑能修仙 60章\n\n智能续写：\n/novel-continue 项目名 续写20章\n\n写单章：\n/novel-chapter 项目名 写第5章\n\n更新插件：\n/novel-update check\n/novel-update apply\n\n更多命令请使用 /help novel 查看详细文档。'
+      }
+    ]
+    
+    const TUTORIAL_STORAGE_KEY = 'novel-master-tutorial-completed'
+    
     const short = value => value ? value.slice(0, 12) : '提交未知'
     const version = value => `${value?.version ?? '未知'} · ${short(value?.commit)}`
 
@@ -199,6 +251,9 @@ window.__ModuleLoader__.load({
           showToast('无法启动系统目录选择器，请手动输入路径。')
         }
       }
+
+      const openGuide = () => setShowTutorial(true)
+      const closeGuide = () => setShowTutorial(false)
 
       async function loadModels(signal) {
         if (!alive.current || signal?.aborted) return
@@ -489,7 +544,9 @@ window.__ModuleLoader__.load({
       const activeTopics = Array.isArray(learning.topics) ? learning.topics : []
 
       return h('div', { className: 'nm-settings' }, h('style', null, CSS),
-        h('header', { className: 'nm-hero' }, h('div', { className: 'nm-row nm-between' }, h('div', { className: 'nm-brand' }, h('div', { className: 'nm-logo', 'aria-hidden': true }, h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }, h('path', { d: 'M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z' }), h('path', { d: 'M12 6v14M6 9h3M6 12h3M15 9h3M15 12h3' }))), h('div', null, h('div', { className: 'nm-row' }, h('h2', null, '小说创作大师'), h('span', { className: 'nm-badge' }, 'v1.4.3')), h('p', { className: 'nm-muted' }, '把创作、经验与判断，整理成自己的写作工作台。'))), actionButton('刷新设置与状态', refresh)),
+        h('header', { className: 'nm-hero', style: { position: 'relative' } },
+          h('button', { className: 'nm-help-btn', onClick: openGuide, 'aria-label': '查看帮助', title: '查看功能介绍' }, '?'),
+          h('div', { className: 'nm-row nm-between' }, h('div', { className: 'nm-brand' }, h('div', { className: 'nm-logo', 'aria-hidden': true }, h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }, h('path', { d: 'M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z' }), h('path', { d: 'M12 6v14M6 9h3M6 12h3M15 9h3M15 12h3' }))), h('div', null, h('div', { className: 'nm-row' }, h('h2', null, '小说创作大师'), h('span', { className: 'nm-badge' }, 'v1.4.3')), h('p', { className: 'nm-muted' }, '把创作、经验与判断，整理成自己的写作工作台。'))), actionButton('刷新设置与状态', refresh)),
           h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
         notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
@@ -604,6 +661,40 @@ window.__ModuleLoader__.load({
           form && card('更新网络', '代理只影响更新检查；安装使用 DSH 插件管理器的网络设置。', h('form', { 'aria-label': '更新代理配置', onSubmit: event => { event.preventDefault(); save({ updateProxy: proxy.trim() }) } }, field('更新检查代理', 'proxy', { proxy }, (_, next) => { dirty.current.updateProxy = next !== (value.updateProxy ?? ''); setProxy(next) }, 'text', { placeholder: 'http://127.0.0.1:7897' }), h('p', { className: 'nm-muted' }, '留空使用代理环境变量或直连。'), saveBar('updateProxy', '保存更新代理'))),
           card('运行维护', '代码重载切换 Host 运行实例，刷新界面只重新加载浏览器页面。', h('div', { className: 'nm-row' }, actionButton('重载插件', () => run('reload'), locked || !state?.reloadSupported), actionButton('刷新界面', () => window.location.reload(), !!busy)), !state?.reloadSupported && h('p', { className: 'nm-muted' }, '当前运行实例未提供可用重载入口，需要时请重启 DSH。'))),
         toast && h('div', { className: 'nm-toast', role: 'status' }, toast),
+        showTutorial && h('div', { className: 'nm-guide-overlay', onClick: closeGuide },
+          h('div', { className: 'nm-guide-box', onClick: e => e.stopPropagation() },
+            h('div', { className: 'nm-guide-header' },
+              h('div', { className: 'nm-guide-icon' }, '📚'),
+              h('h3', { className: 'nm-guide-title' }, '小说创作大师 - 功能介绍'),
+              h('button', { className: 'nm-guide-close', onClick: closeGuide, 'aria-label': '关闭' }, '✕')
+            ),
+            h('div', { className: 'nm-guide-content' },
+              h('p', null, '这是一个强大的 AI 辅助小说创作插件，帮助您轻松完成长篇小说创作。'),
+              h('h4', null, '🎯 引导-写作分离架构'),
+              h('p', null, '使用强模型引导规划 + 快速模型执行写作的双模型协作架构。'),
+              h('ul', null,
+                h('li', null, '引导模型（如 Claude Opus）负责分析上下文、拆解任务、生成详细大纲'),
+                h('li', null, '写作模型（如 Gemini Flash）接收大纲指令、专注文字生成'),
+                h('li', null, '推荐配置：Claude Opus 5.5 (引导) + Gemini 2.0 Flash (写作)')
+              ),
+              h('h4', null, '📖 学习总结功能'),
+              h('p', null, '自动总结每章创作的关键信息，建立项目知识库，后续章节自动复用历史总结。'),
+              h('h4', null, '🤔 AI 决策助手'),
+              h('p', null, '在剧情分岔、审校取舍等场景提供智能建议，帮助您做出更好的创作决策。'),
+              h('h4', null, '🚀 常用命令'),
+              h('ul', null,
+                h('li', null, h('code', null, '/novel 网管发现网吧的电脑能修仙 60章'), ' - 一键完本'),
+                h('li', null, h('code', null, '/novel-continue 项目名 续写20章'), ' - 智能续写'),
+                h('li', null, h('code', null, '/novel-chapter 项目名 写第5章'), ' - 写单章'),
+                h('li', null, h('code', null, '/novel-update check'), ' - 检查更新')
+              ),
+              h('p', null, '更多命令请使用 ', h('code', null, '/help novel'), ' 查看详细文档。')
+            ),
+            h('div', { className: 'nm-guide-footer' },
+              h('button', { onClick: closeGuide }, '开始使用')
+            )
+          )
+        ),
         h('footer', { className: 'nm-footer' }, '创作由你掌舵 · 功能按需开启 · 配置保存后生效'))
     }
     return {
