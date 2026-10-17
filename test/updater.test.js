@@ -128,7 +128,38 @@ test('GitHub requests honor caller cancellation and timeouts', async () => {
   await assert.rejects(checking, /cancel-check/)
   // AbortSignal.timeout is unref'ed: keep one real timer alive in this isolated test.
   const hold = setTimeout(() => {}, 200)
-  try { await assert.rejects(fetchLatest({ fetch: never, timeoutMs: 5 }), /timeout/i) } finally { clearTimeout(hold) }
+  try {
+    await assert.rejects(
+      fetchLatest({ fetch: never, timeoutMs: 5 }),
+      error => error.code === 'github-timeout' && /超时/.test(error.message),
+    )
+  } finally { clearTimeout(hold) }
+})
+
+test('settings API maps GitHub network failures to 502 and timeouts to 504', async () => {
+  let route
+  const ctx = {
+    fiber: {},
+    get: key => key === 'webServer' ? { register(value) { route = value; return () => {} } } : key === 'connection' ? { requestRejection: () => undefined } : undefined,
+    on() {},
+  }
+  const request = async action => {
+    const req = Readable.from([])
+    Object.assign(req, { method: 'POST', url: `/api/novel-master/${action}`, headers: { host: 'localhost', 'content-type': 'application/json', 'x-novel-master': 'settings' } })
+    const res = { writeHead(status) { this.status = status }, end(text) { this.data = JSON.parse(text) } }
+    await route.handler(req, res)
+    return res
+  }
+  const network = installUpdater(ctx, { fetch: async () => { throw new Error('fetch failed') } })
+  assert.equal((await request('check')).status, 502)
+  network.dispose()
+
+  const timeout = installUpdater(ctx, { fetch: async () => { throw Object.assign(new Error('operation timed out'), { name: 'TimeoutError' }) } })
+  const timed = await request('check')
+  assert.equal(timed.status, 504)
+  assert.match(timed.data.error, /超时/)
+  assert.equal(timed.data.code, 'github-timeout')
+  timeout.dispose()
 })
 
 test('failed install diagnostics, pending scripts, and restart-required are preserved', async () => {

@@ -35,6 +35,20 @@ const shared = globalThis[LOCK_KEY] ??= { busy: false, requestId: null, lastResu
 const shaOf = value => typeof value === 'string' && SHA.test(value) ? value.toLowerCase() : null
 const messageOf = error => error?.message ?? String(error)
 
+function networkUpdateError(error) {
+  if (error instanceof UpdateError) return error
+  const message = messageOf(error)
+  const timeout = error?.name === 'TimeoutError' || /timeout|timed out/i.test(message)
+  return new UpdateError(timeout ? 'github-timeout' : 'github-network', timeout
+    ? '连接 GitHub 超时，请检查网络或更新代理设置后重试'
+    : `无法连接 GitHub：${message}`)
+}
+
+const updateHttpStatus = error => error?.code === 'busy' ? 409
+  : error?.code === 'github-timeout' ? 504
+    : ['github-network', 'github-http', 'github-response'].includes(error?.code) ? 502
+      : 400
+
 function packageState() {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   let commit = shaOf(manifest.gitHead)
@@ -54,11 +68,17 @@ export class UpdateError extends Error {
 }
 
 async function readJson(fetcher, url, signal) {
-  const response = await fetcher(url, {
-    signal, redirect: 'error', headers: { Accept: 'application/vnd.github+json', 'User-Agent': PACKAGE_NAME },
-  })
+  let response
+  try {
+    response = await fetcher(url, {
+      signal, redirect: 'error', headers: { Accept: 'application/vnd.github+json', 'User-Agent': PACKAGE_NAME },
+    })
+  } catch (error) {
+    throw networkUpdateError(error)
+  }
   if (!response.ok) throw new UpdateError('github-http', `GitHub HTTP ${response.status}`)
-  return response.json()
+  try { return await response.json() }
+  catch (error) { throw new UpdateError('github-response', `GitHub 响应无法解析：${messageOf(error)}`) }
 }
 
 /** Public GitHub requests only. Mutable main is resolved before reading the manifest. */
@@ -267,7 +287,7 @@ export function installUpdater(ctx, options = {}) {
         if (action === '/cancel') return send(res, 200, await updater.cancel())
         if (action === '/reload') return send(res, 200, await updater.reload())
         return send(res, 404, { error: 'not-found' })
-      } catch (error) { send(res, error.code === 'busy' ? 409 : 400, { error: messageOf(error), code: error.code ?? 'operation-error' }) }
+      } catch (error) { send(res, updateHttpStatus(error), { error: messageOf(error), code: error.code ?? 'operation-error' }) }
     }
     if (typeof ctx.inject === 'function') {
       const fork = ctx.inject(['webServer'], scoped => mount(scoped, handler))
