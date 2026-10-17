@@ -13,7 +13,7 @@ import { chapterTarget, extractOptions } from './args.js'
 import { NO_PROJECT, agentCwd, fail, ok, projectExists, resolveProject } from './context.js'
 import { runBatchWrite } from './batch-write.js'
 import { actualModelOf } from './model-intelligence.js'
-import { listChapters, projectDir, projectRelativeDir } from './project.js'
+import { listChapters, latestProject, projectDir, projectRelativeDir } from './project.js'
 import { formatError, formatSuccess } from './validators.js'
 
 const STATUS_FILE = '批量写作状态.json'
@@ -168,6 +168,92 @@ export function batchCommand(ctx, config) {
       }
       if (outcome.aborted) return ok(formatSuccess(`批量写作已取消（已完成 ${written} 章）`, receipt))
       return ok(formatSuccess(`批量写作完成「${name}」`, receipt))
+    },
+  }
+}
+
+/**
+ * Tool entry for the same one-request batch, so a batch does not require a slash
+ * command. It reuses `runBatchWrite` verbatim instead of reimplementing the
+ * request shape: the command path is the one that is known to be accepted by the
+ * per-request channel, and a second implementation would drift from it.
+ */
+export function batchTool(ctx, config) {
+  return {
+    name: 'novel_batch',
+    description: '批量写作：一次模型请求连续写多章并直接落盘。不重试，单次调用只发一次请求。',
+    parameters: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: '项目名，留空使用最近修改的项目' },
+        chapters: { type: 'integer', description: '本次请求写几章（1-30），默认取插件配置' },
+        requirement: { type: 'string', description: '本次的额外写作要求' },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    output: {
+      schema: {
+        type: 'object',
+        properties: {
+          project: { type: 'string' },
+          written: { type: 'integer' },
+          done: { type: 'integer' },
+          chars: { type: 'integer' },
+          firstChapter: { type: 'integer' },
+          lastChapter: { type: 'integer' },
+          requestsMade: { type: 'integer' },
+          error: { type: 'string' },
+          verdict: { type: 'string' },
+        },
+        required: ['project', 'written', 'done', 'chars', 'requestsMade', 'verdict'],
+      },
+      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+    },
+    execute: async (args, exec) => {
+      const invocation = { agent: exec.agent, signal: exec.signal }
+      const cwd = agentCwd(invocation)
+      const requested = String(args?.project ?? '').trim()
+      const name = requested || latestProject(cwd)
+      if (!name || !projectExists(cwd, name)) {
+        return {
+          project: name || '', written: 0, done: 0, chars: 0, requestsMade: 0,
+          error: '找不到项目',
+          verdict: `项目「${name || '(未指定)'}」不存在，先用 /novel 创建`,
+        }
+      }
+      const route = await routeConfig(ctx, invocation, config)
+      if (route === undefined) {
+        return {
+          project: name, written: 0, done: 0, chars: 0, requestsMade: 0,
+          error: 'no-route',
+          verdict: '不知道调用哪个模型：请在插件设置 → 批量写作里填 Provider 和模型 ID',
+        }
+      }
+      const count = Math.max(1, Math.min(MAX_SINGLE_BATCH, Math.trunc(Number(args?.chapters) || batchSizeOf('', config))))
+      try {
+        // One call, one request. Validation happens inside before any file write.
+        const result = await runBatchWrite(ctx, invocation, { name, count, requirement: String(args?.requirement ?? ''), config: route })
+        const first = result.written.at(0)
+        const last = result.written.at(-1)
+        return {
+          project: name,
+          written: result.written.length,
+          done: result.done,
+          chars: result.chars,
+          firstChapter: first?.number,
+          lastChapter: last?.number,
+          requestsMade: 1,
+          error: '',
+          verdict: `一次请求写入 ${result.written.length} 章（第${first?.number}–${last?.number}章），累计 ${result.done} 章`,
+        }
+      } catch (error) {
+        return {
+          project: name, written: 0, done: listChapters(cwd, name).length, chars: 0, requestsMade: 1,
+          error: `${error?.code ?? ''} ${error?.message ?? String(error)}`.trim(),
+          verdict: '请求已发出但失败，未写入任何文件（不会重试）',
+        }
+      }
     },
   }
 }

@@ -35,7 +35,7 @@ import { createUpdateTransport, installUpdater } from './updater.js'
 import { selfReload } from './reload.js'
 import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from './intelligence.js'
 import { researchCommand, trendAnalysisCommand } from './research.js'
-import { batchCommand } from './cmd-batch.js'
+import { batchCommand, batchTool } from './cmd-batch.js'
 import { probeCommand, probeTool } from './cmd-probe.js'
 
 export const name = 'novel-master'
@@ -287,15 +287,19 @@ export function apply(ctx, config = {}) {
   // user to type a slash command. Registered separately from the command list:
   // tools and commands are different registries.
   let disposeProbe
+  let disposeBatch
   try {
     const tools = ctx.get('tools')
     if (tools && typeof tools.register === 'function') {
       // Pass the config VALUE, not a thunk: probeTool's second parameter is the
       // batch config itself. Passing a function made every route lookup empty.
       disposeProbe = tools.register(probeTool(ctx, readField(config, 'batch')))
+      // Batch as a tool too: it reuses the command's own runBatchWrite, so the
+      // request shape is identical to the path already proven to work.
+      disposeBatch = tools.register(batchTool(ctx, readField(config, 'batch')))
     }
   } catch (error) {
-    logger?.warn?.(`[novel-master] 探测工具注册失败：${error?.message ?? error}`)
+    logger?.warn?.(`[novel-master] 探测/批量工具注册失败：${error?.message ?? error}`)
   }
   const updateTransport = createUpdateTransport(() => readField(config, 'updateProxy'))
   ctx.on('dispose', () => updateTransport.dispose())
@@ -309,6 +313,7 @@ export function apply(ctx, config = {}) {
     disposed = true
     intelligence.dispose()
     try { disposeProbe?.() } catch { /* tool cleanup cannot block unload */ }
+    try { disposeBatch?.() } catch { /* tool cleanup cannot block unload */ }
     offSettings?.()
     offReload?.()
     for (const key of [...registered.keys()]) remove(key)
