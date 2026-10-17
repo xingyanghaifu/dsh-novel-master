@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { analyzeProbe, buildProbePrompt } from '../src/cmd-probe.js'
+import { analyzeProbe, buildProbePrompt, probeRoute } from '../src/cmd-probe.js'
 
 test('prompt names the exact separator and forbids commentary', () => {
   const prompt = buildProbePrompt(50)
@@ -56,4 +56,34 @@ test('the separator regex does not carry state between calls', () => {
   assert.equal(analyzeProbe(one, 1).chapters, 1)
   assert.equal(analyzeProbe(one, 1).chapters, 1)
   assert.equal(analyzeProbe(one, 1).chapters, 1)
+})
+
+/**
+ * Regression: an unreadable config used to fall back to the session's own route,
+ * which spent a billable request on a model the user never named.
+ */
+test('an unreadable config refuses instead of borrowing the session route', () => {
+  const empty = probeRoute(undefined)
+  assert.equal(empty.route, undefined)
+  assert.equal(empty.source, 'config-missing')
+  assert.equal(probeRoute({}).route, undefined)
+  assert.equal(probeRoute({ provider: 'p' }).route, undefined)
+  assert.equal(probeRoute({ model: 'm' }).route, undefined)
+})
+
+test('a complete config yields exactly that route, effort only when set', () => {
+  const route = probeRoute({ provider: 'gemini-c', model: 'gemini-3.8-flash-high-c' })
+  assert.deepEqual(route.route, { provider: 'gemini-c', model: 'gemini-3.8-flash-high-c' })
+  // Empty effort must be omitted, not sent as "".
+  const withEffort = probeRoute({ provider: 'p', model: 'm', reasoningEffort: 'high' })
+  assert.deepEqual(withEffort.route, { provider: 'p', model: 'm', reasoningEffort: 'high' })
+  assert.equal('reasoningEffort' in probeRoute({ provider: 'p', model: 'm', reasoningEffort: '' }).route, false)
+})
+
+test('volatile config references are unwrapped for the route', () => {
+  const live = value => ({ get: () => value })
+  const route = probeRoute({ provider: live('gemini-c'), model: live('gemini-3.8-flash-high-c'), reasoningEffort: live('') })
+  assert.equal(route.route.provider, 'gemini-c')
+  assert.equal(route.route.model, 'gemini-3.8-flash-high-c')
+  assert.equal('reasoningEffort' in route.route, false)
 })

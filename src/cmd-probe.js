@@ -13,7 +13,7 @@
  * (user-facing) and the `novel_probe` tool (agent-facing), so the same measurement
  * is reachable from either side.
  */
-import { callTextReporting, PROBE_LIMITS, actualModelOf } from './model-intelligence.js'
+import { callTextReporting, PROBE_LIMITS } from './model-intelligence.js'
 import { ok, fail } from './context.js'
 import { formatError, formatSuccess } from './validators.js'
 
@@ -70,23 +70,27 @@ export function analyzeProbe(text, requested) {
   }
 }
 
-/** Resolve which model to probe: explicit config first, else the observed route. */
-export async function probeRoute(invocation, ctx, config) {
-  const provider = String(read(config?.provider, '')).trim()
-  const model = String(read(config?.model, '')).trim()
-  if (provider && model) {
-    const effort = String(read(config?.reasoningEffort, '')).trim()
-    return { route: { provider, model, ...(effort ? { reasoningEffort: effort } : {}) }, source: 'config' }
-  }
-  const observed = await actualModelOf(invocation?.agent, ctx)
-  if (!observed?.known) return { route: undefined, source: observed?.reason ?? 'unknown' }
-  return { route: { provider: observed.provider, model: observed.model, ...(observed.reasoningEffort ? { reasoningEffort: observed.reasoningEffort } : {}) }, source: observed.source ?? 'observed' }
+/**
+ * Resolve which model to probe. Explicit config ONLY — there is deliberately no
+ * fallback to the session's own route.
+ *
+ * That fallback was a real bug: when the config route was unreadable the probe
+ * silently borrowed the route of whatever model the current turn was running on,
+ * spent one request, and measured a model the user never asked about. A probe
+ * must never guess a billing target, so an unreadable config now refuses and
+ * reports exactly what it did read.
+ */
+export function probeRoute(config) {
+  const provider = String(read(config?.provider, '') ?? '').trim()
+  const model = String(read(config?.model, '') ?? '').trim()
+  const effort = String(read(config?.reasoningEffort, '') ?? '').trim()
+  if (!provider || !model) return { route: undefined, source: 'config-missing', seen: { provider, model, effort } }
+  return { route: { provider, model, ...(effort ? { reasoningEffort: effort } : {}) }, source: 'config' }
 }
 
-export const NO_ROUTE = formatError('不知道用哪个模型探测', [
+export const NO_ROUTE = formatError('没有可用的探测模型路由，未发送任何请求', [
   '在插件设置 → 批量写作里填 Provider 和模型 ID',
-  '或先在本会话正常发一条消息，让插件读到实际路由',
-  '不会猜测模型，避免把内容发到别的模型上计费'
+  '不会借用当前会话的模型：那会把请求发给用户没有指定的计费对象'
 ])
 
 /**
@@ -97,8 +101,8 @@ export async function runProbe(ctx, { invocation, config, chapters, maxTokens, t
   const requested = Math.max(1, Math.min(200, Math.trunc(Number(chapters) || 50)))
   const tokens = Math.min(PROBE_LIMITS.maxTokens, Math.max(1024, Math.trunc(Number(maxTokens) || PROBE_LIMITS.maxTokens)))
   const timeoutMs = Math.min(PROBE_LIMITS.timeoutMs, Math.max(30000, Math.trunc(Number(timeoutSec) || 900) * 1000))
-  const { route, source } = await probeRoute(invocation, ctx, config)
-  if (!route) return { kind: 'no-route', source, requested, tokens, timeoutMs }
+  const { route, source, seen } = probeRoute(config)
+  if (!route) return { kind: 'no-route', source, seen, requested, tokens, timeoutMs }
   const result = await callTextReporting(ctx, {
     ...route,
     limits: 'probe',
@@ -114,7 +118,16 @@ export async function runProbe(ctx, { invocation, config, chapters, maxTokens, t
 
 /** Render a measurement as a receipt. */
 export function probeReceipt(measured) {
-  if (measured.kind === 'no-route') return fail(NO_ROUTE)
+  if (measured.kind === 'no-route') {
+    const seen = measured.seen ?? {}
+    return fail(formatError('没有可用的探测模型路由，未发送任何请求', [
+      `读到的 provider：${seen.provider || '(空)'}`,
+      `读到的 model：${seen.model || '(空)'}`,
+      `读到的 reasoningEffort：${seen.effort || '(空)'}`,
+      '在插件设置 → 批量写作里填 Provider 和模型 ID',
+      '不会借用当前会话的模型：那会把请求发给没有指定的计费对象'
+    ]))
+  }
   const { route, result, measure: m, requested, tokens, timeoutMs, source } = measured
   const verdict = m.complete
     ? `一次请求完整返回 ${m.chapters} 章（未触顶）`
@@ -224,11 +237,13 @@ export function probeTool(ctx, config, invocationOf) {
         }
       }
       if (measured.kind === 'no-route') {
+        const seen = measured.seen ?? {}
         return {
-          provider: '', model: '',
+          provider: seen.provider || '', model: seen.model || '',
           requested: measured.requested, chapters: 0, bodyChars: 0, averageChars: 0, lastChapterChars: 0,
-          complete: false, truncated: false, finish: 'no-route', failure: `无法确定模型路由：${measured.source}`,
-          requestsMade: 0, verdict: '未发请求：不知道用哪个模型',
+          complete: false, truncated: false, finish: 'no-route',
+          failure: `配置未读到模型路由：provider=${seen.provider || '(空)'} model=${seen.model || '(空)'}`,
+          requestsMade: 0, verdict: '未发请求：没有可用路由',
         }
       }
       const m = measured.measure
