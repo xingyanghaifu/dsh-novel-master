@@ -6,43 +6,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { strictValidateProjectDirectory } from './path-helper.js'
 
 const projectsDirectory = new AsyncLocalStorage()
 
 /** Validate once per command; never mutate a process-wide directory setting. */
 export function withProjectsDirectory(directory, operation) {
-  if (typeof directory !== 'string' || !directory.trim()) {
-    throw new TypeError('项目目录必须是非空相对路径')
-  }
-  const value = directory.trim().replace(/\\/gu, '/')
-  
-  // 详细检查并给出具体错误原因
-  if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)) {
-    throw new TypeError(`项目目录不能使用绝对路径"${value}"，请使用相对路径如"novel_projects"或"books/novels"。详见 TROUBLESHOOTING_PROJECT_DIR.md`)
-  }
-  if (value.includes(':')) {
-    throw new TypeError(`项目目录不能包含冒号":"（如"${value}"），请使用相对路径如"novel_projects"。详见 TROUBLESHOOTING_PROJECT_DIR.md`)
-  }
-  if (value.includes('\0')) {
-    throw new TypeError('项目目录不能包含空字符')
-  }
-  
-  const invalidPart = value.split('/').find((part) => 
-    part === '..' || part === '.' || /[.\s]$/u.test(part) || /[<>"|?*\u0000-\u001f]/u.test(part)
-  )
-  if (invalidPart) {
-    if (invalidPart === '.' || invalidPart === '..') {
-      throw new TypeError(`项目目录不能包含"."或".."路径段，请使用简单相对路径如"novel_projects"，而不是"${value}"。详见 TROUBLESHOOTING_PROJECT_DIR.md`)
-    }
-    if (/[.\s]$/u.test(invalidPart)) {
-      throw new TypeError(`项目目录的路径段"${invalidPart}"末尾不能有点或空格，请修改后重试。详见 TROUBLESHOOTING_PROJECT_DIR.md`)
-    }
-    throw new TypeError(`项目目录的路径段"${invalidPart}"包含非法字符，不能使用 < > " | ? * 等字符。详见 TROUBLESHOOTING_PROJECT_DIR.md`)
-  }
-  const normalized = value.split('/').filter(Boolean).join('/')
-  if (!normalized) throw new TypeError('项目目录必须是非空相对路径')
+  const normalized = strictValidateProjectDirectory(directory)
   return projectsDirectory.run(normalized, operation)
 }
+
 
 /** Immutable directory snapshot for the current command and its async work. */
 export function configuredProjectsDirectory() {
