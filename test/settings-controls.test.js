@@ -245,6 +245,34 @@ test('research settings require an explicit model and persist storage directory'
   await h.submit('资料检索配置')
   assert.deepEqual(h.calls.at(-1).body.patch.research, { ...DEFAULT.research, enabled: true, provider: 'academic', model: 'verifier', storageDir: 'research-library' })
 })
+test('batch settings persist the paid model and reject half-filled routes', async () => {
+  const h = harness()
+  await h.click('批量写作')
+  const visible = h.nodes().filter(node => node.props.role === 'tabpanel' && !node.props.hidden)
+  assert.deepEqual(visible.map(node => node.props.id), ['nm-panel-batch'])
+  assert.equal(h.find('input', '每次请求章数').props.value, 6)
+
+  // A provider without a model must not be saved: it would bill an unknown route.
+  h.edit('批量写作提供方', 'paid-provider')
+  await h.submit('批量写作配置')
+  assert.equal(h.calls.length, 0)
+  assert.match(h.text(h.render()), /必须成对填写/)
+
+  h.edit('批量写作模型 ID', 'paid-model')
+  h.edit('每次请求章数', '10')
+  await h.submit('批量写作配置')
+  assert.deepEqual(h.calls.at(-1).body.patch.batch, { provider: 'paid-provider', model: 'paid-model', reasoningEffort: '', chaptersPerRequest: 10 })
+})
+
+test('batch settings reject an out-of-range batch size instead of clamping silently', async () => {
+  const h = harness()
+  await h.click('批量写作')
+  h.edit('每次请求章数', '99')
+  await h.submit('批量写作配置')
+  assert.equal(h.calls.length, 0)
+  assert.match(h.text(h.render()), /1 到 30/)
+})
+
 test('activity is read only on demand and renders actual backend status and errors', async () => {
   const h = harness()
   h.render()
