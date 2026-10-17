@@ -689,8 +689,9 @@ window.__ModuleLoader__.load({
                   h('p', null, '使用强模型引导规划 + 快速模型执行写作的双模型协作架构'),
                   h('ul', null,
                     h('li', null, '引导模型（如 Claude Opus）负责分析上下文、拆解任务、生成详细大纲'),
-                    h('li', null, '写作模型（如 Gemini Flash）接收大纲指令、专注文字生成'),
-                    h('li', null, '推荐配置：Claude Opus 5.5 (引导) + Gemini 2.0 Flash (写作)')
+                    h('li', null, '写作模型（如 Gemini 2.5 Flash）接收大纲指令、专注文字生成'),
+                    h('li', null, '推荐配置：Claude Opus 5.5 (引导) + Gemini 2.5 Flash (写作)'),
+                    h('li', null, '高质量场景：Claude Opus 5.5 (引导) + Gemini 2.5 Pro (写作)')
                   )
                 )
               ),
