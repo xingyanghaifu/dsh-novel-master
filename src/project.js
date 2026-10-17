@@ -10,9 +10,19 @@ import { strictValidateProjectDirectory } from './path-helper.js'
 
 const projectsDirectory = new AsyncLocalStorage()
 
-/** Validate once per command; never mutate a process-wide directory setting. */
+/**
+ * Validate once per command; never mutate a process-wide directory setting.
+ *
+ * Absolute directories are accepted here because the settings surface offers a
+ * browse-for-custom-path control for `projectsDir`. Without this the UI promised
+ * something the command then refused.
+ */
 export function withProjectsDirectory(directory, operation) {
-  const normalized = strictValidateProjectDirectory(directory)
+  // Keep the type guard: coercion would turn 42 into a valid-looking path.
+  const raw = typeof directory === 'string' ? directory.trim().replace(/\\/gu, '/') : directory
+  const absolute = typeof raw === 'string'
+    && (path.posix.isAbsolute(raw) || path.win32.isAbsolute(raw))
+  const normalized = strictValidateProjectDirectory(raw, { allowAbsolute: absolute })
   return projectsDirectory.run(normalized, operation)
 }
 
@@ -22,9 +32,15 @@ export function configuredProjectsDirectory() {
   return projectsDirectory.getStore() ?? PROJECTS_DIR
 }
 
-/** Portable relative path for receipts, prompts and persisted workflows. */
+/** Portable path for receipts, prompts and persisted workflows. */
 export function projectRelativeDir(name) {
-  return `${configuredProjectsDirectory()}/${name}`
+  const configured = configuredProjectsDirectory()
+  // An absolute root is reported as-is: inventing a relative path would point
+  // somewhere the file is not, and receipts must name a real location.
+  if (path.win32.isAbsolute(String(configured)) || path.posix.isAbsolute(String(configured).replace(/\\/gu, '/'))) {
+    return `${String(configured).replace(/\\/gu, '/').replace(/\/+$/u, '')}/${name}`
+  }
+  return `${configured}/${name}`
 }
 
 export const PROJECTS_DIR = 'novel_projects'
@@ -35,7 +51,13 @@ export const CHAPTER_RE = /^第(\d{1,4})章(?:[_\s-]*(.*?))?\.(?:md|txt)$/u
 
 /** Directory that holds every project for this working directory. */
 export function projectsRoot(cwd) {
-  const root = path.resolve(cwd, configuredProjectsDirectory())
+  const configured = configuredProjectsDirectory()
+  // An absolute projects directory is used as-is: it is the user's explicit
+  // choice and is not required to live under the working directory.
+  if (path.posix.isAbsolute(String(configured).replace(/\\/gu, '/')) || path.win32.isAbsolute(String(configured))) {
+    return path.resolve(configured)
+  }
+  const root = path.resolve(cwd, configured)
   const relative = path.relative(path.resolve(cwd), root)
   if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) {
     throw new TypeError('项目目录必须位于工作目录内')

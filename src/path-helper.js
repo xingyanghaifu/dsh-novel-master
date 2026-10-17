@@ -135,17 +135,24 @@ export function validateProjectDirectory(directory, cwd) {
 }
 
 /**
- * Strict validation for command execution. Keeps the project root below the
- * working directory and rejects traversal, absolute paths, and unsafe names.
+ * Strict validation for command execution. By default the project root stays
+ * below the working directory and rejects traversal, absolute paths, and unsafe
+ * names.
+ *
+ * `allowAbsolute` is opt-in for the configured projects directory, where the
+ * settings surface explicitly offers a "browse for a custom absolute path"
+ * control. Accepting it here keeps the setting and the command consistent: it
+ * used to be offered in the UI and then rejected at run time.
  */
-export function strictValidateProjectDirectory(directory) {
+export function strictValidateProjectDirectory(directory, { allowAbsolute = false } = {}) {
   if (typeof directory !== 'string' || !directory.trim()) {
     throw new TypeError('项目目录必须是非空相对路径')
   }
 
   const value = directory.trim().replace(/\\/gu, '/')
   if (path.posix.isAbsolute(value) || path.win32.isAbsolute(value)) {
-    throw new TypeError(`项目目录不能使用绝对路径"${value}"，请使用工作目录内的相对路径。`)
+    if (!allowAbsolute) throw new TypeError(`项目目录不能使用绝对路径"${value}"，请使用工作目录内的相对路径。`)
+    return validateAbsoluteDirectory(value)
   }
   if (value.includes(':')) throw new TypeError('项目目录不能包含冒号。')
   if (value.includes('\0')) throw new TypeError('项目目录不能包含空字符。')
@@ -165,6 +172,21 @@ export function strictValidateProjectDirectory(directory) {
   const normalized = value.split('/').filter(Boolean).join('/')
   if (!normalized) throw new TypeError('项目目录必须是非空相对路径')
   return normalized
+}
+
+/**
+ * Normalize an absolute projects directory. Traversal segments, a NUL byte and
+ * the filesystem root are refused so a stray "C:/" cannot become the project
+ * root and scatter files across a drive.
+ */
+function validateAbsoluteDirectory(value) {
+  if (value.includes('\0')) throw new TypeError('项目目录不能包含空字符。')
+  if (value.split('/').some(part => part === '..')) throw new TypeError(`项目目录不能包含".."路径段："${value}"。`)
+  const resolved = path.win32.isAbsolute(value) ? path.win32.normalize(value) : path.posix.normalize(value)
+  const trimmed = resolved.replace(/[\\/]+$/u, '')
+  if (!trimmed || /^[A-Za-z]:$/u.test(trimmed)) throw new TypeError('项目目录不能是磁盘根目录。')
+  if (trimmed === '/' || trimmed === '') throw new TypeError('项目目录不能是文件系统根目录。')
+  return trimmed
 }
 
 /**

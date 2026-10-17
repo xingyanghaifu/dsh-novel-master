@@ -59,8 +59,8 @@ test('directory suggestions are safe, strict and preserve path meaning', () => {
     path.resolve(workspace, '..', 'other-workspace'))
 })
 
-test('directories reject absolute, empty and traversal paths before operation executes', () => {
-  for (const value of [undefined, null, 42, '', '  ', '.', '..', '../books', 'books/../other', 'books/./other', '/books', 'C:/books', 'C:books', '\\\\server\\books', 'books\\..\\other', 'books/.. /outside', 'books/a./other', 'books\0bad']) {
+test('directories reject empty, traversal and unsafe paths before operation executes', () => {
+  for (const value of [undefined, null, 42, '', '  ', '.', '..', '../books', 'books/../other', 'books/./other', 'books\\..\\other', 'books/.. /outside', 'books/a./other', 'books\0bad', 'C:/', '/']) {
     let executed = false
     assert.throws(() => withProjectsDirectory(value, () => { executed = true }), /项目目录/u, JSON.stringify(value))
     assert.equal(executed, false)
@@ -70,6 +70,24 @@ test('directories reject absolute, empty and traversal paths before operation ex
     assert.equal(projectRelativeDir('书名'), 'books/fiction/书名')
   })
   assert.equal(configuredProjectsDirectory(), 'novel_projects')
+})
+
+/**
+ * Regression: the settings page offers a browse-for-custom-path control and its
+ * copy promises an absolute directory, but the command rejected it with
+ * "项目目录不能使用绝对路径". The UI and the executor must agree.
+ */
+test('an absolute projects directory is accepted and used verbatim', () => {
+  const absolute = path.win32.isAbsolute(process.cwd())
+    ? path.win32.join(process.cwd(), 'absolute-books')
+    : path.posix.join(process.cwd(), 'absolute-books')
+  withProjectsDirectory(absolute, () => {
+    assert.equal(path.resolve(projectsRoot('/some/other/cwd')), path.resolve(absolute))
+    // Receipts name the real location instead of inventing a relative path.
+    assert.equal(projectRelativeDir('书名'), `${absolute.replace(/\\/gu, '/')}/书名`)
+  })
+  // Escaping with '..' inside an absolute path is still refused.
+  assert.throws(() => withProjectsDirectory(`${absolute}/../escape`, () => {}), /项目目录/u)
 })
 
 test('two concurrent async requests retain isolated directory snapshots and persisted workflows', async (t) => {
