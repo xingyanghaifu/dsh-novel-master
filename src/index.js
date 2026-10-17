@@ -163,7 +163,9 @@ export const Config = z.object({
     provider: live(z.string().default('')).description('批量写作 Provider').comment('按次计费模型填这里；留空则使用本会话最近一次实际请求的路由。'),
     model: live(z.string().default('')).description('批量写作模型 ID'),
     reasoningEffort: live(z.string().default('')).description('批量写作推理强度').comment('留空使用模型默认值。'),
-    chaptersPerRequest: live(z.natural().min(1).max(30).default(6)).description('每次请求写几章').comment('按次计费时这是唯一影响花费的旋钮：章数越多，请求次数越少。'),
+    // 37 is the measured hard ceiling (77525 chars in one request); asking for
+    // more only risks a max-tokens cut that discards the whole batch.
+    chaptersPerRequest: live(z.natural().min(1).max(37).default(20)).description('每次请求写几章').comment('实测单次上限约 37 章（77525 字）。按次计费时这是唯一影响花费的旋钮：章数越多，请求次数越少。建议 20。'),
   }).description('批量写作（一次请求写多章）'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')

@@ -58,8 +58,13 @@ export function buildBatchPrompt({ cwd, name, chapters, startChapter, requiremen
   const numbers = chapters.map(chapter => chapter.number)
   const plan = chapters.map(chapter => `第${chapter.number}章 目标 ${chapter.chars} 字：${chapter.brief || '按大纲推进'}`).join('\n')
   const separatorSample = CHAPTER_SEPARATOR.replace('{{N}}', String(numbers[0]))
+  // State the total explicitly. Without it a large batch makes the model shave
+  // every chapter down to fit, which is how 30 requested chapters arrived at
+  // ~1100 characters each instead of the 2500 the plan asked for.
+  const totalChars = chapters.reduce((sum, chapter) => sum + chapter.chars, 0)
+  const minChars = Math.min(...chapters.map(chapter => chapter.chars))
 
-  return `你现在一次性撰写《${state.title ?? name}》的第 ${numbers[0]} 章到第 ${numbers.at(-1)} 章，共 ${chapters.length} 章。
+  return `你现在一次性撰写《${state.title ?? name}》的第 ${numbers[0]} 章到第 ${numbers.at(-1)} 章，共 ${chapters.length} 章，总计约 ${totalChars} 字。
 
 【最重要的约束】
 - 本次回复只输出正文，不要调用任何工具，不要读写文件，不要询问确认，不要输出解释、前言或总结。
@@ -67,6 +72,7 @@ export function buildBatchPrompt({ cwd, name, chapters, startChapter, requiremen
 - 除分隔标记外，不要再输出任何说明文字。
 - 每章第一行写「# 第N章 标题」，不写作者说明、不打分、不写构思。
 - 每章字数按下面清单执行，剧情连贯、承接上一章结尾。
+- 每章不得少于 ${minChars} 字。宁可少写一章的进度，也不要把章节压缩成梗概；写不下就写细，不要缩水。
 
 【写作规范】
 ${rules || '（无，按中文网文常规：节奏快、对话自然、细节具体。）'}

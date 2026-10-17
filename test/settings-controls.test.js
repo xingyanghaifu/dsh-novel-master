@@ -250,7 +250,8 @@ test('batch settings persist the paid model and reject half-filled routes', asyn
   await h.click('批量写作')
   const visible = h.nodes().filter(node => node.props.role === 'tabpanel' && !node.props.hidden)
   assert.deepEqual(visible.map(node => node.props.id), ['nm-panel-batch'])
-  assert.equal(h.find('input', '每次请求章数').props.value, 6)
+  // Default is 20: measured ceiling is 37 chapters, 20 leaves room for context.
+  assert.equal(h.find('input', '每次请求章数').props.value, 20)
 
   // A provider without a model must not be saved: it would bill an unknown route.
   h.edit('批量写作提供方', 'paid-provider')
@@ -270,7 +271,8 @@ test('batch settings reject an out-of-range batch size instead of clamping silen
   h.edit('每次请求章数', '99')
   await h.submit('批量写作配置')
   assert.equal(h.calls.length, 0)
-  assert.match(h.text(h.render()), /1 到 30/)
+  // 37 is the measured per-request ceiling, not an arbitrary cap.
+  assert.match(h.text(h.render()), /1 到 37/)
 })
 
 test('activity is read only on demand and renders actual backend status and errors', async () => {

@@ -8,8 +8,13 @@ export const INTELLIGENCE_LIMITS = Object.freeze({ inputChars: 48000, outputChar
  * one large request far cheaper than many small ones, and a whole book needs
  * more room than an auxiliary lookup. Selection is by name only, never by a
  * caller-supplied number, so defaults cannot drift open.
+ *
+ * maxTokens 96000 is measured, not guessed: one probe request with 128000 asked
+ * for 60 chapters and the channel cut it off at 77525 characters (37 chapters,
+ * finish=max-tokens). 96000 tokens ≈ 75000 characters at the observed 1:1.18
+ * ratio, leaving headroom below that hard ceiling so a complex prompt is not cut.
  */
-export const BATCH_LIMITS = Object.freeze({ inputChars: 400000, outputChars: 120000, maxTokens: 32000, timeoutMs: 1800000, chunks: 200000 })
+export const BATCH_LIMITS = Object.freeze({ inputChars: 400000, outputChars: 200000, maxTokens: 96000, timeoutMs: 1800000, chunks: 200000 })
 /**
  * Bounds for a one-shot capacity probe. Deliberately far above the batch profile:
  * the point is to let the MODEL hit its own ceiling, so the plugin's guesses must

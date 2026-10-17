@@ -17,8 +17,13 @@ import { listChapters, latestProject, projectDir, projectRelativeDir } from './p
 import { formatError, formatSuccess } from './validators.js'
 
 const STATUS_FILE = '批量写作状态.json'
-const DEFAULT_BATCH = 6
-const MAX_SINGLE_BATCH = 30
+/**
+ * 20 chapters is measured, not arbitrary. The per-request channel cuts off at
+ * 77525 characters (37 chapters at ~2100 each); 20 chapters at 2500 characters
+ * is 50000, well inside that ceiling even after context grows.
+ */
+const DEFAULT_BATCH = 20
+const MAX_SINGLE_BATCH = 37
 
 /**
  * Unwrap a live (volatile) config reference. The settings schema marks each
@@ -104,7 +109,7 @@ export function batchCommand(ctx, config) {
   return {
     name: 'novel-batch',
     description: '批量写作：一次模型请求连续写多章（按次计费模型最省请求）',
-    input: { hint: '[项目名] [N章] [--每批6章] [--auto] [要求]', attachments: false },
+    input: { hint: '[项目名] [N章] [--每批20章] [--auto] [要求]', attachments: false },
     handler: async (invocation) => {
       const cwd = invocation.cwd ?? agentCwd(invocation)
       const options = extractOptions(invocation.rawInput)

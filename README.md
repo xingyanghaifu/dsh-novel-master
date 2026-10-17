@@ -71,7 +71,7 @@ github:xingyanghaifu/dsh-novel-master
 | `/novel <脑洞> [60章\|20万字] [--auto]` | 建项目并提交规划、写作和收尾目标 |
 | `/novel-continue [项目\|文件.txt] [N章] [--auto]` | 续写项目或导入 TXT/Markdown（支持 GBK） |
 | `/novel-chapter [项目] <章号> [要求]` | 请求生成指定新章节，避免静默覆盖已有章 |
-| `/novel-batch [项目] [N章] [--每批6章] [--auto] [要求]` | 一次模型请求连续写多章，按次计费模型最省请求 |
+| `/novel-batch [项目] [N章] [--每批20章] [--auto] [要求]` | 一次模型请求连续写多章，按次计费模型最省请求 |
 | `/novel-rewrite [项目] <章号> [要求]` | 请求改写，要求先保留旧稿 |
 | `/novel-idea <脑洞>` | 请求展开多个构思方向 |
 | `/novel-outline [项目] [要求]` | 请求生成或调整大纲 |

@@ -118,7 +118,7 @@ window.__ModuleLoader__.load({
     const LEARNING = { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', summaryReasoningEffort: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60, topics: [] }
     const DECISION = { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 }
     const RESEARCH = { enabled: false, provider: '', model: '', reasoningEffort: '', storageDir: 'novel_research', maxResults: 5, maxSourceChars: 12000, timeoutMs: 60000 }
-    const BATCH = { provider: '', model: '', reasoningEffort: '', chaptersPerRequest: 6 }
+    const BATCH = { provider: '', model: '', reasoningEffort: '', chaptersPerRequest: 20 }
     
     const TUTORIAL_STEPS = [
       {
@@ -459,7 +459,7 @@ window.__ModuleLoader__.load({
         event.preventDefault()
         const next = { ...batchWrite, provider: batchWrite.provider.trim(), model: batchWrite.model.trim(), reasoningEffort: batchWrite.reasoningEffort.trim(), chaptersPerRequest: Number(batchWrite.chaptersPerRequest) }
         if (!!next.provider !== !!next.model) return setError('批量写作的提供方和模型必须成对填写，或都留空使用会话模型。')
-        if (!Number.isSafeInteger(next.chaptersPerRequest) || next.chaptersPerRequest < 1 || next.chaptersPerRequest > 30) return setError('每次请求章数必须为 1 到 30 之间的整数。')
+        if (!Number.isSafeInteger(next.chaptersPerRequest) || next.chaptersPerRequest < 1 || next.chaptersPerRequest > 37) return setError('每次请求章数必须为 1 到 37 之间的整数（实测单次上限约 37 章）。')
         return save({ batch: next })
       }
       const value = form?.value ?? {}
@@ -705,10 +705,10 @@ window.__ModuleLoader__.load({
            card('模型与批量大小', '指定按次计费模型，并设置每次请求写几章。', h('div', { className: 'nm-stack' },
              renderModelSelect('从现有模型列表中选择批量写作模型', batchWrite.provider, batchWrite.model, (p, m) => { editBatch('provider', p); editBatch('model', m) }, false),
              renderReasoningSelect('批量写作思考/推理强度 (Reasoning Effort)', batchWrite.reasoningEffort, val => editBatch('reasoningEffort', val), batchWrite.provider, batchWrite.model),
-             h('div', { className: 'nm-grid' }, field('批量写作提供方', 'provider', batchWrite, editBatch, 'text', { placeholder: '留空使用会话模型' }), field('批量写作模型 ID', 'model', batchWrite, editBatch, 'text', { placeholder: '留空使用会话模型' }), field('每次请求章数', 'chaptersPerRequest', batchWrite, editBatch, 'number', { required: true, min: 1, max: 30, step: 1 })),
+             h('div', { className: 'nm-grid' }, field('批量写作提供方', 'provider', batchWrite, editBatch, 'text', { placeholder: '留空使用会话模型' }), field('批量写作模型 ID', 'model', batchWrite, editBatch, 'text', { placeholder: '留空使用会话模型' }), field('每次请求章数', 'chaptersPerRequest', batchWrite, editBatch, 'number', { required: true, min: 1, max: 37, step: 1 })),
              h('p', { className: 'nm-muted' }, '输出上限由模型自身决定。章数设得过大时模型可能提前截断，这种情况下该批不会写入任何文件，可调小后重试。')
            ), saveBar('batch', '保存批量写作配置')),
-           h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-batch 项目名 60章 --每批6章 --auto')))),
+           h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-batch 项目名 60章 --每批20章 --auto')))),
          panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
           state?.latest && h('p', { className: 'nm-callout' }, state.updateAvailable === false ? '磁盘已是此提交。' : state.updateAvailable === null ? '本地提交未知，版本号相同不能证明代码相同。' : '发现可安装的提交。检查后拉取会锁定本次完整 SHA。'),
           h('div', { className: 'nm-row' }, actionButton(busy === 'check' ? '检查中…' : '检查更新', () => run('check'), locked, true), actionButton(busy === 'apply' ? '正在拉取并安装…' : '拉取此提交', () => run('apply'), locked || !state?.latest), (busy === 'apply' || state?.busy) && actionButton('取消安装', cancel, false)), state?.result && h('p', { className: 'nm-callout' }, `最近安装结果：${state.result.application}${state.result.codeReload ? `；代码重载：${state.result.codeReload.application}` : ''}`)),

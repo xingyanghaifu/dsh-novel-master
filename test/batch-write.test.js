@@ -132,3 +132,26 @@ test('buildBatchPrompt states the exact chapter range and separator', () => {
   assert.match(prompt, /===第\{\{N\}\}章===/u)
   assert.match(prompt, /不要调用任何工具/u)
 })
+
+/**
+ * Regression: a 30-chapter batch came back at ~1100 characters per chapter
+ * instead of the 2500 the plan asked for. The prompt named the chapter count but
+ * never the total, so the model shaved every chapter to fit. Stating the total
+ * and a per-chapter floor is what makes the budget explicit to the model.
+ */
+test('buildBatchPrompt states the total budget and a per-chapter floor', () => {
+  const root = tempRoot()
+  makeProject(root, '预算书')
+  const prompt = withProjectsDirectory('novel_projects', () => buildBatchPrompt({
+    cwd: root,
+    name: '预算书',
+    chapters: [{ number: 1, chars: 2500 }, { number: 2, chars: 2500 }, { number: 3, chars: 2500 }],
+    startChapter: 1,
+    requirement: '',
+  }))
+  // 3 chapters x 2500 = 7500 total must appear, not just the per-chapter target.
+  assert.match(prompt, /总计约 7500 字/u)
+  assert.match(prompt, /共 3 章/u)
+  // The floor prevents a chapter from silently collapsing into a summary.
+  assert.match(prompt, /不得少于 2500 字/u)
+})
