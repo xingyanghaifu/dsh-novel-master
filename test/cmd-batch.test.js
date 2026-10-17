@@ -17,14 +17,17 @@ function root() {
   return cwd
 }
 
-function host({ reply = '===第1章===\n# 第1章 一\n正文一\n', known = false } = {}) {
+function host({ reply = '===第1章===\n# 第1章 一\n正文一\n', known = false, replies = undefined } = {}) {
   const calls = []
+  let index = 0
   const llm = {
     listProviders: () => [{ id: route.provider }],
     resolveModelInfo: async (provider, model) => ({ provider, id: model }),
     stream: options => {
       calls.push(options)
-      return (async function * () { yield { type: 'text-delta', index: 0, text: reply }; yield stop })()
+      const text = replies === undefined ? reply : replies[Math.min(index, replies.length - 1)]
+      index += 1
+      return (async function * () { yield { type: 'text-delta', index: 0, text }; yield stop })()
     },
   }
   const ctx = {
@@ -91,5 +94,37 @@ test('live config references are unwrapped instead of stringified', async () => 
   assert.equal(h.calls[0].model, route.model)
   assert.notEqual(h.calls[0].provider, '[object Object]')
   assert.equal(fs.readdirSync(path.join(cwd, 'novel_projects', '书', '正文')).length, 1)
+  fs.rmSync(cwd, { recursive: true, force: true })
+})
+
+test('--auto repeats one request per batch and reports the real request count', async () => {
+  const cwd = root()
+  const h = host({
+    known: false,
+    replies: [
+      '===第1章===\n# 第1章 一\n正文一\n===第2章===\n# 第2章 二\n正文二\n',
+      '===第3章===\n# 第3章 三\n正文三\n',
+    ],
+  })
+  const command = batchCommand(h.ctx, { ...route, chaptersPerRequest: 2 })
+  const result = await withProjectsDirectory('novel_projects', () => command.handler(invoke(cwd, '书 3章 --auto')))
+  assert.equal(result.kind, 'success', result.text)
+  // Two batches (2 chapters, then the remaining 1) — never one request per chapter.
+  assert.equal(h.calls.length, 2)
+  assert.match(result.text, /实际请求[\s\S]*2 次/u)
+  assert.equal(fs.readdirSync(path.join(cwd, 'novel_projects', '书', '正文')).length, 3)
+  const status = JSON.parse(fs.readFileSync(path.join(cwd, 'novel_projects', '书', '批量写作状态.json'), 'utf8'))
+  assert.equal(status.phase, 'complete')
+  fs.rmSync(cwd, { recursive: true, force: true })
+})
+
+test('--auto stops on a bad batch instead of silently billing more requests', async () => {
+  const cwd = root()
+  const h = host({ known: false, replies: ['模型没有输出分隔标记'] })
+  const command = batchCommand(h.ctx, { ...route, chaptersPerRequest: 1 })
+  const result = await withProjectsDirectory('novel_projects', () => command.handler(invoke(cwd, '书 4章 --auto')))
+  assert.equal(result.kind, 'error')
+  assert.equal(h.calls.length, 1, 'must not retry a failing batch')
+  assert.deepEqual(fs.readdirSync(path.join(cwd, 'novel_projects', '书', '正文')), [])
   fs.rmSync(cwd, { recursive: true, force: true })
 })

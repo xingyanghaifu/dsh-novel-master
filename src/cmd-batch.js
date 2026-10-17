@@ -65,27 +65,36 @@ function summary(written) {
   return first.number === last.number ? `第${first.number}章` : `第${first.number}–${last.number}章`
 }
 
-/** Repeat single-request batches in the background until the target is met. */
+/**
+ * Repeat single-request batches until the target is met.
+ *
+ * This runs inside the command handler on purpose. `invocation.signal` belongs
+ * to the UI request, so a detached background loop would keep billing after the
+ * command settled and could not be cancelled; awaiting here keeps every request
+ * cancellable and makes the receipt describe work that actually happened.
+ */
 async function runLoop(ctx, invocation, { name, target, size, requirement, config }) {
   const cwd = invocation.cwd ?? agentCwd(invocation)
+  const batches = []
   for (;;) {
     if (invocation.signal?.aborted) {
       writeStatus(cwd, name, { phase: 'aborted', lastError: '' })
-      return
+      return { batches, aborted: true }
     }
     const done = listChapters(cwd, name).length
     if (done >= target) {
       writeStatus(cwd, name, { phase: 'complete', done, target, lastError: '' })
-      return
+      return { batches, aborted: false, done }
     }
     const count = Math.min(size, target - done)
     writeStatus(cwd, name, { phase: 'running', done, target, requestSize: count })
     try {
       const result = await runBatchWrite(ctx, invocation, { name, count, requirement, config })
+      batches.push(result)
       writeStatus(cwd, name, { phase: 'running', done: result.done, target, lastBatch: summary(result.written), lastError: '' })
     } catch (error) {
       writeStatus(cwd, name, { phase: 'error', lastError: error?.message ?? String(error) })
-      return
+      return { batches, aborted: false, error }
     }
   }
 }
@@ -137,17 +146,28 @@ export function batchCommand(ctx, config) {
 
       if (done >= target) return ok(`《${name}》已有 ${done} 章，已达到目标 ${target} 章。`)
       writeStatus(cwd, name, { phase: 'running', done, target, requestSize: size, lastError: '' })
-      // Background: a whole book is far longer than one command turn may block.
-      void runLoop(ctx, invocation, { name, target, size, requirement, config: route })
-        .catch(error => writeStatus(cwd, name, { phase: 'error', lastError: error?.message ?? String(error) }))
-      return ok(formatSuccess(`已在后台开始批量写作「${name}」`, {
+      const outcome = await runLoop(ctx, invocation, { name, target, size, requirement, config: route })
+      const written = outcome.batches.reduce((sum, batch) => sum + batch.written.length, 0)
+      const latest = outcome.batches.at(-1)
+      const receipt = {
         '📁 项目路径': `${projectRelativeDir(name)}/`,
         '📚 起始章数': `${done} 章`,
         '🎯 目标章数': `${target} 章`,
-        '📦 每批章数': `${size} 章 / 次请求`,
-        '💳 预计请求': `约 ${Math.ceil((target - done) / size)} 次`,
-        '📄 进度文件': `${projectRelativeDir(name)}/${STATUS_FILE}`
-      }))
+        '📝 本次写入': `${written} 章`,
+        '💳 实际请求': `${outcome.batches.length} 次`,
+      }
+      if (latest) receipt['📊 当前章数'] = `${latest.done} 章`
+      receipt['📄 进度文件'] = `${projectRelativeDir(name)}/${STATUS_FILE}`
+
+      if (outcome.error) {
+        return fail(formatError(`批量写作中断：${outcome.error.message ?? outcome.error}`, [
+          `已写入 ${written} 章，终止于第 ${written === 0 ? done : latest?.done ?? done} 章之后`,
+          '修复配置或调小「每次请求章数」后重新执行，已存在的章节不会被覆盖',
+          `详细错误见 ${projectRelativeDir(name)}/${STATUS_FILE}`
+        ]))
+      }
+      if (outcome.aborted) return ok(formatSuccess(`批量写作已取消（已完成 ${written} 章）`, receipt))
+      return ok(formatSuccess(`批量写作完成「${name}」`, receipt))
     },
   }
 }
