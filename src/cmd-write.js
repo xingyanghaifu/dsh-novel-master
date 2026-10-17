@@ -46,7 +46,11 @@ function launch(ctx, invocation, name, target, done, receipt) {
   const start = prompt => {
     invocation.signal?.throwIfAborted()
     const attachments = invocation.attachments ?? []
-    if (attachments.length > 0) {
+    // `followup` is not part of the documented Agent interface (`{ readonly id }`),
+    // so it must be probed rather than assumed: a missing one used to throw
+    // "Cannot read properties of undefined (reading 'followup')".
+    const canFollowup = typeof invocation.agent?.followup === 'function'
+    if (attachments.length > 0 && canFollowup) {
       invocation.agent.followup(userMessage(`以上附件是《${name}》的参考资料（风格或设定），动笔前先看，要点记进项目文件。`, attachments))
     }
     if (goals !== undefined) {
@@ -55,6 +59,15 @@ function launch(ctx, invocation, name, target, done, receipt) {
       return ok(formatSuccess(receipt, {
         '📝 进度': `${done}/${target} 章`, '🎯 剩余': `${target - done} 章`, '🔄 模式': '自动多轮（目标驱动）',
       }) + '\n\n💡 提示：可用 /goal pause 暂停、/goal resume 继续')
+    }
+    if (!canFollowup) {
+      return fail(formatError('当前环境无法把任务交回模型继续执行', [
+        '这个命令依赖「把任务排队给会话模型」的能力，当前宿主没有提供该入口',
+        `项目已就绪：${projectRelativeDir(name)}/`,
+        '可以直接对我说「继续写《' + name + '》」，或把下面的提示词交给模型：',
+        '',
+        String(prompt).slice(0, 1200),
+      ]))
     }
     invocation.agent.followup(userMessage(prompt))
     return ok(`${receipt}\n\n⚠️ 当前环境没有目标服务，改为手动模式：\n  每轮写完说"继续"才会接着写下一轮`)

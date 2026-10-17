@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.6.3
+
+- 修复 4 个命令直接崩溃：`/novel-continue`、`/novel-outline`、`/novel-cast`、`/novel-spark` 无条件调用 `agent.followup`，而官方 `Agent` 接口只声明 `{ readonly id }`，缺少该方法时抛 `Cannot read properties of undefined (reading 'followup')`，命令什么都没做就失败。现在先检测再调用，没有投递通道时返回可操作的提示并把提示词交给用户，不再崩溃。
+- 修复工作目录解析：真实命令 invocation 是 `{ commandId, agent, rawInput, attachments, signal }`，既没有 `cwd` 也没有 `agent.session`，旧逻辑因此总是落到 `process.cwd()`。桌面端那里是安装目录而不是工作区，会读写到错误位置。现在按 cwd → session.header.cwd → session.cwd → workingDirectory 服务逐级回退。
+- 引导模型集成模块改用统一的 `agentCwd`，不再单独用 `process.cwd()`。
+- 命令参数识别放宽（此前会静默忽略或污染项目名）：
+  - `第60章`、`60章节` 此前会把 `第`/`节` 残留进项目名，导致查不到项目；
+  - 全角数字 `６０章` 此前完全不识别；
+  - `60章--auto`、`--auto` 紧贴前文时此前不识别（正则要求两侧空格）；
+  - 新增 `-a` 作为 `--auto` 简写；
+  - 项目名支持 `《书名》`、`“书名”`、`「书名」` 等复制粘贴形式。
+- 补充回归测试：4 个命令不崩溃、`agentCwd` 逐级回退、参数宽松解析（新增 10 项，总计 207 项）。
+
 ## 1.6.2
 
 - 修复项目目录使用绝对路径时 `/novel` 等命令报「项目目录不能使用绝对路径」的问题。设置页一直提供「浏览…选择自定义绝对路径」，命令层却直接拒绝，二者矛盾；现在绝对路径被接受并按原样使用，回执中也显示真实路径而不是拼出的相对路径。

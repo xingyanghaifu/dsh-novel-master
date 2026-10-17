@@ -9,6 +9,7 @@ import path from 'node:path'
 import { readGuidanceConfig, executeGuidedWriting, saveGuidanceOutline } from './guidance.js'
 import { projectDir, CHAPTER_DIR } from './project.js'
 import { withProjectsDirectory } from './project.js'
+import { agentCwd } from './context.js'
 
 /**
  * 检查是否应该使用引导模型
@@ -109,8 +110,9 @@ export async function generateChapterWithGuidance(options) {
     throw new Error('引导模型未启用或配置不完整')
   }
 
-  // 读取项目上下文
-  const cwd = invocation.cwd || process.cwd()
+  // 读取项目上下文。真实 invocation 不含 cwd，必须走 session header 兜底，
+  // 否则会落到进程启动目录而不是工作目录。
+  const cwd = invocation.cwd || agentCwd(invocation)
   const projectsDirectory = config.projectsDir || 'novel_projects'
   
   const context = readProjectContext(cwd, projectName, targetChapter, projectsDirectory)
