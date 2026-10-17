@@ -149,6 +149,32 @@ export function probeReceipt(measured) {
   }))
 }
 
+/**
+ * Metadata-only route check. Makes NO model request, so it costs nothing and is
+ * safe to run any number of times. Use it to prove the configured route resolves
+ * before spending a billable probe.
+ */
+export async function inspectRoute(ctx, config) {
+  const { route, source, seen } = probeRoute(config)
+  if (!route) return { kind: 'no-route', source, seen }
+  const llm = ctx?.get?.('llm')
+  if (!llm?.resolveModelInfo) throw new Error('宿主没有 llm 服务')
+  const info = await llm.resolveModelInfo(route.provider, route.model)
+  const efforts = Array.isArray(info?.reasoning?.efforts) ? info.reasoning.efforts.map(effort => effort.id) : []
+  return {
+    kind: 'route',
+    source,
+    route,
+    provider: info?.provider,
+    model: info?.id,
+    name: info?.name,
+    contextWindow: info?.context?.contextWindow ?? null,
+    defaultMaxTokens: info?.defaultMaxTokens ?? null,
+    efforts,
+    effortSupported: route.reasoningEffort === undefined ? true : efforts.length === 0 ? null : efforts.includes(route.reasoningEffort),
+  }
+}
+
 /** `/novel-probe [章数] [--tokens N] [--timeout 秒]` */
 export function probeCommand(ctx, config) {
   return {
@@ -183,14 +209,14 @@ export function probeCommand(ctx, config) {
  * Agent-facing twin of the command. Registered as a tool so the same single
  * measurement is reachable without the user typing a slash command.
  */
-export function probeTool(ctx, config, invocationOf) {
+export function probeTool(ctx, config) {
   return {
     name: 'novel_probe',
     description: '单次输出上限实测：只发一次请求，测量指定模型一次能返回多少章、是否被截断。不重试、不写任何项目文件。',
     parameters: {
       type: 'object',
       properties: {
-        chapters: { type: 'integer', description: '要求一次输出多少章（1-200），默认 50' },
+        chapters: { type: 'integer', description: '要求一次输出多少章（1-200），默认 50；填 0 只查路由元数据、不发请求' },
         maxTokens: { type: 'integer', description: '本次请求的 maxTokens 上限，默认取插件上限' },
         timeoutSec: { type: 'integer', description: '超时秒数，默认 900' },
       },
@@ -214,10 +240,48 @@ export function probeTool(ctx, config, invocationOf) {
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }],
     },
     execute: async (args, exec) => {
+      // chapters: 0 — metadata only, no request, no cost.
+      if (Math.trunc(Number(args?.chapters)) === 0) {
+        try {
+          const info = await inspectRoute(ctx, config)
+          if (info.kind === 'no-route') {
+            const seen = info.seen ?? {}
+            return {
+              provider: seen.provider || '', model: seen.model || '',
+              requested: 0, chapters: 0, bodyChars: 0, averageChars: 0, lastChapterChars: 0,
+              complete: false, truncated: false, finish: 'no-route',
+              failure: `配置未读到模型路由：provider=${seen.provider || '(空)'} model=${seen.model || '(空)'}`,
+              requestsMade: 0, verdict: '未发请求：没有可用路由',
+            }
+          }
+          return {
+            provider: info.provider, model: info.model,
+            requested: 0, chapters: 0, bodyChars: 0, averageChars: 0, lastChapterChars: 0,
+            complete: false, truncated: false, finish: 'diagnose-only', failure: '',
+            requestsMade: 0,
+            verdict: [
+              `contextWindow=${info.contextWindow ?? '未知'}`,
+              `defaultMaxTokens=${info.defaultMaxTokens ?? '未声明'}`,
+              `efforts=[${info.efforts.join(',') || '未声明'}]`,
+              `配置 effort=${info.route.reasoningEffort ?? '(空)'}`,
+              info.effortSupported === null ? 'effort 未声明无法校验' : info.effortSupported ? 'effort 可用' : '⚠️ effort 不被支持',
+            ].join('；'),
+          }
+        } catch (error) {
+          return {
+            provider: String(read(config?.provider, '')), model: String(read(config?.model, '')),
+            requested: 0, chapters: 0, bodyChars: 0, averageChars: 0, lastChapterChars: 0,
+            complete: false, truncated: false, finish: 'error',
+            failure: `${error?.code ?? ''} ${error?.message ?? String(error)}`.trim(),
+            requestsMade: 0, verdict: '路由解析失败（未发请求）',
+          }
+        }
+      }
+
       let measured
       try {
         measured = await runProbe(ctx, {
-          invocation: { agent: exec.agent, signal: exec.signal, ...(invocationOf?.() ?? {}) },
+          invocation: { agent: exec.agent, signal: exec.signal },
           config,
           chapters: args?.chapters,
           maxTokens: args?.maxTokens,

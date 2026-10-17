@@ -290,7 +290,9 @@ export function apply(ctx, config = {}) {
   try {
     const tools = ctx.get('tools')
     if (tools && typeof tools.register === 'function') {
-      disposeProbe = tools.register(probeTool(ctx, () => readField(config, 'batch'), () => ({ config: {} })))
+      // Pass the config VALUE, not a thunk: probeTool's second parameter is the
+      // batch config itself. Passing a function made every route lookup empty.
+      disposeProbe = tools.register(probeTool(ctx, readField(config, 'batch')))
     }
   } catch (error) {
     logger?.warn?.(`[novel-master] 探测工具注册失败：${error?.message ?? error}`)
