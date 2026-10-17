@@ -118,6 +118,7 @@ window.__ModuleLoader__.load({
     const LEARNING = { enabled: false, autoSummarize: true, reuse: true, storageDir: 'novel_learning', summaryProvider: '', summaryModel: '', summaryReasoningEffort: '', maxInputChars: 12000, maxRecords: 500, cooldownSeconds: 60, topics: [] }
     const DECISION = { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 }
     const RESEARCH = { enabled: false, provider: '', model: '', reasoningEffort: '', storageDir: 'novel_research', maxResults: 5, maxSourceChars: 12000, timeoutMs: 60000 }
+    const BATCH = { provider: '', model: '', reasoningEffort: '', chaptersPerRequest: 6 }
     
     const TUTORIAL_STEPS = [
       {
@@ -188,6 +189,7 @@ window.__ModuleLoader__.load({
       const [learning, setLearning] = useState({ ...LEARNING, ...form?.value?.learning })
       const [decision, setDecision] = useState({ ...DECISION, ...form?.value?.decision })
       const [research, setResearch] = useState({ ...RESEARCH, ...form?.value?.research })
+      const [batchWrite, setBatchWrite] = useState({ ...BATCH, ...form?.value?.batch })
       const [activity, setActivity] = useState(null)
       const [activityError, setActivityError] = useState('')
       const [activityBusy, setActivityBusy] = useState(false)
@@ -229,12 +231,14 @@ window.__ModuleLoader__.load({
         if (!dirty.current.learning) setLearning({ ...LEARNING, ...next.value?.learning })
         if (!dirty.current.decision) setDecision({ ...DECISION, ...next.value?.decision })
         if (!dirty.current.research) setResearch({ ...RESEARCH, ...next.value?.research })
+        if (!dirty.current.batch) setBatchWrite({ ...BATCH, ...next.value?.batch })
       }
       const changed = (draft, original) => Object.keys(draft).some(key => String(draft[key]) !== String(original[key]))
       const editGuidance = (key, next) => setGuidance(current => { const draft = { ...current, [key]: next }; dirty.current.guidance = changed(draft, { ...GUIDANCE, ...form?.value?.guidance }); return draft })
       const editLearning = (key, next) => setLearning(current => { const draft = { ...current, [key]: next }; dirty.current.learning = changed(draft, { ...LEARNING, ...form?.value?.learning }); return draft })
       const editDecision = (key, next) => setDecision(current => { const draft = { ...current, [key]: next }; dirty.current.decision = changed(draft, { ...DECISION, ...form?.value?.decision }); return draft })
       const editResearch = (key, next) => setResearch(current => { const draft = { ...current, [key]: next }; dirty.current.research = changed(draft, { ...RESEARCH, ...form?.value?.research }); return draft })
+      const editBatch = (key, next) => setBatchWrite(current => { const draft = { ...current, [key]: next }; dirty.current.batch = changed(draft, { ...BATCH, ...form?.value?.batch }); return draft })
 
       const toggleTopic = id => {
         setLearning(current => {
@@ -451,6 +455,13 @@ window.__ModuleLoader__.load({
         if (!Number.isSafeInteger(next.timeoutMs) || next.timeoutMs < 1000 || next.timeoutMs > 120000) return setError('检索超时必须为 1000 到 120000 毫秒之间的整数。')
         return save({ research: next })
       }
+      function saveBatch(event) {
+        event.preventDefault()
+        const next = { ...batchWrite, provider: batchWrite.provider.trim(), model: batchWrite.model.trim(), reasoningEffort: batchWrite.reasoningEffort.trim(), chaptersPerRequest: Number(batchWrite.chaptersPerRequest) }
+        if (!!next.provider !== !!next.model) return setError('批量写作的提供方和模型必须成对填写，或都留空使用会话模型。')
+        if (!Number.isSafeInteger(next.chaptersPerRequest) || next.chaptersPerRequest < 1 || next.chaptersPerRequest > 30) return setError('每次请求章数必须为 1 到 30 之间的整数。')
+        return save({ batch: next })
+      }
       const value = form?.value ?? {}
       const locked = !!busy || state?.busy || activityBusy
       const commandKeys = Object.keys(value?.commands ?? {}).filter(key => key !== 'update' && key !== 'novel-update')
@@ -574,7 +585,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
         notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
-        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
+        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
         panel('features', form && card('创作工作台', '关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。',
@@ -689,6 +700,15 @@ window.__ModuleLoader__.load({
              h('div', { className: 'nm-path-box' }, field('资料存储目录', 'storageDir', research, editResearch, 'text', { placeholder: 'novel_research 或绝对路径', required: true }), actionButton('📁 浏览目录…', () => pickDirectory('storageDir'), locked)),
              h('div', { className: 'nm-grid' }, field('最多来源数', 'maxResults', research, editResearch, 'number', { min: 1, max: 10, step: 1 }), field('单来源字符上限', 'maxSourceChars', research, editResearch, 'number', { min: 1000, max: 24000, step: 1 }), field('检索超时毫秒', 'timeoutMs', research, editResearch, 'number', { min: 1000, max: 120000, step: 1 }))
            ), saveBar('research', '保存资料检索配置')))),
+
+         panel('batch', form && h('form', { className: 'nm-stack', 'aria-label': '批量写作配置', onSubmit: saveBatch }, card('按次计费批量写作', '一次模型请求连续写多章，请求次数就是花费次数。', h('p', { className: 'nm-muted' }, '按次计费模型选这里。每批章数越多，请求次数越少；提供方与模型都留空时，使用本会话最近一次实际路由。')),
+           card('模型与批量大小', '指定按次计费模型，并设置每次请求写几章。', h('div', { className: 'nm-stack' },
+             renderModelSelect('从现有模型列表中选择批量写作模型', batchWrite.provider, batchWrite.model, (p, m) => { editBatch('provider', p); editBatch('model', m) }, false),
+             renderReasoningSelect('批量写作思考/推理强度 (Reasoning Effort)', batchWrite.reasoningEffort, val => editBatch('reasoningEffort', val), batchWrite.provider, batchWrite.model),
+             h('div', { className: 'nm-grid' }, field('批量写作提供方', 'provider', batchWrite, editBatch, 'text', { placeholder: '留空使用会话模型' }), field('批量写作模型 ID', 'model', batchWrite, editBatch, 'text', { placeholder: '留空使用会话模型' }), field('每次请求章数', 'chaptersPerRequest', batchWrite, editBatch, 'number', { required: true, min: 1, max: 30, step: 1 })),
+             h('p', { className: 'nm-muted' }, '输出上限由模型自身决定。章数设得过大时模型可能提前截断，这种情况下该批不会写入任何文件，可调小后重试。')
+           ), saveBar('batch', '保存批量写作配置')),
+           h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-batch 项目名 60章 --每批6章 --auto')))),
          panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
           state?.latest && h('p', { className: 'nm-callout' }, state.updateAvailable === false ? '磁盘已是此提交。' : state.updateAvailable === null ? '本地提交未知，版本号相同不能证明代码相同。' : '发现可安装的提交。检查后拉取会锁定本次完整 SHA。'),
           h('div', { className: 'nm-row' }, actionButton(busy === 'check' ? '检查中…' : '检查更新', () => run('check'), locked, true), actionButton(busy === 'apply' ? '正在拉取并安装…' : '拉取此提交', () => run('apply'), locked || !state?.latest), (busy === 'apply' || state?.busy) && actionButton('取消安装', cancel, false)), state?.result && h('p', { className: 'nm-callout' }, `最近安装结果：${state.result.application}${state.result.codeReload ? `；代码重载：${state.result.codeReload.application}` : ''}`)),

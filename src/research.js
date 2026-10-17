@@ -7,7 +7,14 @@ import { callText, IntelligenceError } from './model-intelligence.js'
 const MAX_QUERY = 500
 const MAX_RESULTS = 10
 const MAX_SOURCE_CHARS = 24000
-const MAX_TOTAL_CHARS = 90000
+/**
+ * Evidence budget for one synthesis call. `callText` refuses any
+ * system + prompt longer than INTELLIGENCE_LIMITS.inputChars (48000), and the
+ * system prompt plus the question framing already consume part of it, so the
+ * evidence itself must stay well below the hard limit or every large research
+ * request fails with `input-limit` instead of producing a report.
+ */
+const MAX_TOTAL_CHARS = 36000
 const SAFE_NAME = /[^\p{L}\p{N}._-]+/gu
 
 const read = (value, fallback) => {
@@ -184,6 +191,10 @@ export function researchCommand(ctx, configuredResearch) {
       if (!sources.length) return fail('没有检索到可用来源，未生成结论。')
       let total = 0
       const documents = []
+      // Share the budget across every source instead of first-come-first-served:
+      // one huge page must not crowd the rest out, or the model is handed facts
+      // whose URLs never appeared in its evidence and every citation fails.
+      const perSource = Math.max(1000, Math.floor(MAX_TOTAL_CHARS / Math.max(1, sources.length)))
       for (const source of sources) {
         if (!source?.url || !/^https?:\/\//iu.test(source.url)) continue
         let body = ''
@@ -191,8 +202,11 @@ export function researchCommand(ctx, configuredResearch) {
           const fetched = await web.fetch({ url: source.url }, invocation.signal)
           if (fetched?.statusCode >= 200 && fetched.statusCode < 300) body = bounded(typeof fetched.body === 'string' ? fetched.body : fetched.body?.content, sourceLimit)
         } catch { /* 单个来源失败仍保留搜索摘要，并在报告中标记未抓取 */ }
-        const text = sourceText(source, body)
-        if (total + text.length > MAX_TOTAL_CHARS) break
+        const heading = sourceText(source, '')
+        const room = Math.min(perSource - heading.length, MAX_TOTAL_CHARS - total - heading.length)
+        if (room <= 0) continue
+        const text = sourceText(source, body.length > room ? bounded(body, room) : body)
+        if (!text.trim()) continue
         total += text.length
         documents.push({ ...source, fetched: Boolean(body), text })
       }

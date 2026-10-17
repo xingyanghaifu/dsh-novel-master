@@ -65,7 +65,7 @@ function harness(options = {}) {
 test('tabs mount every panel but expose only the selected accessible panel', async () => {
   const h = harness()
   const panels = () => h.nodes().filter(node => node.props.role === 'tabpanel')
-  assert.equal(panels().length, 6) // features, guidance, learning, decision, research, updater
+  assert.equal(panels().length, 7) // features, guidance, learning, decision, research, batch, updater
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-features'])
   await h.click('学习总结')
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-learning'])

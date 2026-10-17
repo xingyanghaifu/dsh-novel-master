@@ -35,6 +35,7 @@ import { createUpdateTransport, installUpdater } from './updater.js'
 import { selfReload } from './reload.js'
 import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from './intelligence.js'
 import { researchCommand, trendAnalysisCommand } from './research.js'
+import { batchCommand } from './cmd-batch.js'
 
 export const name = 'novel-master'
 
@@ -71,6 +72,7 @@ const COMMAND_KEYS = [
   ['market', '市场分析 (/novel-market)'],
   ['research', '资料检索 (/novel-research)'],
   ['trends', '热点分析 (/novel-trends)'],
+  ['batch', '批量写作 (/novel-batch)'],
   ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
   ...INTELLIGENCE_KEYS,
 ]
@@ -155,6 +157,12 @@ export const Config = z.object({
     maxSourceChars: live(z.natural().min(1000).max(24000).default(12000)).description('单来源字符上限'),
     timeoutMs: live(z.natural().min(1000).max(120000).default(60000)).description('检索模型超时（毫秒）'),
   }).description('资料检索'),
+  batch: z.object({
+    provider: live(z.string().default('')).description('批量写作 Provider').comment('按次计费模型填这里；留空则使用本会话最近一次实际请求的路由。'),
+    model: live(z.string().default('')).description('批量写作模型 ID'),
+    reasoningEffort: live(z.string().default('')).description('批量写作推理强度').comment('留空使用模型默认值。'),
+    chaptersPerRequest: live(z.natural().min(1).max(30).default(6)).description('每次请求写几章').comment('按次计费时这是唯一影响花费的旋钮：章数越多，请求次数越少。'),
+  }).description('批量写作（一次请求写多章）'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
@@ -212,6 +220,7 @@ export function definitions(ctx, intelligence, config) {
     { key: 'market', factory: marketCommand },
     { key: 'research', factory: () => researchCommand(ctx, config?.research) },
     { key: 'trends', factory: () => trendAnalysisCommand(ctx, config?.research) },
+    { key: 'batch', factory: () => batchCommand(ctx, readField(config, 'batch')) },
     ...EXTRA_COMMANDS,
     ...intelligenceDefinitions(intelligence),
   ]

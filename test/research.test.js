@@ -55,6 +55,33 @@ test('research rejects fabricated citations and does not persist a report', asyn
   assert.equal(fs.existsSync(path.join(h.cwd, 'retrieved')), false)
   h.cleanup()
 })
+
+test('large source volume stays inside the synthesis input limit instead of failing', async () => {
+  // Ten sources at the 24000-char per-source ceiling used to build a 90k-char
+  // evidence blob, which callText rejects outright (input-limit at 48000).
+  const sources = Array.from({ length: 10 }, (_, i) => ({ url: `https://example.test/p${i}`, title: `Paper ${i}`, snippet: 'abstract' }))
+  const facts = sources.map((source, i) => ({ claim: `样本${i}`, value: '42', sourceUrls: [source.url], confidence: .9, confidenceLabel: '高', reason: '来源正文明确' }))
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-research-big-'))
+  const calls = []
+  const huge = 'x'.repeat(24000)
+  const web = { search: async () => ({ content: 'search', sources }), fetch: async () => ({ statusCode: 200, body: { kind: 'text', content: huge }, truncated: false }) }
+  const llm = {
+    listProviders: () => [{ id: route.provider }],
+    resolveModelInfo: async (provider, model) => ({ provider, id: model }),
+    stream: options => {
+      calls.push(options)
+      return (async function * () { yield { type: 'text-delta', index: 0, text: JSON.stringify({ answer: '结论', facts, limitations: [], sources }) }; yield stop })()
+    },
+  }
+  const config = { enabled: true, provider: route.provider, model: route.model, storageDir: 'retrieved', maxResults: 10, maxSourceChars: 24000, timeoutMs: 10000 }
+  const command = researchCommand({ get: key => key === 'web' ? web : key === 'llm' ? llm : undefined }, config)
+  const result = await command.handler({ rawInput: 'big topic', agent: { session: { header: { cwd } } }, signal: new AbortController().signal })
+  assert.equal(result.kind, 'success')
+  const sent = calls[0]
+  const total = (sent.system ?? '').length + sent.messages[0].content[0].text.length
+  assert.ok(total <= 48000, `synthesis input was ${total} chars`)
+  fs.rmSync(cwd, { recursive: true, force: true })
+})
 test('credibility source classification uses parsed hostnames rather than URL text', () => {
   assert.equal(CredibilityEvaluator.evaluateSourceType({ url: 'https://agency.gov.cn/reports' }), 95)
   assert.equal(CredibilityEvaluator.evaluateSourceType({ url: 'https://journals.cnki.net/paper' }), 95)

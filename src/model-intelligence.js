@@ -3,6 +3,20 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 const ownedRequests = new WeakSet()
 const callScope = new AsyncLocalStorage()
 export const INTELLIGENCE_LIMITS = Object.freeze({ inputChars: 48000, outputChars: 32768, maxTokens: 8192, timeoutMs: 120000, chunks: 20000 })
+/**
+ * Opt-in wider bounds for one-request batch writing. Per-request billing makes
+ * one large request far cheaper than many small ones, and a whole book needs
+ * more room than an auxiliary lookup. Selection is by name only, never by a
+ * caller-supplied number, so defaults cannot drift open.
+ */
+export const BATCH_LIMITS = Object.freeze({ inputChars: 400000, outputChars: 120000, maxTokens: 32000, timeoutMs: 1800000, chunks: 200000 })
+const PROFILES = Object.freeze({ default: INTELLIGENCE_LIMITS, batch: BATCH_LIMITS })
+function limitsOf(profile) {
+  if (profile === undefined) return INTELLIGENCE_LIMITS
+  const limits = PROFILES[profile]
+  if (!limits) fail('invalid-limit', '未知的调用上限配置')
+  return limits
+}
 
 export class IntelligenceError extends Error {
   constructor(code, message) { super(message); this.name = 'IntelligenceError'; this.code = code }
@@ -48,12 +62,13 @@ function lifetime(signal, timeoutMs) {
 export async function callText(ctx, request) {
   if (isIntelligenceCallActive()) fail('nested-intelligence-call', '辅助模型调用不能递归触发辅助学习或决策')
   const route = routeOf(request)
+  const limits = limitsOf(request.limits)
   const system = request.system ?? ''
   const prompt = request.prompt
-  if (typeof system !== 'string' || typeof prompt !== 'string' || !prompt.trim() || system.length + prompt.length > INTELLIGENCE_LIMITS.inputChars) fail('input-limit', '模型调用文本为空或超过输入上限')
-  const timeoutMs = integer(request.timeoutMs, 30000, 1, INTELLIGENCE_LIMITS.timeoutMs, 'timeoutMs')
-  const maxTokens = integer(request.maxTokens, 2048, 1, INTELLIGENCE_LIMITS.maxTokens, 'maxTokens')
-  const maxOutputChars = integer(request.maxOutputChars, INTELLIGENCE_LIMITS.outputChars, 1, INTELLIGENCE_LIMITS.outputChars, 'maxOutputChars')
+  if (typeof system !== 'string' || typeof prompt !== 'string' || !prompt.trim() || system.length + prompt.length > limits.inputChars) fail('input-limit', '模型调用文本为空或超过输入上限')
+  const timeoutMs = integer(request.timeoutMs, 30000, 1, limits.timeoutMs, 'timeoutMs')
+  const maxTokens = integer(request.maxTokens, 2048, 1, limits.maxTokens, 'maxTokens')
+  const maxOutputChars = integer(request.maxOutputChars, limits.outputChars, 1, limits.outputChars, 'maxOutputChars')
   const llm = ctx?.get?.('llm')
   if (!llm || typeof llm.stream !== 'function' || typeof llm.listProviders !== 'function' || typeof llm.resolveModelInfo !== 'function') fail('llm-unavailable', '宿主没有可验证路由的 llm 服务')
   const life = lifetime(request.signal, timeoutMs)
@@ -78,9 +93,9 @@ export async function callText(ctx, request) {
         const item = await life.bounded(iterator.next())
         if (item.done) fail('missing-finish', '模型流结束但没有成功的 finish 标记')
         const chunk = item.value
-        if (++chunks > INTELLIGENCE_LIMITS.chunks) fail('output-limit', '模型流分片数超过上限')
+        if (++chunks > limits.chunks) fail('output-limit', '模型流分片数超过上限')
         wireChars += typeof chunk?.text === 'string' ? chunk.text.length : typeof chunk?.argumentsDelta === 'string' ? chunk.argumentsDelta.length : 0
-        if (wireChars > INTELLIGENCE_LIMITS.outputChars * 4) fail('output-limit', '模型流累计内容超过上限')
+        if (wireChars > limits.outputChars * 4) fail('output-limit', '模型流累计内容超过上限')
         if (chunk?.type === 'finish') {
           if (chunk.reason?.kind !== 'stop') fail(`finish-${chunk.reason?.kind ?? 'invalid'}`, chunk.reason?.failure?.message ?? `模型调用未完整结束：${chunk.reason?.kind ?? 'invalid'}`)
           const text = [...blocks.values()].map(block => block.text).join('')
