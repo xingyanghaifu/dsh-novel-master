@@ -382,9 +382,14 @@ export function apply(ctx, config = {}) {
       const dir = resolveProjectDir(cwd ?? '', readField(config, 'projectsDir') ?? 'novel_projects', project)
       // 工作台直接给 prompt；设定树地图走旧的地区数据自动拼提示词。
       const finalPrompt = prompt || buildPrompt(region, { title: projectTitle ?? project })
-      // 工作台可以为本次生成临时覆盖模型，不影响保存的默认值。
+      // 工作台可以为本次生成临时覆盖模型与构图参数，不影响保存的默认值。
       const entry = resolveImageConfig(config)
       if (model) entry.model = String(model)
+      // 每次请求可覆盖构图：宽高比 / 分辨率档位 / 张数 / 透明背景
+      if (body?.aspect) entry.aspect = String(body.aspect)
+      if (body?.tier) entry.tier = String(body.tier)
+      if (body?.count !== undefined) entry.count = Math.max(1, Math.min(4, Number(body.count) || 1))
+      if (body?.transparent !== undefined) entry.transparent = body.transparent === true
       return generateImage({
         entry,
         projectDir: dir,

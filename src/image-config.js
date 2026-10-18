@@ -24,6 +24,11 @@ export const DEFAULT_IMAGE_CONFIG = {
   model: '',
   size: '1024x1024',
   quality: '',
+  // 构图控制：与主流生图控制台一致
+  aspect: '1:1',
+  tier: '1k',
+  count: 1,
+  transparent: false,
   timeoutMs: 180000,
 }
 
@@ -63,6 +68,8 @@ export function resolveImageConfig(config) {
   const resolved = merge(DEFAULT_IMAGE_CONFIG, config?.image ?? {})
   resolved.baseURL = String(resolved.baseURL).replace(/\/+$/u, '')
   resolved.model = String(resolved.model)
+  resolved.count = Math.max(1, Math.min(4, Number(resolved.count) || 1))
+  resolved.transparent = resolved.transparent === true
   return resolved
 }
 

@@ -193,6 +193,25 @@ window.__ModuleLoader__.load({
 .nm-art-refclear{align-self:flex-start;font-size:10.5px;padding:2px 9px}
 .nm-art-strength{gap:4px}
 .nm-art-strength input[type=range]{width:100%;accent-color:var(--nm-accent)}
+/* 构图控制：宽高比 / 分辨率 / 张数 / 透明背景 */
+.nm-art-compose{display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--nm-border);border-radius:11px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-compose-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.nm-compose-label{flex:none;font-size:10.5px;font-weight:600;color:var(--nm-muted);min-width:52px}
+.nm-compose-group{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
+.nm-compose-chip{flex:none;font-size:10.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s;line-height:1.5}
+.nm-compose-chip:hover:not(:disabled){border-color:var(--nm-accent);color:var(--nm-accent)}
+.nm-compose-chip[data-active=true]{background:var(--nm-accent);border-color:var(--nm-accent);color:#fff;font-weight:650}
+.nm-compose-chip:disabled{opacity:.5;cursor:not-allowed}
+.nm-compose-hint{flex:none;font-size:10px;color:var(--nm-muted);white-space:nowrap}
+.nm-compose-switch{flex:none;font-size:10.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s}
+.nm-compose-switch[data-on=true]{background:var(--nm-good);border-color:var(--nm-good);color:#fff;font-weight:650}
+.nm-compose-switch:disabled{opacity:.5;cursor:not-allowed}
+/* 多图缩略图条 */
+.nm-art-thumbs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-thumb{padding:0;border:2px solid transparent;border-radius:7px;background:none;cursor:pointer;line-height:0;overflow:hidden;flex:none;transition:border-color .14s}
+.nm-art-thumb img{width:52px;height:52px;object-fit:cover;display:block}
+.nm-art-thumb[data-active=true]{border-color:var(--nm-accent)}
+.nm-art-thumb:hover{border-color:color-mix(in srgb,var(--nm-accent) 55%,transparent)}
 .nm-subhead{margin:14px 0 6px;font-size:12px;font-weight:700;color:var(--nm-text)}.nm-atlas-spoke{margin-top:6px;border-top:1px dashed var(--nm-border);padding-top:8px}
 .nm-atlas-timeline{position:relative;padding-left:20px;display:flex;flex-direction:column}
 .nm-atlas-trail{position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--nm-border)}
@@ -2106,6 +2125,30 @@ window.__ModuleLoader__.load({
       ['map', '世界地图底图'],
     ]
 
+    // 构图控制：与后端 artwork.js 的预设保持一致（纯展示用，不在前端算像素）
+    const ASPECT_PRESETS = [
+      { key: '1:1', label: '1:1' }, { key: '16:9', label: '16:9' }, { key: '9:16', label: '9:16' },
+      { key: '4:3', label: '4:3' }, { key: '3:4', label: '3:4' }, { key: '3:2', label: '3:2' },
+      { key: '2:3', label: '2:3' }, { key: '5:4', label: '5:4' }, { key: '4:5', label: '4:5' },
+      { key: '21:9', label: '21:9' },
+    ]
+    const RESOLUTION_TIERS = [
+      { key: 'auto', label: 'Auto' }, { key: '1k', label: '1K' },
+      { key: '2k', label: '2K' }, { key: '4k', label: '4K' },
+    ]
+    /** 在界面上预告实际会请求的像素尺寸，免得用户生成完才发现比例不对。 */
+    function predictSize(aspect, tier) {
+      const preset = ASPECT_PRESETS.find((item) => item.key === aspect)
+      const longEdge = { auto: 0, '1k': 1024, '2k': 2048, '4k': 4096 }[tier] ?? 0
+      if (!preset || !longEdge) return '按模型默认尺寸'
+      const [w, h] = aspect.split(':').map(Number)
+      const round = (value) => Math.max(64, Math.round(value / 64) * 64)
+      const ratio = w / h
+      const width = ratio >= 1 ? longEdge : round(longEdge * ratio)
+      const height = ratio >= 1 ? round(longEdge / ratio) : longEdge
+      return `${width} × ${height}`
+    }
+
     function ArtGlyph(props) {
       const size = props?.size ?? 16
       return h('svg', {
@@ -2139,7 +2182,14 @@ window.__ModuleLoader__.load({
       const [strength, setStrength] = useState('0.6')    // 垫图影响强度
       const [genModel, setGenModel] = useState('')       // 本次生成覆盖的模型
       const [artModels, setArtModels] = useState([])     // DSH 已配置的生图候选
+      const [aspect, setAspect] = useState('1:1')        // 宽高比预设
+      const [tier, setTier] = useState('1k')             // 分辨率档位
+      const [count, setCount] = useState(1)              // 生成张数
+      const [transparent, setTransparent] = useState(false) // 透明背景
+      const [imageList, setImageList] = useState([])     // 本轮全部结果（n>1 时多张）
+      const [activeIndex, setActiveIndex] = useState(0)  // 当前预览第几张
       const alive = useRef(true)
+      const sizeHint = predictSize(aspect, tier)
 
       // 读取项目列表，供顶部选择器使用
       useEffect(() => {
@@ -2216,22 +2266,29 @@ window.__ModuleLoader__.load({
       const doGenerate = async () => {
         if (!prompt.trim()) { setError('提示词为空，请先扩写或手写'); return }
         if (!project) { setError('请先选择项目'); return }
-        setBusy('generate'); setError(''); setNotice(''); setImage('')
+        setBusy('generate'); setError(''); setNotice(''); setImage(''); setImageList([]); setActiveIndex(0)
         try {
           const result = await post('image/generate', {
             cwd, project, prompt: prompt.trim(),
             name: bindName || 'art',
-            prefix: kind === 'region' ? 'region' : kind === 'character' ? 'cast' : 'item',
+            prefix: kind === 'region' ? 'region' : kind === 'character' ? 'cast' : kind === 'map' ? 'map' : 'item',
+            // 构图控制
+            aspect, tier, count, transparent,
             // 垫图：把原图作为参考一并送出生图接口
             reference: reference ? { dataUrl: reference.dataUrl, mime: reference.mime } : undefined,
             strength: reference ? Number(strength) : undefined,
             // 本次自选的模型优先于设置里的默认值
             model: genModel || undefined,
           })
-          setImage(result?.file ?? '')
-          setNotice(result?.referenceIgnored
-            ? '图片已生成，但该中转站不支持垫图，本次未使用参考图。'
-            : reference ? '已按垫图风格重新生成并保存。' : '图片已生成并保存到 插图/ 目录。')
+          const files = result?.files ?? (result?.file ? [result.file] : [])
+          setImageList(files)
+          setImage(files[0] ?? '')
+          const skipped = (result?.failed ?? []).length
+          setNotice([
+            files.length > 1 ? `已生成 ${files.length} 张并保存到 插图/ 目录。` : '图片已生成并保存到 插图/ 目录。',
+            result?.referenceIgnored ? '该中转站不支持垫图，本次未使用参考图。' : '',
+            skipped ? `${skipped} 张下载失败，已跳过。` : '',
+          ].filter(Boolean).join(' '))
         } catch (failure) {
           setError(`生成失败：${failure?.message ?? failure}`)
         } finally { setBusy('') }
@@ -2310,6 +2367,17 @@ window.__ModuleLoader__.load({
           image
             ? h('img', { src: imageUrl, alt: '生成结果', loading: 'lazy' })
             : h('div', { className: 'nm-art-placeholder' }, '生成后的图片会显示在这里')),
+        // 多图：一次生成多张时给缩略图条，点选切换预览
+        imageList.length > 1
+          ? h('div', { className: 'nm-art-thumbs' },
+            imageList.map((file, index) => h('button', {
+              key: file, type: 'button', className: 'nm-art-thumb',
+              'data-active': index === activeIndex ? 'true' : 'false',
+              'aria-label': `查看第 ${index + 1} 张`,
+              onClick: () => { setActiveIndex(index); setImage(file) },
+            }, h('img', { src: API + 'image/file/' + encodeURIComponent(project + '/' + file), alt: `第 ${index + 1} 张` }))),
+            h('span', { className: 'nm-muted' }, `${activeIndex + 1} / ${imageList.length}`))
+          : null,
         // 输入区：单列铺满，避免左右两栏在窄侧边栏里挤压
         h('div', { className: 'nm-art-form' },
           h('label', { className: 'nm-field' },
@@ -2325,6 +2393,45 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-row' },
             h('button', { type: 'button', className: 'nm-primary', disabled: !!busy || !brief.trim(), onClick: doExpand },
               busy === 'expand' ? '正在扩写…' : '① 智能扩写提示词')),
+          // 构图控制：宽高比 / 分辨率 / 张数 / 透明背景
+          h('div', { className: 'nm-art-compose' },
+            h('div', { className: 'nm-compose-row' },
+              h('span', { className: 'nm-compose-label' }, '宽高比'),
+              h('div', { className: 'nm-compose-group' },
+                ASPECT_PRESETS.map((preset) => h('button', {
+                  key: preset.key, type: 'button', className: 'nm-compose-chip',
+                  'data-active': aspect === preset.key ? 'true' : 'false',
+                  disabled: !!busy,
+                  onClick: () => setAspect(preset.key),
+                }, preset.label)))),
+            h('div', { className: 'nm-compose-row' },
+              h('span', { className: 'nm-compose-label' }, '分辨率'),
+              h('div', { className: 'nm-compose-group' },
+                RESOLUTION_TIERS.map((item) => h('button', {
+                  key: item.key, type: 'button', className: 'nm-compose-chip',
+                  'data-active': tier === item.key ? 'true' : 'false',
+                  disabled: !!busy,
+                  onClick: () => setTier(item.key),
+                }, item.label))),
+              h('span', { className: 'nm-compose-hint' }, sizeHint)),
+            h('div', { className: 'nm-compose-row' },
+              h('span', { className: 'nm-compose-label' }, '生成张数'),
+              h('div', { className: 'nm-compose-group' },
+                [1, 2, 3, 4].map((n) => h('button', {
+                  key: n, type: 'button', className: 'nm-compose-chip',
+                  'data-active': count === n ? 'true' : 'false',
+                  disabled: !!busy,
+                  onClick: () => setCount(n),
+                }, `${n} 张`)))),
+            h('div', { className: 'nm-compose-row' },
+              h('span', { className: 'nm-compose-label' }, '透明背景'),
+              h('button', {
+                type: 'button', className: 'nm-compose-switch',
+                'data-on': transparent ? 'true' : 'false',
+                'aria-pressed': transparent, disabled: !!busy,
+                onClick: () => setTransparent(!transparent),
+              }, transparent ? '已开启' : '关闭'),
+              h('span', { className: 'nm-compose-hint' }, '仅部分模型支持，不支持时按普通背景生成'))),
           h('label', { className: 'nm-field' },
             h('span', null, '提示词（可编辑）'),
             h('textarea', {

@@ -62,7 +62,11 @@ export function imageStatus(config) {
     missing,
     baseURL: entry.baseURL,
     model: entry.model,
-    size: entry.size,
+    size: resolveSize({ aspect: entry.aspect, tier: entry.tier, fallback: entry.size }),
+    aspect: entry.aspect,
+    tier: entry.tier,
+    count: entry.count,
+    transparent: entry.transparent,
   }
 }
 
@@ -82,6 +86,38 @@ async function readImage(payload) {
   const type = response.headers.get('content-type') ?? ''
   const ext = type.includes('jpeg') ? 'jpg' : type.includes('webp') ? 'webp' : 'png'
   return { buffer: Buffer.from(await response.arrayBuffer()), ext }
+}
+
+/**
+ * 取出全部图片（n>1 时一次请求可能返回多张）。
+ * 单个下载失败不应让整批失败：跳过坏的那张并记录原因。
+ */
+async function readImages(payload) {
+  const list = payload?.data ?? payload?.images ?? payload?.output
+  if (!Array.isArray(list) || list.length === 0) throw new Error('生图接口没有返回图片数据')
+  const out = []
+  const failed = []
+  for (const [index, item] of list.entries()) {
+    try {
+      const raw = item?.b64_json ?? item?.base64 ?? item?.b64
+      if (raw) {
+        const data = String(raw).replace(/^data:[^,]+,/u, '')
+        out.push({ buffer: Buffer.from(data, 'base64'), ext: 'png', index })
+        continue
+      }
+      const url = item?.url ?? (index === 0 ? payload?.url : undefined)
+      if (!url) throw new Error('既没有 b64 也没有 url')
+      const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const type = response.headers.get('content-type') ?? ''
+      const ext = type.includes('jpeg') ? 'jpg' : type.includes('webp') ? 'webp' : 'png'
+      out.push({ buffer: Buffer.from(await response.arrayBuffer()), ext, index })
+    } catch (error) {
+      failed.push({ index, reason: error?.message ?? String(error) })
+    }
+  }
+  if (out.length === 0) throw new Error(`生图接口返回了 ${list.length} 项，但没有一张可用${failed.length ? `：${failed[0].reason}` : ''}`)
+  return { images: out, failed }
 }
 
 /** 安全的文件名：保留中文但去掉路径分隔符与控制字符。 */
@@ -111,12 +147,17 @@ export async function callImageApi(entry, prompt, reference) {
   const body = {
     model: entry.model,
     prompt: String(prompt ?? '').slice(0, 4000),
-    n: 1,
-    size: entry.size || '1024x1024',
+    n: Math.max(1, Math.min(4, Number(entry.count) || 1)),
+    size: resolveSize({ aspect: entry.aspect, tier: entry.tier, fallback: entry.size || '1024x1024' }),
     // OpenAI 兼容接口普遍接受 response_format；个别网关不认就回落到 url 形态。
     response_format: 'b64_json',
   }
   if (entry.quality) body.quality = entry.quality
+  // 透明背景：OpenAI 系用 background:'transparent'，部分网关认 transparent 布尔
+  if (entry.transparent === true) {
+    body.background = 'transparent'
+    body.transparent = true
+  }
   // 垫图：以标准 OpenAI images.edits 形态传参考图（多数兼容中转站支持 image 字段）
   if (reference?.dataUrl) body.image = reference.dataUrl
 
@@ -143,39 +184,88 @@ export async function callImageApi(entry, prompt, reference) {
         signal: AbortSignal.timeout(entry.timeoutMs ?? TIMEOUT_MS),
       })
       if (retry.ok) {
-        const image = await readImage(await retry.json())
-        return { ...image, referenceIgnored: true }
+        const result = await readImages(await retry.json())
+        return { ...result, referenceIgnored: true }
       }
       const retryDetail = await retry.text().catch(() => '')
       throw new Error(`生图接口拒绝请求（含垫图时 HTTP ${response.status}）：${(retryDetail || detail).slice(0, 300)}`)
     }
     throw new Error(`生图接口返回 HTTP ${response.status}${detail ? `：${detail.slice(0, 300)}` : ''}`)
   }
-  return readImage(await response.json())
+  return readImages(await response.json())
+}
+
+/** 宽高比预设：与主流生图控制台一致，直接决定构图。 */
+export const ASPECT_PRESETS = [
+  { key: '1:1', label: '1:1', w: 1, h: 1 },
+  { key: '16:9', label: '16:9', w: 16, h: 9 },
+  { key: '9:16', label: '9:16', w: 9, h: 16 },
+  { key: '4:3', label: '4:3', w: 4, h: 3 },
+  { key: '3:4', label: '3:4', w: 3, h: 4 },
+  { key: '3:2', label: '3:2', w: 3, h: 2 },
+  { key: '2:3', label: '2:3', w: 2, h: 3 },
+  { key: '5:4', label: '5:4', w: 5, h: 4 },
+  { key: '4:5', label: '4:5', w: 4, h: 5 },
+  { key: '21:9', label: '21:9', w: 21, h: 9 },
+]
+
+/** 分辨率档位：长边像素。Auto 交给模型默认。 */
+export const RESOLUTION_TIERS = [
+  { key: 'auto', label: 'Auto', longEdge: 0 },
+  { key: '1k', label: '1K', longEdge: 1024 },
+  { key: '2k', label: '2K', longEdge: 2048 },
+  { key: '4k', label: '4K', longEdge: 4096 },
+]
+
+/**
+ * 由宽高比与分辨率档位算出接口所需的 "WxH" 字符串。
+ *
+ * 生图接口普遍要求两边都是 64 的倍数（部分网关要 8 的倍数），
+ * 所以这里按 64 对齐；Auto 档或参数不全时回落到配置里的固定尺寸。
+ */
+export function resolveSize({ aspect, tier, fallback = '1024x1024' } = {}) {
+  const preset = ASPECT_PRESETS.find((item) => item.key === aspect)
+  const resolution = RESOLUTION_TIERS.find((item) => item.key === tier)
+  if (!preset || !resolution || !resolution.longEdge) return fallback
+  const round = (value) => Math.max(64, Math.round(value / 64) * 64)
+  const longEdge = resolution.longEdge
+  const ratio = preset.w / preset.h
+  const width = ratio >= 1 ? longEdge : round(longEdge * ratio)
+  const height = ratio >= 1 ? round(longEdge / ratio) : longEdge
+  return `${width}x${height}`
 }
 
 /**
- * 生成一张插画并落盘到项目 插图/ 目录。
+ * 生成插画并落盘到项目 插图/ 目录。
+ * 一次请求可能产出多张（n>1）：全部保存，返回数组。
+ *
  * @param {{entry: object, projectDir: string, prompt: string, name: string, prefix?: string}} input
- * @returns {Promise<{file: string, url: string, prompt: string}>}
+ * @returns {Promise<{files: string[], images: object[], prompt: string, referenceIgnored?: boolean, failed?: object[]}>}
  */
 export async function generateImage({ entry, projectDir, prompt, name, prefix = 'art', reference }) {
   if (!entry?.baseURL) throw new Error('尚未配置生图接口地址（设置 → 小说创作大师 → AI 生图）')
   if (!entry?.model) throw new Error('尚未选择生图模型')
 
-  const { buffer, ext, referenceIgnored } = await callImageApi(entry, prompt, reference)
+  const { images, failed = [], referenceIgnored } = await callImageApi(entry, prompt, reference)
 
   const folder = path.join(projectDir, IMAGE_DIR)
   fs.mkdirSync(folder, { recursive: true })
   const stamp = Date.now().toString(36)
-  const filename = `${prefix}-${safeName(name)}-${stamp}.${ext}`
-  fs.writeFileSync(path.join(folder, filename), buffer)
+  const base = safeName(name)
+
+  const saved = images.map(({ buffer, ext, index }) => {
+    const suffix = images.length > 1 ? `-${index + 1}` : ''
+    const filename = `${prefix}-${base}-${stamp}${suffix}.${ext}`
+    fs.writeFileSync(path.join(folder, filename), buffer)
+    return { file: `${IMAGE_DIR}/${filename}`, url: `${IMAGE_DIR}/${filename}`, bytes: buffer.length }
+  })
 
   return {
-    file: `${IMAGE_DIR}/${filename}`,
-    url: `${IMAGE_DIR}/${filename}`,
+    files: saved.map((item) => item.file),
+    images: saved,
     prompt,
     ...(referenceIgnored ? { referenceIgnored: true } : {}),
+    ...(failed.length ? { failed } : {}),
   }
 }
 
