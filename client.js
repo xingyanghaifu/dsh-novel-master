@@ -149,6 +149,8 @@ window.__ModuleLoader__.load({
 .nm-atlas-count{margin-left:auto;flex:none;font-size:10.5px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:1px 7px}
 .nm-atlas-region-desc{font-size:11px;color:var(--nm-muted);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 /* ── 生图工作台 ── */
+/* 面板贴边时每个框的边框都会顶到滚动条，留出左右呼吸空间 */
+.nm-art{padding-left:14px;padding-right:14px}
 /* 面板不在 .nm-settings 作用域内，必须自带控件样式，否则按钮会退化成纯文本 */
 .nm-art button{font:inherit;font-size:12px;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-raised);padding:8px 14px;transition:all .18s ease;font-weight:550}
 .nm-art button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised))}
