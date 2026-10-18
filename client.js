@@ -196,15 +196,21 @@ window.__ModuleLoader__.load({
 /* 构图控制：宽高比 / 分辨率 / 张数 / 透明背景 */
 .nm-art-compose{display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--nm-border);border-radius:11px;background:color-mix(in srgb,CanvasText 2%,transparent)}
 .nm-compose-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.nm-compose-label{flex:none;font-size:10.5px;font-weight:600;color:var(--nm-muted);min-width:52px}
+.nm-compose-label{flex:none;font-size:10.5px;font-weight:600;color:var(--nm-muted);min-width:56px;white-space:nowrap}
 .nm-compose-group{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
 .nm-compose-chip{flex:none;font-size:10.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s;line-height:1.5}
 .nm-compose-chip:hover:not(:disabled){border-color:var(--nm-accent);color:var(--nm-accent)}
-.nm-compose-chip[data-active=true]{background:var(--nm-accent);border-color:var(--nm-accent);color:#fff;font-weight:650}
+/* 选中态用「正文色填充 + 背景色文字」的反色方案。
+   不用品牌色是因为 --nm-accent 在某些主题下解析出接近底色，
+   会导致「浅底 + 浅字」整块看不见（实测截图就是这个现象）。
+   反色方案的对比度恒等于正文对比度，任何主题都不会失效。 */
+.nm-compose-chip[data-active=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700;box-shadow:none}
+.nm-compose-chip[data-active=true]:hover:not(:disabled){background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg)}
 .nm-compose-chip:disabled{opacity:.5;cursor:not-allowed}
 .nm-compose-hint{flex:none;font-size:10px;color:var(--nm-muted);white-space:nowrap}
 .nm-compose-switch{flex:none;font-size:10.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s}
-.nm-compose-switch[data-on=true]{background:var(--nm-good);border-color:var(--nm-good);color:#fff;font-weight:650}
+/* 开关开启态同样用反色，避免依赖 --nm-good 的实际亮度 */
+.nm-compose-switch[data-on=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700}
 .nm-compose-switch:disabled{opacity:.5;cursor:not-allowed}
 /* 多图缩略图条 */
 .nm-art-thumbs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
