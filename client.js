@@ -420,21 +420,27 @@ window.__ModuleLoader__.load({
         })
       }
 
-      const pickDirectory = async targetField => {
+      const pickDirectory = async (targetField, ctxRef) => {
+        // DSH 通过 ctx.remote.directoryPicker.pick() 弹系统文件夹选择框。
+        // 早期版本这里读的是 window.__DSH_DIRECTORY_PICKER__，那个全局并不存在，
+        // 所以浏览按钮一直只会提示「请手动输入路径」。
+        const picker = ctxRef?.remote?.directoryPicker
+        if (!picker || typeof picker.pick !== 'function') {
+          showToast('当前 DSH 版本不提供目录选择器，请在输入框中手动填写文件夹路径。')
+          return
+        }
         try {
-          if (typeof window !== 'undefined' && window.__DSH_DIRECTORY_PICKER__?.pick) {
-            const picked = await window.__DSH_DIRECTORY_PICKER__.pick()
-            if (picked) {
-              if (targetField === 'storageDir') editResearch('storageDir', picked)
-              else if (targetField === 'learningStorageDir') editLearning('storageDir', picked)
-              else if (targetField === 'projectsDir') { setDirectory(picked); dirty.current.projectsDir = true }
-              showToast(`已选定目录：${picked}`)
-            }
-          } else {
-            showToast('请在输入框中直接输入目标文件夹路径（支持绝对或相对路径）')
-          }
-        } catch {
-          showToast('无法启动系统目录选择器，请手动输入路径。')
+          const picked = await picker.pick()
+          if (!picked) return
+          if (targetField === 'storageDir') editResearch('storageDir', picked)
+          else if (targetField === 'learningStorageDir') editLearning('storageDir', picked)
+          else if (targetField === 'projectsDir') { setDirectory(picked); dirty.current.projectsDir = true }
+          showToast(`已选定目录：${picked}`)
+        } catch (failure) {
+          // 用户点取消时也可能走到这里，不要报成错误
+          const message = String(failure?.message ?? failure ?? '')
+          if (/cancel|abort|取消/iu.test(message)) return
+          showToast(`无法启动系统目录选择器（${message}），请手动填写路径。`)
         }
       }
 
@@ -884,7 +890,7 @@ window.__ModuleLoader__.load({
               h('span', null, '项目目录'),
               h('div', { className: 'nm-path-box' },
                 h('input', { type: 'text', value: directory, disabled: locked, required: true, 'aria-label': '项目目录', placeholder: 'novel_projects', onChange: event => { dirty.current.projectsDir = event.target.value !== (value.projectsDir ?? 'novel_projects'); setDirectory(event.target.value) } }),
-                actionButton('📁 浏览…', () => pickDirectory('projectsDir'), locked)
+                actionButton('📁 浏览…', () => pickDirectory('projectsDir', ctx), locked)
               )
             ),
             h('p', { className: 'nm-muted' }, '相对于工作目录保存小说项目，也可以点击“浏览”选择自定义绝对路径。'),
@@ -946,7 +952,7 @@ window.__ModuleLoader__.load({
               h('span', null, '学习存储目录'),
               h('div', { className: 'nm-path-box' },
                 h('input', { type: 'text', value: learning.storageDir, disabled: locked, required: true, 'aria-label': '学习存储目录', placeholder: 'novel_learning 或 C:\\MyNovels\\learning', onChange: event => editLearning('storageDir', event.target.value) }),
-                actionButton('📁 浏览目录…', () => pickDirectory('learningStorageDir'), locked)
+                actionButton('📁 浏览目录…', () => pickDirectory('learningStorageDir', ctx), locked)
               )
             ),
             h('p', { className: 'nm-callout' }, '提示：点击【📁 浏览目录…】可通过桌面窗口自由挑选存储文件夹；不同目录与模型相互隔离，随时可自由更换。')
@@ -988,7 +994,7 @@ window.__ModuleLoader__.load({
              renderModelSelect('从现有模型列表中选择检索模型', research.provider, research.model, (p, m) => { editResearch('provider', p); editResearch('model', m) }, false),
              renderReasoningSelect('检索模型思考/推理强度 (Reasoning Effort)', research.reasoningEffort, val => editResearch('reasoningEffort', val), research.provider, research.model),
              h('div', { className: 'nm-grid' }, field('检索模型提供方', 'provider', research, editResearch, 'text', { placeholder: 'provider ID', required: research.enabled }), field('检索模型 ID', 'model', research, editResearch, 'text', { placeholder: 'model ID', required: research.enabled })),
-             h('div', { className: 'nm-path-box' }, field('资料存储目录', 'storageDir', research, editResearch, 'text', { placeholder: 'novel_research 或绝对路径', required: true }), actionButton('📁 浏览目录…', () => pickDirectory('storageDir'), locked)),
+             h('div', { className: 'nm-path-box' }, field('资料存储目录', 'storageDir', research, editResearch, 'text', { placeholder: 'novel_research 或绝对路径', required: true }), actionButton('📁 浏览目录…', () => pickDirectory('storageDir', ctx), locked)),
              h('div', { className: 'nm-grid' }, field('最多来源数', 'maxResults', research, editResearch, 'number', { min: 1, max: 10, step: 1 }), field('单来源字符上限', 'maxSourceChars', research, editResearch, 'number', { min: 1000, max: 24000, step: 1 }), field('检索超时毫秒', 'timeoutMs', research, editResearch, 'number', { min: 1000, max: 120000, step: 1 }))
            ), saveBar('research', '保存资料检索配置')))),
 
@@ -2504,7 +2510,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      name: 'novel-master', inject: ['slots', 'remote', 'remote.llm'],
+      name: 'novel-master', inject: ['slots', 'remote', 'remote.llm', 'remote.directoryPicker'],
       apply(ctx) {
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section', id: 'novel-master', order: 36, label: () => '小说创作大师',

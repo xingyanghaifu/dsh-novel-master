@@ -24,6 +24,7 @@ import {
   statsCommand,
   worldCommand,
 } from './cmd-tools.js'
+import { readonlyTools } from './project-tools.js'
 import {
   conflictCommand,
   dialogueCommand,
@@ -344,6 +345,7 @@ export function apply(ctx, config = {}) {
   // tools and commands are different registries.
   let disposeProbe
   let disposeBatch
+  let disposeReadonly = []
   try {
     const tools = ctx.get('tools')
     if (tools && typeof tools.register === 'function') {
@@ -353,6 +355,9 @@ export function apply(ctx, config = {}) {
       // Batch as a tool too: it reuses the command's own runBatchWrite, so the
       // request shape is identical to the path already proven to work.
       disposeBatch = tools.register(batchTool(ctx, readField(config, 'batch')))
+      // 只读工具：让模型和别的插件能查项目进度、取设定、读章节，
+      // 而不是只能靠用户手打斜杠命令。刻意排除会写文件的命令。
+      disposeReadonly = readonlyTools().map((definition) => tools.register(definition))
     }
   } catch (error) {
     logger?.warn?.(`[novel-master] 探测/批量工具注册失败：${error?.message ?? error}`)
@@ -429,6 +434,10 @@ export function apply(ctx, config = {}) {
     intelligence.dispose()
     try { disposeProbe?.() } catch { /* tool cleanup cannot block unload */ }
     try { disposeBatch?.() } catch { /* tool cleanup cannot block unload */ }
+    // Each readonly tool registered separately; unregister every one of them.
+    for (const off of disposeReadonly) {
+      try { off?.() } catch { /* tool cleanup cannot block unload */ }
+    }
     offSettings?.()
     offReload?.()
     for (const key of [...registered.keys()]) remove(key)
