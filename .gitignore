@@ -8,3 +8,17 @@ dist/
 coverage/
 .idea/
 .vscode/
+
+# 一次性调试脚本（历史遗留，不随项目分发）
+tools/fix-*.mjs
+tools/check-*.mjs
+tools/make-*.mjs
+tools/count-*.mjs
+
+# 运行时数据
+novel_learning/
+novel_research/
+
+# 备份文件
+*.md.bak
+*.bak

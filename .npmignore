@@ -1,11 +1,25 @@
-# 测试文件
+# 开发工具与测试（不随包分发）
+tools/
 test/
+docs/archive/
 
-# Git 元数据
+# 运行时数据
+novel_projects/
+novel_learning/
+novel_research/
+
+# Git 元数据与 CI
 .git/
+.github/
 .gitignore
 
-# 临时文件
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+
+# 备份与临时文件
+*.bak
 *.tmp
 *.log
 

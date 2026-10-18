@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.5.1
+
+**项目整理与文档增强**，不涉及功能变更。
+
+- **归档开发文档**：15 个阶段性报告（`ARCHITECTURE-OPT.md`、`GUIDANCE-*.md`、`DELIVERY-REPORT.md` 等）用 `git mv` 移至 `docs/archive/`，保留完整提交历史。根目录只留 `README.md`、`CHANGELOG.md`、`TROUBLESHOOTING_PROJECT_DIR.md`。
+- **`.gitignore` 补充规则**：13 个一次性调试脚本（`tools/fix-*.mjs`、`check-*.mjs`、`make-*.mjs`、`count-*.mjs`）不再出现在 `git status` 中；同时忽略 `novel_learning/`、`novel_research/` 运行时目录。`tools/probe-once.mjs` 作为正式工具保留跟踪。
+- **`.npmignore` 补全**：排除 `tools/`、`test/`、`docs/archive/` 与运行时数据目录。
+- **新增地图指南**：`docs/map-asset-guide.md` 完整说明 v2.4.0 的地图底图功能——配置两组模型、三步生成流程、显示模式切换、提示词正反例与常见问题。
+- **README 新增「AI 小说资产生成」章节**并链接到上述指南；开发章节补充覆盖率说明。
+- **测试覆盖率**：使用 Node.js 内置 `--experimental-test-coverage`（无需 c8 等依赖），新增 `npm run test:coverage` 脚本。当前行 80.3% / 分支 78.9% / 函数 85.0%。
+- 225 项测试全部通过。
+
 ## 2.5.0
 
 **模型选择器支持搜索**，模型多时不用再在长下拉里翻找。
