@@ -7,12 +7,15 @@
  * project files under `<cwd>/novel_projects/`.
  */
 import z from '@deepseek-ai/schemastery'
+import fs from 'node:fs'
+import path from 'node:path'
 import { continueCommand, novelCommand } from './cmd-write.js'
 import { studyCommand } from './cmd-study.js'
 import {
   castCommand,
   exportCommand,
   ideaCommand,
+  mapCommand,
   outlineCommand,
   reviewCommand,
   rewriteCommand,
@@ -30,6 +33,11 @@ import {
 } from './cmd-analysis.js'
 import { marketCommand } from './cmd-market.js'
 import { withProjectsDirectory } from './project.js'
+import { buildAtlas } from './atlas.js'
+import { buildPrompt, generateImage, imageStatus } from './artwork.js'
+import { bindAsset, listAssets, unbindAsset } from './assets.js'
+import { resolveImageConfig } from './image-config.js'
+import { expandPrompt, listRemoteModels } from './llm-client.js'
 import { EXTRA_COMMANDS } from './cmd-extra.js'
 import { createUpdateTransport, installUpdater } from './updater.js'
 import { selfReload } from './reload.js'
@@ -57,6 +65,7 @@ const COMMAND_KEYS = [
   ['study', '拆书 (/novel-study)'],
   ['outline', '大纲 (/novel-outline)'],
   ['cast', '人设 (/novel-cast)'],
+  ['map', '地图 (/novel-map)'],
   ['rewrite', '改写 (/novel-rewrite)'],
   ['review', '审校 (/novel-review)'],
   ['idea', '构思 (/novel-idea)'],
@@ -170,6 +179,31 @@ export const Config = z.object({
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
+  llm: z.object({
+    enabled: live(z.boolean().default(false)).description('启用对话模型')
+      .comment('用于把一句话描述扩写成高质量生图提示词。'),
+    baseURL: live(z.string().default('')).description('对话模型接口地址')
+      .comment('兼容 OpenAI 规范的中转站，填到 /v1 为止，例如 https://api.example.com/v1。插件自动拼 /chat/completions。'),
+    apiKey: live(z.string().default('')).description('对话模型密钥')
+      .comment('随 DSH 插件配置保存在本机，不写入小说项目文件。'),
+    model: live(z.string().default('')).description('对话模型名称')
+      .comment('例如 gpt-4o、claude-3.5-sonnet、deepseek-chat。可点设置页「拉取模型列表」自动填充。'),
+    temperature: live(z.number().default(0.8)).description('扩写创造性').comment('0~2；越高越发散，0.8 适合生图提示词。'),
+  }).description('对话模型（提示词扩写）'),
+  image: z.object({
+    enabled: live(z.boolean().default(false)).description('启用 AI 生图')
+      .comment('打开后可在生图工作台和设定树地图里生成插画。'),
+    baseURL: live(z.string().default('')).description('生图接口地址')
+      .comment('兼容 OpenAI 规范的中转站，填到 /v1 为止。插件自动拼 /images/generations。可与对话模型不同。'),
+    apiKey: live(z.string().default('')).description('生图密钥')
+      .comment('随 DSH 插件配置保存在本机，不写入小说项目文件。'),
+    model: live(z.string().default('')).description('生图模型名称')
+      .comment('例如 gpt-image-1、dall-e-3、flux-schnell。注意多数中转站的 /models 不列生图模型，可直接手填。'),
+    size: live(z.string().default('1024x1024')).description('图片尺寸')
+      .comment('常见 1024x1024、1024x1536、1536x1024。'),
+    quality: live(z.string().default('')).description('画质')
+      .comment('留空或填 standard / hd（取决于中转站支持）。'),
+  }).description('生图模型（AI 生图）'),
   projectsDir: live(z.string().default('novel_projects'))
     .description('项目目录')
     .comment('小说项目存放的相对路径（相对于工作目录）'),
@@ -208,6 +242,7 @@ export function definitions(ctx, intelligence, config) {
     { key: 'study', factory: studyCommand },
     { key: 'outline', factory: outlineCommand },
     { key: 'cast', factory: castCommand },
+    { key: 'map', factory: mapCommand },
     { key: 'rewrite', factory: rewriteCommand },
     { key: 'review', factory: reviewCommand },
     { key: 'idea', factory: ideaCommand },
@@ -246,6 +281,25 @@ function guarded(definition, logger, config, intelligence) {
       }
     },
   }
+}
+
+/** 项目根目录：配置为绝对路径就用它，否则相对会话工作目录。 */
+function resolveProjectsRoot(cwd, configured) {
+  const root = String(configured ?? '').replace(/\\/gu, '/')
+  if (/^(?:[a-zA-Z]:\/|\/)/u.test(root)) return path.resolve(root)
+  const base = String(cwd ?? '').replace(/\\/gu, '/')
+  if (!base) throw new Error('无法解析项目目录：会话工作目录不可用')
+  return path.resolve(base, root)
+}
+
+/** 单个项目目录，拒绝任何穿越路径的项目名。 */
+function resolveProjectDir(cwd, configured, name) {
+  const clean = String(name ?? '').trim()
+  if (!clean || clean.includes('..') || /[\\/]/u.test(clean)) throw new Error('项目名不合法')
+  const root = resolveProjectsRoot(cwd, configured)
+  const dir = path.join(root, clean)
+  if (!dir.startsWith(root)) throw new Error('项目名不合法')
+  return dir
 }
 
 export function apply(ctx, config = {}) {
@@ -308,6 +362,60 @@ export function apply(ctx, config = {}) {
   installUpdater(ctx, {
     fetch: updateTransport.fetch,
     intelligence,
+    // 设定树数据：只读扫描 novel_projects，给 Web 端右侧面板提供树状结构。
+    atlas: (searchParams) => buildAtlas({
+      cwd: searchParams?.get?.('cwd') ?? '',
+      projectsDirectory: readField(config, 'projectsDir') ?? 'novel_projects',
+    }),
+    imageStatus: () => imageStatus(config),
+    // 对话模型：把一句话描述扩写成生图提示词（宿主侧发请求，无 CORS）
+    llmExpand: (body) => expandPrompt({
+      config,
+      brief: body?.brief,
+      kind: body?.kind,
+      style: body?.style,
+    }),
+    llmModels: (channel) => listRemoteModels({ config, channel }),
+    generateImage: async (body) => {
+      const { cwd, project, prompt, name, prefix, region, projectTitle, reference, model } = body ?? {}
+      if (!project) throw new Error('缺少项目名')
+      const dir = resolveProjectDir(cwd ?? '', readField(config, 'projectsDir') ?? 'novel_projects', project)
+      // 工作台直接给 prompt；设定树地图走旧的地区数据自动拼提示词。
+      const finalPrompt = prompt || buildPrompt(region, { title: projectTitle ?? project })
+      // 工作台可以为本次生成临时覆盖模型，不影响保存的默认值。
+      const entry = resolveImageConfig(config)
+      if (model) entry.model = String(model)
+      return generateImage({
+        entry,
+        projectDir: dir,
+        prompt: finalPrompt,
+        name: name ?? region?.name ?? project,
+        prefix: prefix ?? (region ? 'region' : 'art'),
+        reference: reference?.dataUrl ? reference : undefined,
+      })
+    },
+    imageFile: (name) => {
+      // 只允许读项目 插图/ 下的图片，拒绝任何穿越路径
+      const clean = String(name).replace(/\\/gu, '/')
+      if (clean.includes('..') || clean.startsWith('/') || !/^[^/]+\/插图\//u.test(clean)) return null
+      const root = resolveProjectsRoot('', readField(config, 'projectsDir') ?? 'novel_projects')
+      const full = path.join(root, clean)
+      if (!full.startsWith(root)) return null
+      if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return null
+      const ext = path.extname(full).toLowerCase()
+      const type = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'image/png'
+      return { buffer: fs.readFileSync(full), type }
+    },
+    // 资产台账：图片 ↔ 角色名/地名 的绑定关系，存放在项目 插图/资产.json
+    assets: async (op, body) => {
+      const { cwd, project } = body ?? {}
+      if (!project) throw new Error('缺少项目名')
+      const dir = resolveProjectDir(cwd ?? '', readField(config, 'projectsDir') ?? 'novel_projects', project)
+      if (op === 'bind') return bindAsset({ projectDir: dir, ...body })
+      if (op === 'unbind') return unbindAsset({ projectDir: dir, ...body })
+      if (op === 'list') return listAssets({ projectDir: dir, kind: body?.kind })
+      throw new Error(`未知资产操作：${op}`)
+    },
     reload: async () => { const result = await selfReload(ctx); return { ...result, application: result.status } },
   })
 

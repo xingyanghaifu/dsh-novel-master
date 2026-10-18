@@ -200,7 +200,7 @@ async function requestBody(req) {
   let text = ''
   for await (const chunk of req) {
     text += chunk.toString('utf8')
-    if (Buffer.byteLength(text) > 16384) throw new UpdateError('body-too-large', '请求内容过大')
+    if (Buffer.byteLength(text) > 12 * 1024 * 1024) throw new UpdateError('body-too-large', '请求内容过大')
   }
   return text ? JSON.parse(text) : {}
 }
@@ -271,9 +271,43 @@ export function installUpdater(ctx, options = {}) {
         }
         if (req.method === 'GET' && action === '/models') return send(res, 200, await discoverHostModels(ctx))
         if (req.method === 'GET' && action === '/settings') return send(res, 200, document())
+        if (req.method === 'GET' && action === '/atlas') {
+          if (typeof options.atlas !== 'function') return send(res, 503, { error: 'atlas-unavailable' })
+          return send(res, 200, options.atlas(new URL(req.url, 'http://localhost').searchParams))
+        }
+        if (req.method === 'GET' && action === '/image/status') {
+          if (typeof options.imageStatus !== 'function') return send(res, 503, { error: 'image-unavailable' })
+          return send(res, 200, options.imageStatus())
+        }
+        if (req.method === 'GET' && action === '/llm/models') {
+          if (typeof options.llmModels !== 'function') return send(res, 503, { error: 'llm-unavailable' })
+          const channel = new URL(req.url, 'http://localhost').searchParams.get('channel') ?? 'llm'
+          return send(res, 200, { models: await options.llmModels(channel) })
+        }
+        if (req.method === 'GET' && action.startsWith('/image/file/')) {
+          if (typeof options.imageFile !== 'function') return send(res, 503, { error: 'image-unavailable' })
+          const name = decodeURIComponent(action.slice('/image/file/'.length))
+          const found = options.imageFile(name)
+          if (!found) return send(res, 404, { error: 'image-not-found' })
+          if (res.destroyed || res.writableEnded) return undefined
+          res.writeHead(200, { 'content-type': found.type, 'cache-control': 'private, max-age=86400' })
+          return res.end(found.buffer)
+        }
         if (req.method !== 'POST') return send(res, 405, { error: 'method-not-allowed' })
         if (!allowedWrite(req)) return send(res, 403, { error: 'same-origin-json-required' })
         const body = await requestBody(req)
+        if (action === '/llm/expand') {
+          if (typeof options.llmExpand !== 'function') return send(res, 503, { error: 'llm-unavailable' })
+          return send(res, 200, await options.llmExpand(body))
+        }
+        if (action === '/image/generate') {
+          if (typeof options.generateImage !== 'function') return send(res, 503, { error: 'image-unavailable' })
+          return send(res, 200, await options.generateImage(body))
+        }
+        if (action === '/asset/bind' || action === '/asset/unbind' || action === '/asset/list') {
+          if (typeof options.assets !== 'function') return send(res, 503, { error: 'assets-unavailable' })
+          return send(res, 200, await options.assets(action.slice('/asset/'.length), body))
+        }
         if (action === '/settings') {
           if (!Number.isInteger(body.revision)) throw new UpdateError('revision-required', '配置版本号缺失，请重新加载设置')
           const patch = body.patch

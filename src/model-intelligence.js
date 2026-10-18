@@ -37,8 +37,12 @@ const fail = (code, message) => { throw new IntelligenceError(code, message) }
 const routeString = value => typeof value === 'string' && value.length > 0 && value.length <= 256 && value === value.trim() && !/[\u0000-\u001f\u007f]/u.test(value)
 function routeOf(route) {
   if (!routeString(route?.provider) || !routeString(route?.model)) fail('invalid-route', '必须提供明确的 provider 和 model 路由')
-  if (route.reasoningEffort !== undefined && !routeString(route.reasoningEffort)) fail('invalid-route', 'reasoningEffort 无效')
-  return { provider: route.provider, model: route.model, ...(route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort }) }
+  // An empty selection means "no explicit effort", not an effort named "". The
+  // settings surface stores unset choices as ''; treating that as a real effort
+  // made every decision call fail with "模型不支持指定 reasoningEffort".
+  const effort = route.reasoningEffort === '' ? undefined : route.reasoningEffort
+  if (effort !== undefined && !routeString(effort)) fail('invalid-route', 'reasoningEffort 无效')
+  return { provider: route.provider, model: route.model, ...(effort === undefined ? {} : { reasoningEffort: effort }) }
 }
 function integer(value, fallback, min, max, name) {
   const resolved = value ?? fallback

@@ -1,19 +1,23 @@
 {
   "name": "dsh-novel-master",
-  "version": "1.6.3",
-  "description": "小说创作插件 for DeepSeek Harness - 30 个功能命令及更新入口，资料可信度评估、热点题材分析、多场景推理强度配置",
+  "version": "2.5.0",
+  "description": "小说创作插件 for DeepSeek Harness - 30 个功能命令及更新入口，资料可信度评估、热点题材分析、多场景推理强度配置，右侧栏设定树（世界观/人设/大纲/进度可视化）",
   "type": "module",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
     "./client": "./client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
   },
   "files": [
     "src/",
     "client.js",
     "preset/",
     "examples/",
+    "locale/*.json",
+    "icon.svg",
     "cordis.patch.yml",
     "README.md",
     "LICENSE",
@@ -62,7 +66,7 @@
     "@deepseek-ai/schemastery": "^3.18.4"
   },
   "cordis": {
-    "description": "小说创作大师：配置热更新、写作分析、章节工具、备份恢复与更新拉取",
+    "description": "小说创作大师：配置热更新、写作分析、章节工具、备份恢复、更新拉取与右侧栏设定树",
     "service": {
       "required": [
         "commands"

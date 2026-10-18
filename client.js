@@ -31,6 +31,18 @@ window.__ModuleLoader__.load({
 .nm-settings .nm-pipeline-badge{font-size:11px;font-weight:700;color:var(--nm-accent);display:inline-flex;align-items:center;gap:7px}
 .nm-settings .nm-pipeline-title{font-size:14px;font-weight:650;color:var(--nm-text)}
 .nm-settings .nm-pipeline-desc{font-size:11px;color:var(--nm-muted);line-height:1.5}
+/* 模型选择：带搜索的浮层，模型多时按关键词过滤 */
+.nm-settings .nm-modelpick{flex:none;white-space:nowrap;font-size:12px;padding:9px 14px}
+.nm-settings .nm-modelpop{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);box-shadow:0 8px 24px -8px color-mix(in srgb,CanvasText 22%,transparent);margin-top:8px}
+.nm-settings .nm-modelsearch{width:100%}
+.nm-settings .nm-modelhint{font-size:11px;color:var(--nm-muted);padding:0 2px}
+.nm-settings .nm-modellist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.nm-settings .nm-modelitem{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;background:transparent;padding:7px 9px;cursor:pointer;font:inherit;font-size:12px;color:var(--nm-text)}
+.nm-settings .nm-modelitem:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-settings .nm-modelitem[aria-selected=true]{background:color-mix(in srgb,var(--nm-accent) 16%,transparent);color:var(--nm-accent);font-weight:650}
+.nm-settings .nm-modelprov{flex:none;font-size:10.5px;color:var(--nm-muted);min-width:64px}
+.nm-settings .nm-modelname{font-family:var(--nm-mono,ui-monospace,monospace);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-settings .nm-modelempty{font-size:11.5px;color:var(--nm-muted);padding:12px 10px;text-align:center;line-height:1.6}
 .nm-settings .nm-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
 .nm-settings .nm-quick-card{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border:1px solid var(--nm-border);border-radius:13px;cursor:pointer;gap:14px;transition:all .2s ease;box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-quick-card:hover{border-color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));transform:translateY(-2px);box-shadow:0 5px 14px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
 .nm-settings .nm-toast{position:fixed;bottom:32px;right:32px;z-index:9999;padding:12px 24px;border-radius:999px;background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-card) 95%,var(--nm-raised)));border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));color:var(--nm-text);font-size:13px;font-weight:650;box-shadow:0 10px 32px -6px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);display:flex;align-items:center;gap:10px;animation:nm-toast-in .3s cubic-bezier(0.34,1.56,0.64,1);backdrop-filter:blur(12px)}
@@ -68,11 +80,133 @@ window.__ModuleLoader__.load({
 .nm-guide-footer-tip{font-size:12px;color:var(--nm-muted);display:flex;align-items:center;gap:8px}
 .nm-guide-footer button{background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 90%,#6366f1));border:0;color:white;cursor:pointer;font-size:14px;font-weight:650;padding:13px 32px;border-radius:12px;transition:all .2s ease;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 30%,transparent)}
 .nm-guide-footer button:hover{transform:translateY(-2px);box-shadow:0 6px 20px color-mix(in srgb,var(--nm-accent) 40%,transparent)}
+.nm-guide-wide{max-width:860px}
+.nm-guide-note{margin:10px 0;padding:10px 14px;background:color-mix(in srgb,var(--nm-accent) 7%,var(--nm-bg));border-radius:9px;border-left:3px solid var(--nm-accent);font-size:12px;line-height:1.65}
+.nm-guide-section-content code{font-family:ui-monospace,monospace;font-size:11.5px;background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-bg));padding:2px 7px;border-radius:5px;color:var(--nm-accent);white-space:nowrap}
+.nm-guide-section-content strong{color:var(--nm-text);font-weight:650}
 @keyframes nm-fade-in{from{opacity:0}}
 @keyframes nm-slide-up{from{transform:translateY(40px) scale(0.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.nm-atlas{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);height:100%;min-height:0;display:flex;flex-direction:column;color:var(--nm-text);font-size:13px;line-height:1.5}
+.nm-atlas *{box-sizing:border-box}.nm-atlas button{font:inherit;color:inherit}
+.nm-atlas-head{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--nm-border);flex-wrap:wrap}
+.nm-atlas-head select{flex:1;min-width:0;font:inherit;color:var(--nm-text);background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:8px;padding:5px 8px}
+.nm-atlas-refresh{flex:none;border:1px solid var(--nm-border);background:var(--nm-card);border-radius:8px;padding:5px 10px;cursor:pointer}
+.nm-atlas-refresh:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-atlas-refresh:disabled{opacity:.55;cursor:default}
+.nm-atlas-scroll{flex:1;min-height:0;overflow:auto;padding:10px 10px 16px}
+.nm-atlas-progress{padding:12px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.nm-atlas-progress-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-bar{height:8px;border-radius:99px;background:var(--nm-bg);border:1px solid var(--nm-border);overflow:hidden}
+.nm-atlas-bar-fill{height:100%;background:linear-gradient(90deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 55%,var(--nm-good)));transition:width .3s ease}
+.nm-atlas-stats{display:flex;flex-wrap:wrap;gap:6px}
+.nm-atlas-chip{font-size:11px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.nm-atlas-chip[data-warn=true]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 45%,var(--nm-border))}
+.nm-atlas-level{list-style:none;margin:0;padding:0}
+.nm-atlas-level .nm-atlas-level{border-left:1px solid var(--nm-border);margin-left:15px}
+.nm-atlas-item{margin:0;padding:0}
+.nm-atlas-row{width:100%;display:flex;align-items:center;gap:6px;text-align:left;border:0;background:transparent;border-radius:8px;padding:4px 8px;cursor:pointer;min-width:0}
+.nm-atlas-row:hover:not([data-leaf=true]){background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,CanvasText 6%,transparent))}
+.nm-atlas-row[data-leaf=true]{cursor:default}
+.nm-atlas-row:focus-visible{outline:2px solid var(--nm-accent);outline-offset:-2px}
+.nm-atlas-chevron{flex:none;width:12px;color:var(--nm-muted);font-size:10px;text-align:center}
+.nm-atlas-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-meta{flex:none;font-size:11px;color:var(--nm-muted)}
+.nm-atlas-row[data-missing=true] .nm-atlas-label,.nm-atlas-row[data-missing=true] .nm-atlas-chevron{color:var(--nm-muted);opacity:.75}
+.nm-atlas-message{padding:16px 10px;font-size:12px;color:var(--nm-muted);line-height:1.7}
+.nm-atlas-title-icon{flex:none}
+.nm-atlas-seg{flex:none;display:flex;gap:2px;padding:2px;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-bg)}
+.nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px}
+.nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
+.nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+.nm-atlas-svg{display:block}
+.nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
+.nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-text-root{font-size:13px;font-weight:650}
+.nm-atlas-more{fill:var(--nm-muted);font-size:10px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-gnode{cursor:pointer}
+.nm-atlas-gnode:hover .nm-atlas-text{text-decoration:underline}
+.nm-atlas-gnode:focus-visible{outline:2px solid var(--nm-accent)}
+.nm-atlas-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.nm-atlas-world{border:1px solid var(--nm-border);border-radius:12px;overflow:hidden;background:var(--nm-map-sea,#24333f);line-height:0}
+/* 地图底图切换条 */
+.nm-atlas-artbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 11px;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-card);margin-top:8px;line-height:1.5}
+.nm-atlas-artbar .nm-muted{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-arttoggle{font:inherit;font-size:11px;cursor:pointer;color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));border-radius:7px;background:transparent;padding:4px 11px;flex:none;transition:all .15s}
+.nm-atlas-arttoggle:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-atlas-world-wrap{display:flex;flex-direction:column;gap:8px}
+.nm-atlas-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-world-title{font-size:12px;font-weight:600;color:var(--nm-text)}
+.nm-atlas-world-sub{font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend{display:flex;flex-wrap:wrap;gap:8px;padding:0 2px}
+.nm-atlas-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend-swatch{width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,0.35)}
+.nm-atlas-region{border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-atlas-terrain{border-radius:8px;overflow:hidden;line-height:0;border:1px solid var(--nm-border)}
+.nm-atlas-region-meta{font-size:10.5px;color:var(--nm-muted);display:flex;gap:4px;flex-wrap:wrap}
+.nm-atlas-region-head{display:flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;min-width:0;width:100%}
+.nm-atlas-swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.nm-atlas-region-title-text{font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-count{margin-left:auto;flex:none;font-size:10.5px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:1px 7px}
+.nm-atlas-region-desc{font-size:11px;color:var(--nm-muted);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* ── 生图工作台 ── */
+/* 面板不在 .nm-settings 作用域内，必须自带控件样式，否则按钮会退化成纯文本 */
+.nm-art button{font:inherit;font-size:12px;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-raised);padding:8px 14px;transition:all .18s ease;font-weight:550}
+.nm-art button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised))}
+.nm-art button:disabled{opacity:.45;cursor:not-allowed}
+.nm-art button.nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 13%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:700;box-shadow:0 2px 8px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}
+.nm-art button.nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)));border-color:var(--nm-accent)}
+.nm-art select,.nm-art input[type=text],.nm-art input[type=password]{font:inherit;font-size:12px;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-bg);padding:8px 11px}
+.nm-art select{cursor:pointer}
+.nm-art select option{background:var(--nm-card);color:var(--nm-text)}
+.nm-art select:focus,.nm-art input:focus,.nm-art textarea:focus{outline:none;border-color:var(--nm-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--nm-accent) 16%,transparent)}
+.nm-art .nm-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-art .nm-field>span{font-weight:600;font-size:11.5px;color:var(--nm-text)}
+.nm-art .nm-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.nm-art .nm-muted{font-size:11px;color:var(--nm-muted)}
+.nm-art .nm-alert{font-size:11.5px;color:#e06c75;background:color-mix(in srgb,#e06c75 10%,transparent);border:1px solid color-mix(in srgb,#e06c75 30%,transparent);border-radius:8px;padding:8px 10px;line-height:1.6}
+.nm-art-form{display:flex;flex-direction:column;gap:9px;padding:12px 0 4px;min-width:0}
+.nm-art-toolbar{display:flex;align-items:center;gap:8px;margin-top:10px}
+.nm-art-toolbar select{flex:1;min-width:0}
+.nm-art-textarea{width:100%;resize:vertical;font:inherit;font-size:12px;line-height:1.6;padding:8px 10px;border-radius:9px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text)}
+.nm-art-textarea:focus{outline:none;border-color:var(--nm-accent)}
+.nm-art-preview{position:relative;display:flex;align-items:center;justify-content:center;min-height:260px;max-height:440px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);overflow:hidden;margin-top:10px}
+/* 空状态收矮，避免把下方的生成按钮推出可视区 */
+.nm-art-preview[data-empty=true]{min-height:130px;max-height:170px}
+.nm-art-preview img{max-width:100%;max-height:440px;display:block;object-fit:contain}
+/* 主按钮全宽显示，明确告诉用户「点这里」 */
+.nm-art-form>.nm-row>button.nm-primary{width:100%;padding:11px 16px;font-size:12.5px;letter-spacing:.02em}
+.nm-art-placeholder{font-size:11px;color:var(--nm-muted);padding:24px;text-align:center;line-height:1.7}
+.nm-art-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.nm-art-step{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted);padding:3px 9px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card)}
+.nm-art-step[data-on=run]{border-color:var(--nm-accent);color:var(--nm-accent)}
+.nm-art-step[data-on=done]{border-color:color-mix(in srgb,var(--nm-accent) 45%,transparent);color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card))}
+.nm-art-stepnum{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:color-mix(in srgb,CanvasText 8%,transparent);font-size:9.5px;font-weight:700}
+/* 垫图区 */
+.nm-art-ref{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px dashed var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-reflabel{font-size:10.5px;color:var(--nm-muted);font-weight:600}
+.nm-art-refpick{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:8px;border:1px dashed var(--nm-border);cursor:pointer;font-size:11.5px;color:var(--nm-accent);background:var(--nm-card);transition:border-color .15s}
+.nm-art-refpick:hover{border-color:var(--nm-accent)}
+.nm-art-refbox{display:flex;align-items:center;gap:10px}
+.nm-art-refbox img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--nm-border);flex:none}
+.nm-art-refinfo{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.nm-art-refinfo .nm-muted{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-art-refclear{align-self:flex-start;font-size:10.5px;padding:2px 9px}
+.nm-art-strength{gap:4px}
+.nm-art-strength input[type=range]{width:100%;accent-color:var(--nm-accent)}
+.nm-subhead{margin:14px 0 6px;font-size:12px;font-weight:700;color:var(--nm-text)}.nm-atlas-spoke{margin-top:6px;border-top:1px dashed var(--nm-border);padding-top:8px}
+.nm-atlas-timeline{position:relative;padding-left:20px;display:flex;flex-direction:column}
+.nm-atlas-trail{position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--nm-border)}
+.nm-atlas-tgroup{margin:12px 0 6px;font-size:11px;font-weight:650;color:var(--nm-muted)}
+.nm-atlas-trow{position:relative;padding:5px 0}
+.nm-atlas-tdot{position:absolute;left:-18px;top:11px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px var(--nm-bg)}
+.nm-atlas-tline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nm-atlas-tline strong{font-size:11px;color:var(--nm-accent);flex:none}
+.nm-atlas-ttitle{font-size:12px;line-height:1.5}
+.nm-atlas-tmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
+      map: '地图',
       rewrite: '改写', review: '审校', idea: '构思', spark: '灵感', world: '世界', role: '角色',
       stats: '统计', export: '导出', conflict: '冲突分析', pace: '节奏分析', reader: '虚拟读者',
       dialogue: '对话增强', emotion: '情感曲线', market: '市场分析', compare: '作品对比',
@@ -81,7 +215,7 @@ window.__ModuleLoader__.load({
     }
     const GROUPS = [
       ['writing', '写作', ['novel', 'continue', 'chapter', 'rewrite']],
-      ['planning', '规划', ['idea', 'outline', 'cast', 'world', 'role', 'spark']],
+      ['planning', '规划', ['idea', 'outline', 'cast', 'map', 'world', 'role', 'spark']],
       ['analysis', '分析', ['study', 'review', 'conflict', 'pace', 'reader', 'dialogue', 'emotion', 'market', 'compare']],
       ['management', '管理', ['stats', 'export', 'backup', 'merge', 'split', 'tips', 'trope']],
       ['intelligence', '学习与决策', ['learn', 'memory', 'decide']],
@@ -198,6 +332,13 @@ window.__ModuleLoader__.load({
       const [loading, setLoading] = useState(!form)
       const [toast, setToast] = useState('')
       const [availableModels, setAvailableModels] = useState(FALLBACK_MODELS)
+      // 生图卡片的状态提示放在 ref 上：设置页的 useState 顺序被既有测试
+      // 按索引消费，新增 state 会平移后续取值，因此这里不占用 hook 槽位。
+      const imageModelHintRef = useRef({ hint: '', error: '' })
+      // 模型选择浮层的开关与搜索词。放在 ref 上会与重绘时机不同步，
+      // 这里用 state，占用 hook 槽位是可接受的（测试按索引取用的状态在其之前）。
+      const [modelOpen, setModelOpen] = useState('')
+      const [modelQuery, setModelQuery] = useState({ llm: '', image: '' })
       const [showTutorial, setShowTutorial] = useState(false)
       const [tutorialStep, setTutorialStep] = useState(0)
       const alive = useRef(true)
@@ -507,6 +648,127 @@ window.__ModuleLoader__.load({
         )
       )
 
+      // ── AI 生图配置卡片：对话模型 + 生图模型，两个通道独立配置 ──
+      const imageDraft = value.image ?? {}
+      const llmDraft = value.llm ?? {}
+      // 从中转站拉取模型列表：仅供提示，不自动写入配置，避免覆盖手填值。
+      const fetchModels = async (channel) => {
+        imageModelHintRef.current = { hint: '正在从中转站读取模型列表…', error: '' }
+        try {
+          const payload = await api(`llm/models?channel=${encodeURIComponent(channel)}`)
+          const models = Array.isArray(payload?.models) ? payload.models : []
+          if (!models.length) {
+            imageModelHintRef.current = { hint: '中转站没有返回任何模型；可直接手填模型名称。', error: '' }
+          } else {
+            const shown = models.slice(0, 40).join('、')
+            const more = models.length > 40 ? ` 等 ${models.length} 个` : ''
+            imageModelHintRef.current = { hint: `可用模型（${models.length}）：${shown}${more}`, error: '' }
+          }
+        } catch (failure) {
+          imageModelHintRef.current = { hint: '', error: `拉取失败：${failure?.message ?? failure}` }
+        }
+        showToast?.(imageModelHintRef.current.hint || imageModelHintRef.current.error)
+      }
+
+      // DSH 已注册模型按「疑似生图 / 其余文本」分类，供两个通道各自下拉
+      const IMAGE_HINT = /image|dall[-_ ]?e|flux|stable[-_ ]?diffusion|sdxl|midjourney|\bmj\b|seedream|cogview|imagen|kolors|wanx|seed/i
+      const dshModels = availableModels.map((item) => ({
+        ...item,
+        image: IMAGE_HINT.test(String(item.model) + ' ' + String(item.label ?? '')),
+      }))
+      const imageCapable = dshModels.filter((item) => item.image)
+      const textCapable = dshModels.filter((item) => !item.image)
+
+      // 模型选择：既能从 DSH 列表里选，也能直接手填（中转站模型常不在 DSH 列表里）。
+      // 模型多了以后单纯下拉很难找，所以做成「带搜索框的浮层选择器」。
+      const modelPicker = (draft, channel, label, candidates) => {
+        const query = (modelQuery[channel] ?? '').trim().toLowerCase()
+        const filtered = query
+          ? candidates.filter(item => `${item.provider} ${item.model} ${item.label ?? ''}`.toLowerCase().includes(query))
+          : candidates
+        const open = modelOpen === channel
+        const current = draft?.model ?? ''
+        return h('div', { className: 'nm-field' },
+          h('span', null, label),
+          h('div', { className: 'nm-row', style: { gap: '6px' } },
+            h('input', {
+              type: 'text', value: current, disabled: locked,
+              placeholder: channel === 'image' ? 'gpt-image-1' : 'gpt-4o',
+              'aria-label': label,
+              onChange: event => save({ [channel]: { ...draft, model: event.target.value.trim() } }),
+            }),
+            candidates.length
+              ? h('button', {
+                type: 'button', className: 'nm-modelpick', 'aria-expanded': open,
+                'aria-label': `从 DSH 选择${label}`,
+                onClick: () => setModelOpen(open ? '' : channel),
+              }, open ? '收起' : `选择 (${candidates.length})`)
+              : null),
+          open
+            ? h('div', { className: 'nm-modelpop' },
+              h('input', {
+                className: 'nm-modelsearch', type: 'search', value: modelQuery[channel] ?? '',
+                placeholder: `搜索 ${candidates.length} 个模型…`, 'aria-label': `${label}搜索`,
+                autoFocus: true,
+                onChange: event => setModelQuery({ ...modelQuery, [channel]: event.target.value }),
+              }),
+              h('div', { className: 'nm-modelhint' },
+                query
+                  ? `匹配 ${filtered.length} / ${candidates.length} 个模型`
+                  : `共 ${candidates.length} 个模型，输入关键词过滤`),
+              h('div', { className: 'nm-modellist', role: 'listbox', 'aria-label': `${label}候选` },
+                filtered.length === 0
+                  ? h('div', { className: 'nm-modelempty' }, query ? '没有匹配的模型，可直接在上方手填。' : '没有可选模型。')
+                  : filtered.slice(0, 200).map(item => h('button', {
+                    key: `${item.provider}::${item.model}`, type: 'button', role: 'option',
+                    className: 'nm-modelitem', 'aria-selected': item.model === current,
+                    onClick: () => {
+                      save({ [channel]: { ...draft, model: item.model } })
+                      setModelOpen('')
+                      setModelQuery({ ...modelQuery, [channel]: '' })
+                    },
+                  },
+                    h('span', { className: 'nm-modelprov' }, item.provider),
+                    h('span', { className: 'nm-modelname' }, item.model))),
+                filtered.length > 200
+                  ? h('div', { className: 'nm-modelempty' }, `仅显示前 200 个，共 ${filtered.length} 个，请继续输入缩小范围。`)
+                  : null))
+            : null)
+      }
+      const imageSettingsCard = form && card('AI 生图与提示词扩写', '地址填到 /v1 为止，插件自动拼 /chat/completions 与 /images/generations。请求由宿主进程发出，不受浏览器跨域限制。模型名既能从 DSH 已配置列表里选，也能直接手填中转站的模型 ID。',
+        h('h4', { className: 'nm-subhead' }, '① 对话模型（把一句话扩写成生图提示词）'),
+        toggle('启用对话模型', llmDraft.enabled === true, next => save({ llm: { ...llmDraft, enabled: next } }), '扩写按钮可用；关闭后只能手写提示词。'),
+        h('div', { className: 'nm-field' },
+          h('span', null, '接口地址'),
+          h('input', { type: 'text', value: llmDraft.baseURL ?? '', disabled: locked, placeholder: 'https://api.example.com/v1', 'aria-label': '对话模型接口地址', onChange: event => save({ llm: { ...llmDraft, baseURL: event.target.value.trim() } }) })),
+        modelPicker(llmDraft, 'llm', '模型名称', textCapable),
+        h('div', { className: 'nm-field' },
+          h('span', null, '密钥'),
+          h('input', { type: 'password', value: llmDraft.apiKey ?? '', placeholder: '由本机配置保存', autoComplete: 'off', 'aria-label': '对话模型密钥', onChange: event => save({ llm: { ...llmDraft, apiKey: event.target.value } }) })),
+        h('div', { className: 'nm-row' },
+          actionButton('从中转站拉取模型列表', () => fetchModels('llm'), locked),
+          h('span', { className: 'nm-muted' }, `DSH 已配置 ${dshModels.length} 个模型。`)),
+
+        h('h4', { className: 'nm-subhead' }, '② 生图模型'),
+        toggle('启用 AI 生图', imageDraft.enabled === true, next => save({ image: { ...imageDraft, enabled: next } }), '工作台与设定树地图的生图功能。'),
+        h('div', { className: 'nm-field' },
+          h('span', null, '接口地址'),
+          h('input', { type: 'text', value: imageDraft.baseURL ?? '', disabled: locked, placeholder: 'https://api.example.com/v1', 'aria-label': '生图接口地址', onChange: event => save({ image: { ...imageDraft, baseURL: event.target.value.trim() } }) })),
+        modelPicker(imageDraft, 'image', '模型名称', imageCapable.length ? imageCapable : dshModels),
+        h('div', { className: 'nm-field' },
+          h('span', null, '密钥'),
+          h('input', { type: 'password', value: imageDraft.apiKey ?? '', placeholder: '由本机配置保存', autoComplete: 'off', 'aria-label': '生图密钥', onChange: event => save({ image: { ...imageDraft, apiKey: event.target.value } }) })),
+        h('div', { className: 'nm-three' },
+          field('图片尺寸', 'size', imageDraft, (key, val) => save({ image: { ...imageDraft, [key]: val.trim() } }), 'text', { placeholder: '1024x1024' }),
+          field('画质（可空）', 'quality', imageDraft, (key, val) => save({ image: { ...imageDraft, [key]: val.trim() } }), 'text', { placeholder: 'standard / hd' })),
+        h('div', { className: 'nm-row' },
+          actionButton('从中转站拉取模型列表', () => fetchModels('image'), locked),
+          h('span', { className: 'nm-muted' }, imageCapable.length
+            ? `DSH 里有 ${imageCapable.length} 个疑似生图模型。`
+            : 'DSH 未发现生图模型，多数中转站的 /models 也不列，直接手填模型 ID 即可。')),
+        imageModelHintRef.current.error ? h('p', { role: 'alert', className: 'nm-alert' }, imageModelHintRef.current.error) : null
+      )
+
       const renderReasoningSelect = (label, currentEffort, onSelectEffort, provider, model) => {
         const curEff = currentEffort || ''
         const targetModel = availableModels.find(x => x.provider === provider && x.model === model)
@@ -585,7 +847,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
         notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
-        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
+        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['image', 'AI 生图'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
         panel('features', form && card('创作工作台', '关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。',
@@ -602,6 +864,8 @@ window.__ModuleLoader__.load({
             saveBar('projectsDir', '保存项目目录', !directory.trim())
           )),
           workbenchCard,
+
+
           form && card('选择适合你的工具', '按创作阶段选择，开关保存后立即生效；更新维护始终保留。',
             h('div', { className: 'nm-toolbar' }, h('input', { className: 'nm-search', type: 'search', value: search, placeholder: '搜索功能名称或命令…', 'aria-label': '搜索功能', onChange: event => setSearch(event.target.value) }), actionButton('全部开启', () => batch(commandKeys, true), locked || !commandKeys.length), actionButton('全部关闭', () => batch(commandKeys, false), locked || !commandKeys.length)),
             h('div', { className: 'nm-row' }, h('span', { className: 'nm-muted' }, '快速选择'), actionButton('基础工具', () => applyPreset(['novel', 'continue', 'chapter', 'outline', 'cast', 'stats', 'export', 'backup'])), actionButton('写作进阶', () => applyPreset(GROUPS.slice(0, 4).flatMap(([, , keys]) => keys))), actionButton('完整工具', () => applyPreset(commandKeys))),
@@ -709,84 +973,143 @@ window.__ModuleLoader__.load({
              h('p', { className: 'nm-muted' }, '输出上限由模型自身决定。章数设得过大时模型可能提前截断，这种情况下该批不会写入任何文件，可调小后重试。')
            ), saveBar('batch', '保存批量写作配置')),
            h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-batch 项目名 60章 --每批20章 --auto')))),
-         panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
+         panel('image', imageSettingsCard),
+        panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
           state?.latest && h('p', { className: 'nm-callout' }, state.updateAvailable === false ? '磁盘已是此提交。' : state.updateAvailable === null ? '本地提交未知，版本号相同不能证明代码相同。' : '发现可安装的提交。检查后拉取会锁定本次完整 SHA。'),
           h('div', { className: 'nm-row' }, actionButton(busy === 'check' ? '检查中…' : '检查更新', () => run('check'), locked, true), actionButton(busy === 'apply' ? '正在拉取并安装…' : '拉取此提交', () => run('apply'), locked || !state?.latest), (busy === 'apply' || state?.busy) && actionButton('取消安装', cancel, false)), state?.result && h('p', { className: 'nm-callout' }, `最近安装结果：${state.result.application}${state.result.codeReload ? `；代码重载：${state.result.codeReload.application}` : ''}`)),
           form && card('更新网络', '代理只影响更新检查；安装使用 DSH 插件管理器的网络设置。', h('form', { 'aria-label': '更新代理配置', onSubmit: event => { event.preventDefault(); save({ updateProxy: proxy.trim() }) } }, field('更新检查代理', 'proxy', { proxy }, (_, next) => { dirty.current.updateProxy = next !== (value.updateProxy ?? ''); setProxy(next) }, 'text', { placeholder: 'http://127.0.0.1:7897' }), h('p', { className: 'nm-muted' }, '留空使用代理环境变量或直连。'), saveBar('updateProxy', '保存更新代理'))),
           card('运行维护', '代码重载切换 Host 运行实例，刷新界面只重新加载浏览器页面。', h('div', { className: 'nm-row' }, actionButton('重载插件', () => run('reload'), locked || !state?.reloadSupported), actionButton('刷新界面', () => window.location.reload(), !!busy)), !state?.reloadSupported && h('p', { className: 'nm-muted' }, '当前运行实例未提供可用重载入口，需要时请重启 DSH。'))),
         toast && h('div', { className: 'nm-toast', role: 'status' }, toast),
         showTutorial && h('div', { className: 'nm-guide-overlay', onClick: closeGuide },
-          h('div', { className: 'nm-guide-box', onClick: e => e.stopPropagation() },
+          h('div', { className: 'nm-guide-box nm-guide-wide', onClick: e => e.stopPropagation() },
             h('div', { className: 'nm-guide-header' },
               h('div', { className: 'nm-guide-icon' }, '📚'),
-              h('h3', { className: 'nm-guide-title' }, '小说创作大师'),
+              h('h3', { className: 'nm-guide-title' }, '小说创作大师 · 功能总览'),
               h('button', { className: 'nm-guide-close', onClick: closeGuide, 'aria-label': '关闭' }, '✕')
             ),
             h('div', { className: 'nm-guide-content' },
-              h('p', { className: 'nm-guide-intro' }, '强大的 AI 辅助小说创作插件，帮助您轻松完成长篇小说创作'),
-              
+              h('p', { className: 'nm-guide-intro' },
+                '一站式 AI 长篇小说创作插件：从一句脑洞到一键完本，从世界观设定到可视化进度地图。',
+                h('br'),
+                '核心思路是「引导-写作分离」——强模型负责规划与审视，快模型负责落笔，人只做决定。'),
+
+              /* ---------- 一、创作流水线 ---------- */
               h('div', { className: 'nm-guide-section' },
                 h('div', { className: 'nm-guide-section-header' },
                   h('div', { className: 'nm-guide-section-icon' }, '🎯'),
-                  h('h4', { className: 'nm-guide-section-title' }, '引导-写作分离架构')
+                  h('h4', { className: 'nm-guide-section-title' }, '创作流水线：从脑洞到完本')
                 ),
                 h('div', { className: 'nm-guide-section-content' },
-                  h('p', null, '使用强模型引导规划 + 快速模型执行写作的双模型协作架构'),
+                  h('p', null, '每个命令都对应一个真实项目目录里的文件，随时可以手改，插件不会覆盖你的编辑。'),
                   h('ul', null,
-                    h('li', null, '引导模型（如 Claude Opus）负责分析上下文、拆解任务、生成详细大纲'),
-                    h('li', null, '写作模型（如 Gemini 4 Argon）接收大纲指令、专注文字生成'),
-                    h('li', null, '推荐配置：Claude Opus 5.5 (引导) + Gemini 4 Argon (写作)'),
-                    h('li', null, '预算友好：Claude Opus 5.5 (引导) + Gemini 2.5 Flash (写作)')
+                    h('li', null, '一键完本：给一句话脑洞 + 目标章节数，自动生成设定、人设、大纲、分卷、逐章写作、审校、伏笔回收'),
+                    h('li', null, '智能续写：读取已有正文与设定，续写指定章数，自动延续文风与伏笔'),
+                    h('li', null, '写单章：指定章节号重写或补写一章，自动带上前情提要'),
+                    h('li', null, '拆书学习：把参考书拆成结构、节奏、写法样本，沉淀进学习库供后续复用'),
+                    h('li', null, '审校/改写：按写作规范逐章质检，给出问题清单并可选自动改写')
                   )
                 )
               ),
-              
+
+              /* ---------- 二、设定树面板（本次重点） ---------- */
               h('div', { className: 'nm-guide-section' },
                 h('div', { className: 'nm-guide-section-header' },
-                  h('div', { className: 'nm-guide-section-icon' }, '📖'),
-                  h('h4', { className: 'nm-guide-section-title' }, '学习总结功能')
+                  h('div', { className: 'nm-guide-section-icon' }, '🌳'),
+                  h('h4', { className: 'nm-guide-section-title' }, '设定树面板：四种进度视图')
                 ),
                 h('div', { className: 'nm-guide-section-content' },
-                  h('p', null, '自动总结每章创作的关键信息，建立项目知识库，后续章节自动复用历史总结')
+                  h('p', null, '在会话右侧栏打开「设定树」页签，顶部可切换四个视图，全部由项目里的 Markdown 自动推导，无需额外维护。'),
+                  h('ul', null,
+                    h('li', null, h('strong', null, '图谱'), '：世界观为根、分卷章节为枝叶的自上而下树状图，一眼看清整本书的骨架'),
+                    h('li', null, h('strong', null, '地图'), '：真正的领土地图——六边形地块拼成连续世界，地区之间共享边界、外围海岸线，地形决定底色（沙漠黄、雪原白、森林绿、山地灰、水域蓝、城邦米、地下紫、火山赭、沼泽橄榄、原野草绿），带指北针、比例尺与图例；点地块展开该地区详情与事件辐射图'),
+                    h('li', null, h('strong', null, '时间轴'), '：事件按章号纵向排列，彩点颜色对应地区，分「背景·尾声」与「正文章节」两段，每条标注来源（大纲/剧情树/伏笔/世界时钟）与状态'),
+                    h('li', null, h('strong', null, '列表'), '：传统缩进树，适合逐项核对文件与条目数量')
+                  ),
+                  h('p', { className: 'nm-guide-note' },
+                    '地图会随剧情自动扩展：在 地区.md 里加一行，地图立即重新分区；事件多的地区地块会略微变大。')
                 )
               ),
-              
+
+              /* ---------- 三、地图与事件数据从哪来 ---------- */
               h('div', { className: 'nm-guide-section' },
                 h('div', { className: 'nm-guide-section-header' },
-                  h('div', { className: 'nm-guide-section-icon' }, '🤔'),
-                  h('h4', { className: 'nm-guide-section-title' }, 'AI 决策助手')
+                  h('div', { className: 'nm-guide-section-icon' }, '🗺️'),
+                  h('h4', { className: 'nm-guide-section-title' }, '地图与时间轴的数据来源')
                 ),
                 h('div', { className: 'nm-guide-section-content' },
-                  h('p', null, '在剧情分岔、审校取舍等场景提供智能建议，帮助您做出更好的创作决策')
+                  h('p', null, '两个可选文件（没有也能用，有则更丰富）：'),
+                  h('ul', null,
+                    h('li', null, h('code', null, '地区.md'), '：表格 地区 | 方位 | 地形 | 说明 | 人物。方位决定在地图上的位置，地形决定地块颜色与地貌小图'),
+                    h('li', null, h('code', null, '事件.md'), '：表格 事件 | 章号 | 地区 | 状态。章号写「第N章」；背景/尾声事件章号留空即可进对应分段')
+                  ),
+                  h('p', { className: 'nm-guide-note' },
+                    '未填这两个文件时，插件会自动推导：地区回退到 设定.md 的「地理」分支，事件回退到 大纲 逐章、剧情树分岔点、伏笔埋设表、世界状态的世界时钟。'),
+                  h('p', null, h('strong', null, '一键生成：'), '发送 ', h('code', null, '/novel-map'), '（可带项目名），让模型读设定/大纲/正文后写出上面两个表格——决定地图长相与时间轴内容。')
                 )
               ),
-              
+
+              /* ---------- 四、全部命令速查 ---------- */
               h('div', { className: 'nm-guide-section' },
                 h('div', { className: 'nm-guide-section-header' },
-                  h('div', { className: 'nm-guide-section-icon' }, '🚀'),
-                  h('h4', { className: 'nm-guide-section-title' }, '常用命令')
+                  h('div', { className: 'nm-guide-section-icon' }, '⌨️'),
+                  h('h4', { className: 'nm-guide-section-title' }, '命令速查')
                 ),
                 h('div', { className: 'nm-guide-section-content' },
                   h('div', { className: 'nm-guide-commands' },
-                    h('div', { className: 'nm-guide-cmd' },
-                      h('code', null, '/novel 网管发现网吧的电脑能修仙 60章'),
-                      h('span', { className: 'nm-guide-cmd-desc' }, '一键完本')
-                    ),
-                    h('div', { className: 'nm-guide-cmd' },
-                      h('code', null, '/novel-continue 项目名 续写20章'),
-                      h('span', { className: 'nm-guide-cmd-desc' }, '智能续写')
-                    ),
-                    h('div', { className: 'nm-guide-cmd' },
-                      h('code', null, '/novel-chapter 项目名 写第5章'),
-                      h('span', { className: 'nm-guide-cmd-desc' }, '写单章')
-                    ),
-                    h('div', { className: 'nm-guide-cmd' },
-                      h('code', null, '/novel-update check'),
-                      h('span', { className: 'nm-guide-cmd-desc' }, '检查更新')
-                    )
-                  ),
-                  h('p', { style: { marginTop: '12px', fontSize: '12px', color: 'var(--nm-muted)' } }, 
-                    '更多命令请使用 ', h('code', null, '/help novel'), ' 查看详细文档'
+                    ...[
+                      ['/novel 脑洞 60章', '一键完本：全流程自动写完整本'],
+                      ['/novel-continue 项目 20章', '智能续写：接续现有内容'],
+                      ['/novel-chapter 项目 第5章', '写单章：指定章节重写/补写'],
+                      ['/novel-outline 项目 [要求]', '大纲：分卷、逐章梗概、分岔点、高潮'],
+                      ['/novel-cast 项目', '人设：角色档案与关系'],
+                      ['/novel-map 项目 [要求]', '地图：生成 地区.md 与 事件.md，点亮地图与时间轴'],
+                      ['/novel-world 项目', '世界：设定与规则体系'],
+                      ['/novel-role 项目', '角色：查看当前角色状态'],
+                      ['/novel-review 项目', '审校：按写作规范逐章质检'],
+                      ['/novel-rewrite 项目', '改写：按审校意见重写'],
+                      ['/novel-idea /novel-spark', '构思 / 灵感：选题与桥段发散'],
+                      ['/novel-study 参考书', '拆书：结构、节奏、写法样本'],
+                      ['/novel-stats 项目', '统计：字数、章节、完成度'],
+                      ['/novel-export 项目', '导出：合并成整本'],
+                      ['/novel-update check', '检查插件更新'],
+                      ['/novel-update reload', '重载宿主代码（改插件后必做）']
+                    ].map(([cmd, desc]) => h('div', { className: 'nm-guide-cmd', key: cmd },
+                      h('code', null, cmd),
+                      h('span', { className: 'nm-guide-cmd-desc' }, desc)
+                    ))
+                  )
+                )
+              ),
+
+              /* ---------- 五、配置与架构 ---------- */
+              h('div', { className: 'nm-guide-section' },
+                h('div', { className: 'nm-guide-section-header' },
+                  h('div', { className: 'nm-guide-section-icon' }, '⚙️'),
+                  h('h4', { className: 'nm-guide-section-title' }, '配置要点')
+                ),
+                h('div', { className: 'nm-guide-section-content' },
+                  h('ul', null,
+                    h('li', null, h('strong', null, '引导-写作分离'), '：引导模型（分析/拆解/大纲）+ 写作模型（专注落笔），换用不同模型即可兼顾质量与成本'),
+                    h('li', null, h('strong', null, '项目目录'), '：可在设置里指定 projectsDir；留空则用当前工作区的 novel_projects'),
+                    h('li', null, h('strong', null, '命令开关'), '：每个命令都能单独启用/停用，避免占满输入框'),
+                    h('li', null, h('strong', null, '学习总结'), '：自动沉淀每章要点，后续章节复用，越写越稳'),
+                    h('li', null, h('strong', null, '代码重载'), '：改了插件源码后，设置页「运行维护」点重载，或发送 ', h('code', null, '/novel-update reload'), '；只刷新页面不会重载宿主')
+                  )
+                )
+              ),
+
+              /* ---------- 六、小贴士 ---------- */
+              h('div', { className: 'nm-guide-section' },
+                h('div', { className: 'nm-guide-section-header' },
+                  h('div', { className: 'nm-guide-section-icon' }, '💡'),
+                  h('h4', { className: 'nm-guide-section-title' }, '小贴士')
+                ),
+                h('div', { className: 'nm-guide-section-content' },
+                  h('ul', null,
+                    h('li', null, '所有产物都是普通 Markdown，随时可以手改；插件尊重你的编辑，不会悄悄覆盖'),
+                    h('li', null, '地图上地区挤在一起时，调整 地区.md 的「方位」列（北/南/西/东/中/东北等）即可重新排布'),
+                    h('li', null, '时间轴想更完整，就跑一次 ', h('code', null, '/novel-map'), ' 补齐 事件.md'),
+                    h('li', null, '写不动的时候用 /novel-review 先体检，再决定改哪一章，比硬写省一半时间')
                   )
                 )
               )
@@ -794,20 +1117,1337 @@ window.__ModuleLoader__.load({
             h('div', { className: 'nm-guide-footer' },
               h('div', { className: 'nm-guide-footer-tip' },
                 h('span', null, '💡'),
-                h('span', null, '点击右上角 ? 可随时查看')
+                h('span', null, '点击右上角 ? 可随时查看本页')
               ),
-              h('button', { onClick: closeGuide }, '开始使用 →')
+              h('button', { onClick: closeGuide }, '开始创作 →')
             )
           )
         ),
         h('footer', { className: 'nm-footer' }, '创作由你掌舵 · 功能按需开启 · 配置保存后生效'))
     }
+    /* ---------- 设定树：右侧栏页签（世界观 / 人设 / 大纲 / 进度 树状视图） ---------- */
+    const ATLAS_ID = 'dsh-novel-master/atlas'
+    const ATLAS_KIND = 'novelAtlas'
+    const ART_ID = 'dsh-novel-master/art'
+    const ART_KIND = 'novelArt'
+
+    function AtlasGlyph({ size = 16 } = {}) {
+      return h('svg', {
+        viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor',
+        strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'nm-atlas-title-icon',
+      },
+        h('circle', { cx: 12, cy: 5, r: 2.2 }),
+        h('circle', { cx: 5.5, cy: 12.5, r: 2.2 }),
+        h('circle', { cx: 18.5, cy: 12.5, r: 2.2 }),
+        h('circle', { cx: 5.5, cy: 19.5, r: 2.2 }),
+        h('circle', { cx: 18.5, cy: 19.5, r: 2.2 }),
+        h('path', { d: 'M12 7.4v2.4M12 9.8H6.2a.7.7 0 0 0-.7.7v1.2M12 9.8h5.8a.7.7 0 0 1 .7.7v1.2M5.5 14.9v2.4M18.5 14.9v2.4' }))
+    }
+
+    function AtlasRow({ node, expanded, toggle, depth }) {
+      const children = Array.isArray(node.children) ? node.children : []
+      const hasChildren = children.length > 0
+      const open = expanded[node.id] ?? depth === 0
+      return h('li', { className: 'nm-atlas-item' },
+        h('button', {
+          className: 'nm-atlas-row', type: 'button',
+          style: { paddingLeft: `${8 + depth * 12}px` },
+          'data-leaf': String(!hasChildren),
+          'data-missing': String(node.missing === true),
+          ...(hasChildren ? { 'aria-expanded': open, onClick: () => toggle(node.id, open) } : {}),
+        },
+          h('span', { className: 'nm-atlas-chevron' }, hasChildren ? (open ? '▾' : '▸') : '·'),
+          h('span', { className: 'nm-atlas-label', title: node.label }, node.label),
+          node.meta ? h('span', { className: 'nm-atlas-meta' }, node.meta) : null),
+        hasChildren && open
+          ? h('ul', { className: 'nm-atlas-level' },
+            children.map((child) => h(AtlasRow, { key: child.id, node: child, expanded, toggle, depth: depth + 1 })))
+          : null)
+    }
+
+    function atlasProgressCard(project) {
+      const p = project.progress ?? {}
+      const percent = p.percent ?? null
+      return h('div', { className: 'nm-atlas-progress' },
+        h('div', { className: 'nm-atlas-progress-head' },
+          h('strong', null, `《${project.title ?? project.name}》`),
+          h('span', { className: 'nm-atlas-meta' },
+            p.goal ? `进度 ${p.last}/${p.goal} 章${percent === null ? '' : ` · ${percent}%`}` : `已写 ${p.chapters} 章 · 未设目标章数`)),
+        h('div', {
+          className: 'nm-atlas-bar', role: 'progressbar', 'aria-label': '写作进度',
+          'aria-valuemin': 0, 'aria-valuemax': 100, ...(percent === null ? {} : { 'aria-valuenow': percent }),
+        }, h('div', { className: 'nm-atlas-bar-fill', style: { width: `${percent ?? 100}%` } })),
+        h('div', { className: 'nm-atlas-stats' },
+          h('span', { className: 'nm-atlas-chip' }, `${((p.chars ?? 0) / 10000).toFixed(1)} 万字`),
+          h('span', { className: 'nm-atlas-chip' }, `${p.chapters ?? 0} 章`),
+          p.avg ? h('span', { className: 'nm-atlas-chip' }, `均 ${p.avg} 字/章`) : null,
+          h('span', { className: 'nm-atlas-chip', 'data-warn': String((p.foreshadowOpen ?? 0) > 0) },
+            `伏笔 ${p.foreshadowOpen ?? 0}/${p.foreshadowTotal ?? 0} 未回收`),
+          h('span', { className: 'nm-atlas-chip' }, `剧情分岔 ${p.branches ?? 0}`),
+          (p.missing ?? []).length
+            ? h('span', { className: 'nm-atlas-chip', 'data-warn': 'true' }, `缺章 ${p.missing.join('、')}`)
+            : null))
+    }
+
+    /* ---- 图谱视图：根在顶部一点，向下分化（每列一枝，瀑布式下钻） ---- */
+    const GRAPH_COLORS = ['#6ea8fe', '#7bdcb5', '#f6c177', '#eb6f92', '#c4a7e7', '#9ccfd8', '#ea9a97', '#f2a65e']
+    const GRAPH_COL = 178
+    const GRAPH_ROW = 24
+    const GRAPH_PAD = 14
+    const GRAPH_ROOT_Y = 42
+    const GRAPH_CAT_Y = 128
+    const GRAPH_BANDS = 4
+
+    const graphText = (text, max) => {
+      const chars = [...String(text)]
+      return chars.length > max ? `${chars.slice(0, max).join('')}…` : chars.join('')
+    }
+
+    /** 提升文档 H1 空壳（宿主旧数据可能没提升，前端容错）。 */
+    const hoist = (nodes) => (nodes.length === 1 && (nodes[0].children ?? []).length > 0 ? nodes[0].children : nodes)
+
+    /** 从上到下布局：根在顶部中央，八大主枝每行 4 列向下分化，列内瀑布式堆叠。 */
+    function layoutGraph(groups, expanded, rootLabel) {
+      const items = []
+      const links = []
+      const bands = []
+      for (let i = 0; i < groups.length; i += GRAPH_BANDS) bands.push(groups.slice(i, i + GRAPH_BANDS))
+      const width = GRAPH_PAD * 2 + Math.max(1, (bands[0]?.length ?? 1)) * GRAPH_COL
+      const root = {
+        node: { id: '__root', label: rootLabel, children: groups },
+        depth: 0, branch: -1, x: width / 2, y: GRAPH_ROOT_Y, open: true, hidden: 0, bottom: GRAPH_ROOT_Y,
+      }
+      items.push(root)
+      const place = (node, depth, branch, x, y, colRight) => {
+        const open = depth === 0 ? true : (expanded[node.id] ?? depth <= 1)
+        const children = open ? (node.children ?? []) : []
+        const item = { node, depth, branch, x, y, open, colRight, hidden: (node.children ?? []).length - children.length }
+        items.push(item)
+        let cursor = y
+        for (const child of children) {
+          const childItem = place(child, depth + 1, branch, x + 15, cursor + GRAPH_ROW, colRight)
+          links.push({ from: item, to: childItem })
+          cursor = childItem.bottom
+        }
+        item.bottom = children.length ? cursor : y + GRAPH_ROW * 0.72
+        return item
+      }
+      let bandTop = GRAPH_CAT_Y
+      for (const band of bands) {
+        let bandBottom = bandTop
+        band.forEach((group, index) => {
+          const colX = GRAPH_PAD + index * GRAPH_COL
+          const cat = place(group, 1, index, colX + 12, bandTop, colX + GRAPH_COL - 10)
+          links.push({ from: root, to: cat })
+          if (cat.bottom > bandBottom) bandBottom = cat.bottom
+        })
+        bandTop = bandBottom + 66
+      }
+      return { items, links, width, height: bandTop + GRAPH_PAD }
+    }
+
+    function AtlasGraph({ project, groups, expanded, toggle }) {
+      const progress = project.progress ?? {}
+      const rootLabel = `《${project.title ?? project.name}》` +
+        (progress.goal ? ` ${progress.last}/${progress.goal} 章` : ` ${progress.chapters} 章`)
+      const { items, links, width, height } = layoutGraph(groups, expanded, rootLabel)
+      return h('svg', {
+        className: 'nm-atlas-svg', width, height,
+        viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': '设定树图谱',
+      },
+          links.map((link, index) => {
+            const { from, to } = link
+            const color = to.branch >= 0 ? GRAPH_COLORS[to.branch % GRAPH_COLORS.length] : null
+            const middle = (from.y + to.y) / 2
+            const base = {
+              fill: 'none', strokeWidth: from.depth === 0 ? 2.2 : 1.6,
+              opacity: 0.62, strokeLinecap: 'round',
+            }
+            return h('path', {
+              key: `link${index}`, className: 'nm-atlas-link',
+              d: `M${from.x},${from.y + (from.depth === 0 ? 10 : 6)} C${from.x},${middle} ${to.x},${middle} ${to.x},${to.y - 6}`,
+              ...(color ? { ...base, stroke: color } : { ...base, style: { stroke: 'var(--nm-accent)' } }),
+            })
+          }),
+          items.map((item) => {
+            const { node, depth, branch, x, y, open, hidden, colRight } = item
+            const children = node.children ?? []
+            const color = branch >= 0 ? GRAPH_COLORS[branch % GRAPH_COLORS.length] : null
+            const budget = depth === 0 ? 22 : Math.max(5, Math.floor(((colRight ?? x + 130) - x - 24) / 11.9))
+            const label = graphText(node.label, budget)
+            const more = hidden > 0 ? ` +${hidden}` : ''
+            const textStyle = {
+              fill: depth === 0 ? 'var(--nm-accent)' : 'var(--nm-text)',
+              fontSize: depth === 0 ? 13 : depth === 1 ? 12.2 : 11.5,
+              fontWeight: depth <= 1 ? 650 : 400,
+              paintOrder: 'stroke', stroke: 'var(--nm-bg)', strokeWidth: 3, strokeLinejoin: 'round',
+            }
+            return h('g', {
+              key: node.id, className: 'nm-atlas-gnode', transform: `translate(${x},${y})`,
+              ...(depth > 0 && children.length > 0
+                ? { onClick: () => toggle(node.id, open), role: 'button', tabIndex: 0, onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(node.id, open) } } }
+                : {}),
+            },
+              h('title', null, `${node.label}${node.meta ? ` · ${node.meta}` : ''}${hidden > 0 ? ` · 还有 ${hidden} 个子节点未展开` : ''}`),
+              h('circle', {
+                r: depth === 0 ? 8 : 5, strokeWidth: 2, stroke: 'var(--nm-bg)',
+                ...(color ? { fill: color } : { style: { fill: 'var(--nm-accent)' } }),
+              }),
+              h('text', {
+                ...(depth === 0
+                  ? { x: 0, y: -18, textAnchor: 'middle' }
+                  : { x: 11, y: 0, dominantBaseline: 'middle' }),
+                style: textStyle,
+              }, label),
+              more ? h('text', {
+                x: 13 + label.length * 11.9, y: 0, dominantBaseline: 'middle',
+                style: { ...textStyle, fill: 'var(--nm-muted)', fontSize: 10 },
+              }, more) : null)
+          }))
+    }
+
+    /* ---- 地图视图：按方位铺地区块，点开看该地区的事件辐射图 ---- */
+    const posCell = (pos) => {
+      const text = String(pos ?? '')
+      if (!/[东南西北]/u.test(text)) return text.includes('中') ? { row: 2, col: 2 } : null
+      const row = /北/u.test(text) ? 1 : /南/u.test(text) ? 3 : 2
+      const col = /西/u.test(text) ? 1 : /东/u.test(text) ? 3 : 2
+      return { row, col }
+    }
+
+    /* ---- 地形：按 地区.md 的「地形」列（或说明文字）识别，生成地貌小图 ---- */
+    const TERRAIN_KINDS = [
+      { kind: 'volcano', label: '火山', words: /火山|熔岩/u },
+      { kind: 'snow', label: '雪原', words: /雪|冰|寒|冻/u },
+      { kind: 'desert', label: '沙漠', words: /沙漠|沙丘|荒漠|戈壁|沙海/u },
+      { kind: 'ocean', label: '水域', words: /海|湖|河|江|湾|洋|水域/u },
+      { kind: 'swamp', label: '沼泽', words: /沼|湿地|泥潭/u },
+      { kind: 'cave', label: '地下', words: /洞|穴|窟|地下|深渊|矿|墓/u },
+      { kind: 'island', label: '岛屿', words: /岛|群岛|半岛/u },
+      { kind: 'city', label: '城邦', words: /城|都|镇|村|堡|宫|塔|市/u },
+      { kind: 'forest', label: '森林', words: /林|森|树|丛林/u },
+      { kind: 'mountain', label: '山地', words: /山|峰|岭|高原|峡谷|崖|谷地/u },
+      { kind: 'plain', label: '原野', words: /原|野|草原|平原|牧场/u },
+    ]
+
+    const terrainOf = (region) => {
+      const text = `${region?.terrain ?? ''} ${region?.desc ?? ''} ${region?.name ?? ''}`
+      return TERRAIN_KINDS.find((entry) => entry.words.test(text)) ?? TERRAIN_KINDS[TERRAIN_KINDS.length - 1]
+    }
+
+    /** 程序化地貌小图（240x60 viewBox，纯 SVG，随卡片宽度裁切）。 */
+    function TerrainArt({ kind }) {
+      const scenes = {
+        mountain: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#8fb6d9' }),
+          h('circle', { key: 'sun', cx: 198, cy: 15, r: 8, fill: '#ffd97a' }),
+          h('polygon', { key: 'a', points: '0,60 44,16 88,60', fill: '#6b829e' }),
+          h('polygon', { key: 'b', points: '52,60 118,8 184,60', fill: '#4a5f7d' }),
+          h('polygon', { key: 'c', points: '150,60 196,24 240,60', fill: '#6b829e' }),
+        ],
+        snow: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#cfe2f2' }),
+          h('ellipse', { key: 'a', cx: 60, cy: 62, rx: 95, ry: 28, fill: '#f4f9ff' }),
+          h('ellipse', { key: 'b', cx: 188, cy: 64, rx: 100, ry: 26, fill: '#e2edf8' }),
+          h('polygon', { key: 't1', points: '30,58 42,30 54,58', fill: '#3c5a4a' }),
+          h('polygon', { key: 't2', points: '196,58 206,36 216,58', fill: '#3c5a4a' }),
+          ...[[40, 14], [92, 22], [150, 12], [212, 26], [122, 34]].map(([x, y], i) =>
+            h('circle', { key: `s${i}`, cx: x, cy: y, r: 2, fill: '#ffffff' })),
+        ],
+        forest: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#b9d9ae' }),
+          h('ellipse', { key: 'g', cx: 120, cy: 66, rx: 170, ry: 26, fill: '#6f9c5f' }),
+          ...[[24, 34], [56, 26], [92, 36], [148, 28], [184, 34], [218, 24]].map(([x, hgt], i) =>
+            h('polygon', { key: `t${i}`, points: `${x - 11},58 ${x},${hgt} ${x + 11},58`, fill: i % 2 ? '#2c4f30' : '#38603a' })),
+        ],
+        desert: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#f2d9a0' }),
+          h('circle', { key: 'sun', cx: 62, cy: 16, r: 9, fill: '#fff1c2' }),
+          h('ellipse', { key: 'a', cx: 70, cy: 62, rx: 115, ry: 24, fill: '#e0b06a' }),
+          h('ellipse', { key: 'b', cx: 195, cy: 64, rx: 115, ry: 26, fill: '#c9944f' }),
+        ],
+        ocean: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#a9d3e8' }),
+          h('circle', { key: 'sun', cx: 204, cy: 14, r: 8, fill: '#fff1c2' }),
+          h('rect', { key: 'sea', y: 34, width: 240, height: 26, fill: '#3f7fa6' }),
+          h('path', { key: 'w1', d: 'M0,42 Q30,36 60,42 T120,42 T180,42 T240,42', fill: 'none', stroke: '#7fb6d6', strokeWidth: 2.4 }),
+          h('path', { key: 'w2', d: 'M0,52 Q30,46 60,52 T120,52 T180,52 T240,52', fill: 'none', stroke: '#5c9cc4', strokeWidth: 2.4 }),
+        ],
+        swamp: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#b9c49a' }),
+          h('rect', { key: 'a', y: 38, width: 240, height: 22, fill: '#5d6b45' }),
+          h('rect', { key: 'b', y: 47, width: 240, height: 13, fill: '#47522f' }),
+          ...[36, 88, 150, 206].map((x, i) =>
+            h('line', { key: `r${i}`, x1: x, y1: 40, x2: x + 3, y2: 22 - (i % 2) * 6, stroke: '#3a4426', strokeWidth: 2.4, strokeLinecap: 'round' })),
+          ...[[64, 44], [124, 48], [186, 43]].map(([x, y], i) =>
+            h('circle', { key: `b${i}`, cx: x, cy: y, r: 2.4, fill: '#8fa06a' })),
+        ],
+        city: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#a8b2c4' }),
+          ...[[16, 26, 24, 34], [46, 14, 28, 46], [80, 30, 20, 30], [106, 20, 26, 40], [138, 34, 18, 26], [162, 12, 28, 48], [196, 28, 24, 32]]
+            .map(([x, y, w, hgt], i) =>
+              h('rect', { key: `b${i}`, x, y, width: w, height: hgt, fill: i % 2 ? '#5b6474' : '#414a5c' })),
+          ...[[52, 22], [58, 32], [170, 20], [178, 30], [122, 28], [206, 36]].map(([x, y], i) =>
+            h('rect', { key: `w${i}`, x, y, width: 3, height: 3, fill: '#ffd97a' })),
+        ],
+        plain: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#b7d9ef' }),
+          h('ellipse', { key: 'c1', cx: 52, cy: 16, rx: 18, ry: 7, fill: '#ffffff', opacity: 0.8 }),
+          h('ellipse', { key: 'c2', cx: 178, cy: 12, rx: 22, ry: 8, fill: '#ffffff', opacity: 0.8 }),
+          h('ellipse', { key: 'a', cx: 62, cy: 62, rx: 115, ry: 24, fill: '#8fbb74' }),
+          h('ellipse', { key: 'b', cx: 192, cy: 64, rx: 115, ry: 22, fill: '#77a761' }),
+          ...[[30, 46], [88, 50], [150, 47], [212, 51]].map(([x, y], i) =>
+            h('line', { key: `g${i}`, x1: x, y1: y, x2: x + 2, y2: y - 7, stroke: '#4f7d3f', strokeWidth: 2, strokeLinecap: 'round' })),
+        ],
+        cave: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#4a4a5c' }),
+          h('path', { key: 'arch', d: 'M52,60 C52,18 188,18 188,60 Z', fill: '#191922' }),
+          h('polygon', { key: 's1', points: '84,22 90,38 96,22', fill: '#2c2c38' }),
+          h('polygon', { key: 's2', points: '140,24 146,40 152,24', fill: '#2c2c38' }),
+          h('circle', { key: 'glow', cx: 120, cy: 46, r: 8, fill: '#8a6fd1', opacity: 0.55 }),
+        ],
+        volcano: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#c9a08c' }),
+          h('polygon', { key: 'cone', points: '52,60 120,12 188,60', fill: '#6b4a3f' }),
+          h('polygon', { key: 'lava', points: '113,18 127,18 142,60 98,60', fill: '#ff7a45' }),
+          h('circle', { key: 'sm1', cx: 120, cy: 8, r: 5, fill: '#d8c7bd' }),
+          h('circle', { key: 'sm2', cx: 133, cy: 4, r: 4, fill: '#d8c7bd' }),
+        ],
+        island: [
+          h('rect', { key: 'sky', width: 240, height: 60, fill: '#a9d3e8' }),
+          h('rect', { key: 'sea', y: 36, width: 240, height: 24, fill: '#3f7fa6' }),
+          h('ellipse', { key: 'sand', cx: 120, cy: 42, rx: 66, ry: 12, fill: '#e0c98a' }),
+          h('ellipse', { key: 'green', cx: 120, cy: 38, rx: 36, ry: 10, fill: '#7fae6a' }),
+          h('path', { key: 'w', d: 'M8,50 Q20,46 32,50 T56,50', fill: 'none', stroke: '#7fb6d6', strokeWidth: 2 }),
+        ],
+      }
+      const scene = scenes[kind] ?? scenes.plain
+      return h('svg', {
+        viewBox: '0 0 240 60', width: '100%', height: 52,
+        preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': true, style: { display: 'block' },
+      }, scene)
+    }
+
+    function RegionSpoke({ events, color }) {
+      const rowH = 22
+      const list = events.slice(0, 30)
+      const height = Math.max(1, list.length) * rowH + 16
+      if (list.length === 0) return h('div', { className: 'nm-atlas-spoke nm-atlas-message' }, '该地区暂无事件记录。')
+      return h('div', { className: 'nm-atlas-spoke' },
+        h('svg', { width: '100%', height, viewBox: `0 0 300 ${height}`, role: 'img', 'aria-label': '地区事件图' },
+          h('circle', { cx: 16, cy: height / 2, r: 6, fill: color }),
+          list.map((event, index) => {
+            const y = 16 + index * rowH
+            return h('g', { key: event.id },
+              h('path', {
+                d: `M16,${height / 2} C84,${height / 2} 84,${y} 132,${y}`,
+                fill: 'none', stroke: color, strokeWidth: 1.4, opacity: 0.5, strokeLinecap: 'round',
+              }),
+              h('circle', { cx: 136, cy: y, r: 3.5, fill: color }),
+              h('text', {
+                x: 146, y, dominantBaseline: 'middle',
+                style: {
+                  fill: 'var(--nm-text)', fontSize: 11,
+                  paintOrder: 'stroke', stroke: 'var(--nm-bg)', strokeWidth: 3, strokeLinejoin: 'round',
+                },
+              }, `${event.chapter === null ? '背景 · ' : `第${event.chapter}章 · `}${graphText(event.title, 10)}`))
+          })))
+    }
+
+    /* ---- 领土地图：六边形网格 + 加权 Voronoi，地区拼成连续地块并共享边界 ---- */
+    const TERRAIN_FILL = {
+      mountain: '#8e8b8f', snow: '#e6eef7', forest: '#4f7a4a', desert: '#dcbe86',
+      ocean: '#3f7fa3', swamp: '#697d57', cave: '#6f6d80', city: '#a3937f',
+      plain: '#8fb277', volcano: '#a46750', island: '#7fb0c4',
+    }
+    const HEX_R = 20
+    const HEX_W = Math.sqrt(3) * HEX_R
+    const MAP_COLS = 13
+    const MAP_ROWS = 8
+    const MAP_W = MAP_COLS * HEX_W + HEX_W / 2
+    const MAP_H = MAP_ROWS * 1.5 * HEX_R + HEX_R / 2
+
+    /* ── 真实地形图：确定性扰动 + 地形符号 ── */
+
+    /** 确定性伪随机：同一坐标永远得到同一结果，重绘不会抖动。 */
+    const hash2 = (x, y) => {
+      const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+      return v - Math.floor(v)
+    }
+
+    /**
+     * 顶点扰动。相邻六边形共享同一个顶点，用取整后的坐标做种子，
+     * 保证共享顶点扰动结果一致——否则接缝处会裂开露出底色。
+     */
+    const warpPoint = (point, amplitude = 4.2) => {
+      const kx = Math.round(point.x * 2)
+      const ky = Math.round(point.y * 2)
+      return {
+        x: point.x + (hash2(kx, ky) - 0.5) * amplitude,
+        y: point.y + (hash2(ky + 13.7, kx + 7.3) - 0.5) * amplitude,
+      }
+    }
+
+    /** 扰动后的地块路径：不再是正六边形，而是有机的不规则多边形。 */
+    const warpedHexPoints = (cx, cy) => hexCorners(cx, cy)
+      .map((corner) => warpPoint(corner))
+      .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
+
+    /** 平滑曲线路径：把一串点连成柔和的闭合轮廓（海岸线/边界用）。 */
+    const smoothPath = (points) => {
+      if (points.length < 3) return ''
+      const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+      const first = mid(points[points.length - 1], points[0])
+      let d = `M${first.x.toFixed(1)},${first.y.toFixed(1)}`
+      for (let i = 0; i < points.length; i++) {
+        const current = points[i]
+        const next = points[(i + 1) % points.length]
+        const end = mid(current, next)
+        d += ` Q${current.x.toFixed(1)},${current.y.toFixed(1)} ${end.x.toFixed(1)},${end.y.toFixed(1)}`
+      }
+      return d + ' Z'
+    }
+
+    /** 单个地形符号（小尺寸，密集撒点形成纹理感）。 */
+    const terrainSymbol = (kind, x, y, seed, color) => {
+      const k = `s-${x.toFixed(1)}-${y.toFixed(1)}`
+      if (kind === 'mountain') {
+        const size = 4.6 + seed * 2.2
+        return h('path', {
+          key: k, d: `M${x - size},${y + size * 0.6} L${x},${y - size} L${x + size},${y + size * 0.6}`,
+          fill: 'none', stroke: color, strokeWidth: 1.1, strokeLinejoin: 'round', opacity: 0.55,
+        })
+      }
+      if (kind === 'forest') {
+        return h('circle', { key: k, cx: x, cy: y, r: 2 + seed * 1.1, fill: color, opacity: 0.4 })
+      }
+      if (kind === 'desert') {
+        return h('path', {
+          key: k, d: `M${x - 5},${y} Q${x},${y - 2.4} ${x + 5},${y}`,
+          fill: 'none', stroke: color, strokeWidth: 0.9, opacity: 0.45,
+        })
+      }
+      if (kind === 'snow') {
+        return h('path', {
+          key: k, d: `M${x - 3.4},${y} L${x},${y - 2.6} L${x + 3.4},${y} L${x},${y + 1.8} Z`,
+          fill: color, opacity: 0.35,
+        })
+      }
+      if (kind === 'city') {
+        return h('rect', {
+          key: k, x: x - 1.6, y: y - 1.6, width: 3.2, height: 3.2,
+          fill: 'none', stroke: color, strokeWidth: 1, opacity: 0.5,
+        })
+      }
+      if (kind === 'ocean' || kind === 'island') {
+        return h('path', {
+          key: k, d: `M${x - 5},${y} q2.5,-1.8 5,0 q2.5,1.8 5,0`,
+          fill: 'none', stroke: color, strokeWidth: 0.9, opacity: 0.4,
+        })
+      }
+      if (kind === 'swamp') {
+        return h('line', { key: k, x1: x - 3, y1: y, x2: x + 3, y2: y, stroke: color, strokeWidth: 1, opacity: 0.4 })
+      }
+      if (kind === 'volcano') {
+        return h('circle', { key: k, cx: x, cy: y, r: 1.6 + seed, fill: color, opacity: 0.45 })
+      }
+      if (kind === 'cave') {
+        return h('circle', { key: k, cx: x, cy: y, r: 1.4, fill: 'none', stroke: color, strokeWidth: 0.9, opacity: 0.5 })
+      }
+      return h('circle', { key: k, cx: x, cy: y, r: 1.2, fill: color, opacity: 0.28 })
+    }
+
+    /** 在区域内撒地形符号，形成真实地形图的纹理。 */
+    const terrainTexture = (group, kind, regionIndex) => {
+      const marks = []
+      const palette = {
+        mountain: 'rgba(46,42,48,0.72)', snow: 'rgba(120,140,165,0.6)', forest: '#26502c', desert: '#8a6a34',
+        ocean: '#d8ecf5', swamp: '#3c4a2c', cave: '#cfd2e0', city: '#4a3b2a',
+        plain: '#3d5a2a', volcano: '#5c2a1c', island: '#2f5a44',
+      }
+      const color = palette[kind] ?? palette.plain
+      const density = kind === 'mountain' || kind === 'forest' ? 2 : 1
+      group.forEach((cell, i) => {
+        for (let n = 0; n < density; n++) {
+          const a = hash2(regionIndex * 31 + i * 7 + n, 17.3)
+          const b = hash2(i * 13 + n * 3, 41.7)
+          const x = cell.x + (a - 0.5) * HEX_W * 0.66
+          const y = cell.y + (b - 0.5) * HEX_R * 0.95
+          marks.push(terrainSymbol(kind, x, y, a, color))
+        }
+        // 山地/雪山额外加等高线，这是真实地形图最标志性的元素
+        if (kind === 'mountain' || kind === 'snow') {
+          const ring = 6.5 + hash2(i, 9.1) * 4
+          marks.push(h('ellipse', {
+            key: `contour-${i}`, cx: cell.x, cy: cell.y, rx: ring, ry: ring * 0.66,
+            fill: 'none', stroke: 'rgba(248,244,232,0.24)', strokeWidth: 0.65,
+          }))
+          marks.push(h('ellipse', {
+            key: `contour2-${i}`, cx: cell.x, cy: cell.y - 0.6, rx: ring * 0.6, ry: ring * 0.4,
+            fill: 'none', stroke: 'rgba(248,244,232,0.16)', strokeWidth: 0.55,
+          }))
+        }
+      })
+      return marks
+    }
+
+    const hexCenter = (row, col) => ({
+      x: HEX_W / 2 + col * HEX_W + (row % 2 ? HEX_W / 2 : 0),
+      y: HEX_R + row * 1.5 * HEX_R,
+    })
+
+    const hexCorners = (cx, cy) => Array.from({ length: 6 }, (_, i) => {
+      const angle = (Math.PI / 180) * (60 * i - 90)
+      return { x: cx + HEX_R * Math.cos(angle), y: cy + HEX_R * Math.sin(angle) }
+    })
+
+    const slotKey = (slot) => (slot ? `${slot.row}:${slot.col}` : 'none')
+
+    /**
+     * 两级分区：先按方位把画布切成「西/中/东 × 北/中/南」的区块，区块面积正比于
+     * 该方向的地区数量；区块内部再等分成子格。这样每个地区面积相当、彼此接壤，
+     * 又大致保留方位关系——新增地区只需加一行，地图自动重新分区。
+     */
+    const regionSeeds = (regions) => {
+      const buckets = new Map()
+      regions.forEach((region, index) => {
+        const slot = posCell(region.pos) ?? { row: 2, col: 2 }
+        const key = slotKey(slot)
+        if (!buckets.has(key)) buckets.set(key, { slot, items: [] })
+        buckets.get(key).items.push(index)
+      })
+      const zones = [...buckets.values()]
+
+      const rowWeight = new Map()
+      const colWeight = new Map()
+      for (const zone of zones) {
+        rowWeight.set(zone.slot.row, (rowWeight.get(zone.slot.row) ?? 0) + zone.items.length)
+        colWeight.set(zone.slot.col, (colWeight.get(zone.slot.col) ?? 0) + zone.items.length)
+      }
+      const totalRows = [...rowWeight.values()].reduce((sum, value) => sum + value, 0)
+      const totalCols = [...colWeight.values()].reduce((sum, value) => sum + value, 0)
+
+      // 每一行/列在地图上占的纵向/横向比例
+      const rowSpan = (row) => {
+        let before = 0
+        for (const r of [1, 2, 3]) {
+          if (r === row) return { from: before / totalRows, to: (before + (rowWeight.get(r) ?? 0)) / totalRows }
+          before += rowWeight.get(r) ?? 0
+        }
+        return { from: 0, to: 1 }
+      }
+      const colSpan = (col) => {
+        let before = 0
+        for (const c of [1, 2, 3]) {
+          if (c === col) return { from: before / totalCols, to: (before + (colWeight.get(c) ?? 0)) / totalCols }
+          before += colWeight.get(c) ?? 0
+        }
+        return { from: 0, to: 1 }
+      }
+
+      const seeds = new Array(regions.length)
+      for (const zone of zones) {
+        const rows = rowSpan(zone.slot.row)
+        const cols = colSpan(zone.slot.col)
+        const left = MAP_W * cols.from
+        const right = MAP_W * cols.to
+        const top = MAP_H * rows.from
+        const bottom = MAP_H * rows.to
+        const total = zone.items.length
+        const cellsX = Math.max(1, Math.ceil(Math.sqrt(total)))
+        const cellsY = Math.max(1, Math.ceil(total / cellsX))
+        zone.items.forEach((index, k) => {
+          const cx = k % cellsX
+          const cy = Math.floor(k / cellsX)
+          seeds[index] = {
+            x: left + ((right - left) * (cx + 0.5)) / cellsX,
+            y: top + ((bottom - top) * (cy + 0.5)) / cellsY,
+          }
+        })
+      }
+      return seeds
+    }
+
+    /** 加权 Voronoi 划分：事件多的地区占地更大（剧情推进 → 地图扩张）。 */
+    const buildTerritory = (regions, counts) => {
+      const seeds = regionSeeds(regions)
+      // 权重上限压住，避免事件多的地区吞掉整张图；只做温和扩张
+      const weights = regions.map((_, index) => 1 + Math.min(0.8, Math.sqrt(counts[index] ?? 0) / 7))
+      const cells = []
+      for (let row = 0; row < MAP_ROWS; row++) {
+        for (let col = 0; col < MAP_COLS; col++) {
+          const center = hexCenter(row, col)
+          let best = 0
+          let bestScore = Infinity
+          for (let i = 0; i < seeds.length; i++) {
+            const dx = center.x - seeds[i].x
+            const dy = center.y - seeds[i].y
+            const score = (dx * dx + dy * dy) / weights[i]
+            if (score < bestScore) {
+              bestScore = score
+              best = i
+            }
+          }
+          cells.push({ x: center.x, y: center.y, row, col, region: best })
+        }
+      }
+      return cells
+    }
+
+    function AtlasMap({ project }) {
+      const regions = project.regions ?? []
+      const events = project.events ?? []
+      const [openRegion, setOpenRegion] = useState('')
+      // 地图底图：AI 生成并绑定到「地图」的图片，可切换显示
+      const [showArt, setShowArt] = useState(true)
+      const mapArt = (project.assets ?? []).find((item) => item.kind === 'map')
+      const eventsFor = (name) => events.filter((event) => (event.region || '') === name)
+      const unassigned = events.filter((event) => !event.region)
+      if (regions.length === 0 && events.length === 0 && !(project.assets ?? []).some((item) => item.kind === 'map')) {
+        return h('div', { className: 'nm-atlas-message' },
+          '还没有地区/事件数据。在项目里建 地区.md（表格：地区 | 方位 | 地形 | 说明 | 人物）和 事件.md（表格：事件 | 章号 | 地区 | 状态），或在 设定.md 的「地理」分支下按地区分节，这里会自动画出地区领土地图。')
+      }
+
+      const counts = regions.map((region) => eventsFor(region.name).length)
+      const cells = buildTerritory(regions, counts)
+      const byRegion = regions.map((_, index) => cells.filter((cell) => cell.region === index))
+      const keyOf = (x, y) => `${Math.round(x)}:${Math.round(y)}`
+      const cellByKey = new Map(cells.map((cell) => [keyOf(cell.x, cell.y), cell]))
+
+      // 相邻但归属不同 → 地区边界；没有邻居 → 海岸线
+      const borderSeen = new Set()
+      const borders = []
+      const coast = []
+      for (const cell of cells) {
+        const corners = hexCorners(cell.x, cell.y)
+        corners.forEach((corner, index) => {
+          const next = corners[(index + 1) % 6]
+          const midX = (corner.x + next.x) / 2
+          const midY = (corner.y + next.y) / 2
+          const neighbor = cellByKey.get(keyOf(cell.x + (midX - cell.x) * 2, cell.y + (midY - cell.y) * 2))
+          const segment = { x1: corner.x, y1: corner.y, x2: next.x, y2: next.y }
+          if (!neighbor) {
+            coast.push(segment)
+            return
+          }
+          if (neighbor.region === cell.region) return
+          const seenKey = `${keyOf(midX, midY)}:${Math.min(cell.region, neighbor.region)}:${Math.max(cell.region, neighbor.region)}`
+          if (borderSeen.has(seenKey)) return
+          borderSeen.add(seenKey)
+          borders.push(segment)
+        })
+      }
+
+      const centroid = (index) => {
+        const group = byRegion[index]
+        if (group.length === 0) return { x: MAP_W / 2, y: MAP_H / 2 }
+        const sum = group.reduce((acc, cell) => ({ x: acc.x + cell.x, y: acc.y + cell.y }), { x: 0, y: 0 })
+        return { x: sum.x / group.length, y: sum.y / group.length }
+      }
+
+      const terrains = regions.map((region) => terrainOf(region))
+      const legendKinds = [...new Set(terrains.map((terrain) => terrain.kind))]
+
+      // ---- SVG 图层：先组装成数组，再一次性交给 h，避免深层嵌套出错 ----
+      const layers = []
+      // 海面：径向渐变底色 + 柔和波纹，营造地图纸张感
+      layers.push(h('rect', { key: 'sea', x: 0, y: 0, width: MAP_W, height: MAP_H, fill: 'url(#nm-sea-grad)' }))
+      for (let i = 0; i < 5; i += 1) {
+        const ratio = 0.1 + i * 0.2
+        const y = MAP_H * ratio
+        layers.push(h('path', {
+          key: 'sea-wave-' + i,
+          d: 'M0,' + y.toFixed(0) + ' Q' + (MAP_W * 0.25).toFixed(0) + ',' + (y - 5).toFixed(0) + ' ' + (MAP_W * 0.5).toFixed(0) + ',' + y.toFixed(0) + ' T' + MAP_W.toFixed(0) + ',' + y.toFixed(0),
+          fill: 'none', stroke: 'rgba(160,200,220,0.1)', strokeWidth: 1.2,
+        }))
+      }
+
+      // 地块：扰动后的有机多边形 + 地形色 + 区域色薄染 + 地形符号
+      regions.forEach((region, index) => {
+        const terrainFill = TERRAIN_FILL[terrains[index].kind] ?? TERRAIN_FILL.plain
+        const group = byRegion[index]
+        const land = []
+        group.forEach((cell) => {
+          // 不描边：同地区相邻地块同色，连成完整大陆块，消除六边形拼贴感
+          land.push(h('polygon', {
+            key: 'land-' + cell.row + '-' + cell.col,
+            points: warpedHexPoints(cell.x, cell.y),
+            fill: terrainFill,
+            stroke: 'none',
+          }))
+        })
+        // 区域色薄染：区分势力范围，但不盖住地形色
+        group.forEach((cell) => {
+          land.push(h('polygon', {
+            key: 'tint-' + cell.row + '-' + cell.col,
+            points: warpedHexPoints(cell.x, cell.y),
+            fill: GRAPH_COLORS[index % GRAPH_COLORS.length],
+            opacity: openRegion === region.name ? 0.22 : 0.12,
+            stroke: 'none',
+          }))
+        })
+        // 地形纹理：山脊/树冠/沙脊等符号铺满区域
+        land.push(h('g', { key: 'tex' }, ...terrainTexture(group, terrains[index].kind, index)))
+        // 柔和起伏阴影：把整块陆地的轮廓描成半透明曲线，模拟地形的高低层次
+        if (group.length > 2) {
+          const outline = group.map((cell) => warpPoint(hexCorners(cell.x, cell.y)[0]))
+          land.push(h('path', {
+            key: 'relief', d: smoothPath(outline),
+            fill: 'rgba(12,18,14,0.10)', stroke: 'rgba(250,246,235,0.10)', strokeWidth: 1,
+            pointerEvents: 'none',
+          }))
+        }
+        layers.push(h('g', {
+          key: 'territory-' + index, style: { cursor: 'pointer' },
+          onClick: () => setOpenRegion(openRegion === region.name ? '' : region.name),
+        }, land))
+      })
+
+      // 地区边界：与地块共用扰动顶点，线条才不会和地块错位
+      borders.forEach((segment, index) => {
+        const a = warpPoint({ x: segment.x1, y: segment.y1 })
+        const b = warpPoint({ x: segment.x2, y: segment.y2 })
+        layers.push(h('line', {
+          key: 'border-' + index, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          stroke: 'rgba(12,16,24,0.55)', strokeWidth: 1.9, strokeLinecap: 'round',
+          strokeDasharray: '5 3',
+        }))
+      })
+      // 海岸线：双描边（外圈深色 + 内圈浅色）模拟真实地图的海岸
+      coast.forEach((segment, index) => {
+        const a = warpPoint({ x: segment.x1, y: segment.y1 })
+        const b = warpPoint({ x: segment.x2, y: segment.y2 })
+        layers.push(h('line', {
+          key: 'coast-outer-' + index, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          stroke: 'rgba(6,12,18,0.85)', strokeWidth: 3.4, strokeLinecap: 'round',
+        }))
+        layers.push(h('line', {
+          key: 'coast-inner-' + index, x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          stroke: 'rgba(200,225,235,0.5)', strokeWidth: 1.1, strokeLinecap: 'round',
+        }))
+      })
+      regions.forEach((region, index) => {
+        if (byRegion[index].length === 0) return
+        const spot = centroid(index)
+        const color = GRAPH_COLORS[index % GRAPH_COLORS.length]
+        // 地图注记风格：名称用浅色衬底 + 深色描边，像纸图上的地名
+        const labelGroup = []
+        labelGroup.push(h('circle', { key: 'dot', cx: spot.x, cy: spot.y - 9, r: 2.6, fill: color, stroke: '#f4f7fb', strokeWidth: 1.1 }))
+        labelGroup.push(h('text', {
+          key: 'name', x: spot.x, y: spot.y + 7, textAnchor: 'middle',
+          style: {
+            fill: '#fdfcf7', fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+            paintOrder: 'stroke', stroke: 'rgba(10,14,20,0.9)', strokeWidth: 3.2, strokeLinejoin: 'round',
+          },
+        }, region.name))
+        labelGroup.push(h('text', {
+          key: 'count', x: spot.x, y: spot.y + 19, textAnchor: 'middle',
+          style: {
+            fill: 'rgba(253,252,247,0.82)', fontSize: 8.5,
+            paintOrder: 'stroke', stroke: 'rgba(10,14,20,0.85)', strokeWidth: 2.8, strokeLinejoin: 'round',
+          },
+        }, counts[index] + ' 事件'))
+        layers.push(h('g', {
+          key: 'label-' + index, style: { cursor: 'pointer' },
+          onClick: () => setOpenRegion(openRegion === region.name ? '' : region.name),
+        }, labelGroup))
+      })
+      // 指北针：做成罗盘样式（双环 + 四向）
+      layers.push(h('g', { key: 'compass', transform: 'translate(26,30)' },
+        h('circle', { key: 'ring', cx: 0, cy: 0, r: 13, fill: 'rgba(10,16,24,0.42)', stroke: 'rgba(226,238,245,0.55)', strokeWidth: 1 }),
+        h('circle', { key: 'ring2', cx: 0, cy: 0, r: 9.5, fill: 'none', stroke: 'rgba(226,238,245,0.28)', strokeWidth: 0.6 }),
+        h('polygon', { key: 'needle', points: '0,-9.5 3.4,1.5 0,0 -3.4,1.5', fill: '#f4f7fb' }),
+        h('polygon', { key: 'needle-s', points: '0,9.5 3.4,-1.5 0,0 -3.4,-1.5', fill: 'rgba(244,247,251,0.4)' }),
+        h('text', {
+          key: 'north', x: 0, y: -16, textAnchor: 'middle',
+          style: { fill: '#f4f7fb', fontSize: 8.5, fontWeight: 700, paintOrder: 'stroke', stroke: 'rgba(8,12,18,0.85)', strokeWidth: 2.4 },
+        }, '北')))
+      // 比例尺：黑白交替分段，像地图上的标准比例尺
+      const scaleGroup = []
+      scaleGroup.push(h('rect', { key: 'bg', x: -6, y: -16, width: 108, height: 24, rx: 4, fill: 'rgba(10,16,24,0.36)' }))
+      for (let seg = 0; seg < 4; seg += 1) {
+        scaleGroup.push(h('rect', {
+          key: 'seg-' + seg, x: seg * 22, y: -3, width: 22, height: 4,
+          fill: seg % 2 === 0 ? 'rgba(244,247,251,0.9)' : 'rgba(10,16,24,0.75)',
+        }))
+      }
+      scaleGroup.push(h('text', {
+        key: 'txt', x: 44, y: -6, textAnchor: 'middle',
+        style: { fill: 'rgba(244,247,251,0.9)', fontSize: 8 },
+      }, '百里'))
+      layers.push(h('g', {
+        key: 'scale', transform: 'translate(' + (MAP_W - 112).toFixed(0) + ',' + (MAP_H - 14).toFixed(0) + ')',
+      }, scaleGroup))
+      // 图廓：细边框 + 四角刻线，收束画面
+      layers.push(h('rect', {
+        key: 'frame', x: 6, y: 6, width: MAP_W - 12, height: MAP_H - 12,
+        fill: 'none', stroke: 'rgba(226,238,245,0.22)', strokeWidth: 1.2, rx: 2,
+      }))
+      layers.push(h('rect', {
+        key: 'frame-in', x: 9.5, y: 9.5, width: MAP_W - 19, height: MAP_H - 19,
+        fill: 'none', stroke: 'rgba(226,238,245,0.12)', strokeWidth: 0.7, rx: 1,
+      }))
+      // 暗角：压暗四周，让视觉聚焦在地图中心
+      layers.push(h('rect', {
+        key: 'vignette', x: 0, y: 0, width: MAP_W, height: MAP_H,
+        fill: 'url(#nm-map-vign)', pointerEvents: 'none',
+      }))
+
+      const detail = (() => {
+        const index = regions.findIndex((region) => region.name === openRegion)
+        if (index < 0) return null
+        const region = regions[index]
+        const list = eventsFor(region.name)
+        const color = GRAPH_COLORS[index % GRAPH_COLORS.length]
+        return h('div', { className: 'nm-atlas-region', key: 'detail' },
+          h('div', { className: 'nm-atlas-terrain' }, h(TerrainArt, { kind: terrains[index].kind })),
+          h('div', { className: 'nm-atlas-region-meta' },
+            h('span', { className: 'nm-atlas-swatch', style: { background: color } }),
+            terrains[index].label, region.pos ? ' · ' + region.pos : '', ' · ' + list.length + ' 事件'),
+          region.desc ? h('div', { className: 'nm-atlas-region-desc' }, region.desc) : null,
+          region.people ? h('div', { className: 'nm-atlas-region-desc' }, '👤 ' + region.people) : null,
+          h(RegionSpoke, { events: list, color }))
+      })()
+
+      const legend = h('div', { className: 'nm-atlas-legend' },
+        legendKinds.map((kind) => {
+          const label = TERRAIN_KINDS.find((entry) => entry.kind === kind)?.label ?? kind
+          return h('span', { key: kind, className: 'nm-atlas-legend-item' },
+            h('span', { className: 'nm-atlas-legend-swatch', style: { background: TERRAIN_FILL[kind] ?? TERRAIN_FILL.plain } }),
+            label)
+        }))
+
+      const unassignedBlock = unassigned.length
+        ? h('div', { key: '__unassigned', className: 'nm-atlas-region' },
+          h('button', {
+            type: 'button', className: 'nm-atlas-region-head', 'aria-expanded': openRegion === '__none',
+            onClick: () => setOpenRegion(openRegion === '__none' ? '' : '__none'),
+          },
+            h('span', { className: 'nm-atlas-swatch', style: { background: 'var(--nm-muted)' } }),
+            h('span', { className: 'nm-atlas-region-title-text' }, '未归类事件'),
+            h('span', { className: 'nm-atlas-count' }, unassigned.length + ' 事件')),
+          openRegion === '__none' ? h(RegionSpoke, { events: unassigned, color: 'var(--nm-muted)' }) : null)
+        : null
+
+      return h('div', { className: 'nm-atlas-world-wrap' },
+        h('div', { className: 'nm-atlas-world-head' },
+          h('span', { className: 'nm-atlas-world-title' }, '领土地图'),
+          h('span', { className: 'nm-atlas-world-sub' },
+            regions.length + ' 个地区 · ' + events.length + ' 条事件 · 新增地区/事件后自动扩展')),
+        h('div', { className: 'nm-atlas-world' },
+          h('svg', {
+            viewBox: '0 0 ' + MAP_W.toFixed(0) + ' ' + MAP_H.toFixed(0), width: '100%',
+            role: 'img', 'aria-label': '地区领土地图',
+          },
+            // defs：海面径向渐变 + 陆地暗角，做出纸图的立体感
+            h('defs', { key: 'defs' },
+              h('radialGradient', { key: 'sea-grad', id: 'nm-sea-grad', cx: '50%', cy: '45%', r: '75%' },
+                h('stop', { key: 's0', offset: '0%', stopColor: '#31505f' }),
+                h('stop', { key: 's1', offset: '60%', stopColor: '#243c49' }),
+                h('stop', { key: 's2', offset: '100%', stopColor: '#182a34' })),
+              h('radialGradient', { key: 'vign', id: 'nm-map-vign', cx: '50%', cy: '50%', r: '72%' },
+                h('stop', { key: 'v0', offset: '55%', stopColor: 'rgba(0,0,0,0)' }),
+                h('stop', { key: 'v1', offset: '100%', stopColor: 'rgba(0,0,0,0.34)' }))),
+            // 底图优先：绑定了 AI 地图就铺在矢量层之下，矢量层半透明叠加
+            mapArt && showArt
+              ? h('image', {
+                key: 'art-base', href: API + 'image/file/' + encodeURIComponent(project.name + '/' + mapArt.file),
+                x: 0, y: 0, width: MAP_W, height: MAP_H,
+                preserveAspectRatio: 'xMidYMid slice', opacity: 0.92,
+              })
+              : null,
+            h('g', { key: 'layers', opacity: mapArt && showArt ? 0.34 : 1 }, layers)
+          )
+        ),
+        mapArt
+          ? h('div', { className: 'nm-atlas-artbar' },
+            h('span', { className: 'nm-muted' }, '底图：' + mapArt.name),
+            h('button', {
+              type: 'button', className: 'nm-atlas-arttoggle',
+              onClick: () => setShowArt(!showArt),
+            }, showArt ? '只看底图' : '叠加矢量层'))
+          : null,
+        legend,
+        detail,
+        unassignedBlock)
+    }
+
+    /* ---- 时间轴视图：按章号纵向排布，颜色区分地区 ---- */
+    function AtlasTimeline({ project }) {
+      const regions = project.regions ?? []
+      const events = project.events ?? []
+      const colorOf = (regionName) => {
+        const index = regions.findIndex((region) => region.name === regionName)
+        return index >= 0 ? GRAPH_COLORS[index % GRAPH_COLORS.length] : 'var(--nm-muted)'
+      }
+      const background = events.filter((event) => event.chapter === null)
+      const timed = events.filter((event) => event.chapter !== null).sort((a, b) => a.chapter - b.chapter)
+      const row = (event) => h('div', { key: event.id, className: 'nm-atlas-trow' },
+        h('span', { className: 'nm-atlas-tdot', style: { background: colorOf(event.region) } }),
+        h('div', null,
+          h('div', { className: 'nm-atlas-tline' },
+            h('strong', null, event.chapter === null ? '背景' : `第${event.chapter}章`),
+            h('span', { className: 'nm-atlas-ttitle' }, event.title)),
+          h('div', { className: 'nm-atlas-tmeta' },
+            h('span', { className: 'nm-atlas-chip' }, event.source),
+            event.region ? h('span', { className: 'nm-atlas-chip' }, event.region) : null,
+            event.status ? h('span', { className: 'nm-atlas-chip' }, event.status) : null)))
+      return h('div', { className: 'nm-atlas-timeline' },
+        h('div', { className: 'nm-atlas-trail' }),
+        background.length ? h('div', { className: 'nm-atlas-tgroup' }, `背景 · 尾声（${background.length}）`) : null,
+        background.map(row),
+        timed.length ? h('div', { className: 'nm-atlas-tgroup' }, `正文章节（${timed.length}）`) : null,
+        timed.map(row))
+    }
+
+    function AtlasBody(props) {
+      const { sessionId } = props ?? {}
+      const useSessionsHook = typeof props?.useSessions === 'function' ? props.useSessions : () => undefined
+      const cwd = useSessionsHook((state) => (sessionId === undefined ? undefined : state?.byId?.[sessionId]?.cwd))
+      const [data, setData] = useState(null)
+      const [error, setError] = useState('')
+      const [busy, setBusy] = useState(false)
+      const [selected, setSelected] = useState('')
+      const [expanded, setExpanded] = useState({})
+      const [view, setView] = useState('graph')
+      const alive = useRef(true)
+      const toggle = (id, open) => setExpanded((prev) => ({ ...prev, [id]: !open }))
+      const load = () => {
+        setBusy(true)
+        setError('')
+        api(`atlas?cwd=${encodeURIComponent(cwd ?? '')}`)
+          .then((payload) => {
+            if (!alive.current) return
+            setData(payload)
+            setSelected((prev) => (prev && (payload.projects ?? []).some((p) => p.name === prev))
+              ? prev
+              : (payload.defaultProject ?? payload.projects?.[0]?.name ?? ''))
+          })
+          .catch((e) => { if (alive.current) setError(e?.message ?? String(e)) })
+          .finally(() => { if (alive.current) setBusy(false) })
+      }
+      useEffect(() => { alive.current = true; load(); return () => { alive.current = false } }, [cwd])
+
+      const projects = data?.projects ?? []
+      const project = projects.find((p) => p.name === selected) ?? null
+      const groups = []
+      for (const section of project?.sections ?? []) {
+        groups.push({
+          id: `section/${section.key}`,
+          label: `${section.label}（${section.file}）`,
+          meta: section.exists ? `${section.headings} 项${section.truncated ? '+' : ''}` : '未创建',
+          missing: !section.exists,
+          children: hoist(section.nodes ?? []),
+        })
+      }
+      if (project) {
+        groups.push({
+          id: 'section/chapters',
+          label: '正文',
+          meta: `${project.chapterList?.count ?? 0} 章`,
+          children: project.chapterList?.nodes ?? [],
+        })
+      }
+
+      const messages = [
+        error ? h('div', { key: 'err', className: 'nm-atlas-message' }, `设定树读取失败：${error}`) : null,
+        !error && data?.error ? h('div', { key: 'api', className: 'nm-atlas-message' }, data.message ?? data.error) : null,
+        !error && data && !data.error && !project
+          ? h('div', { key: 'empty', className: 'nm-atlas-message' },
+            '还没有小说项目。用 /novel 或 /novel-idea 立项后，这里会以树状图展示世界观、人设、大纲、伏笔与写作进度。')
+          : null,
+      ]
+      return h('div', { className: 'nm-atlas' },
+        // 样式随面板自身挂载：设置页此前是唯一的样式注入点，面板独立渲染时
+        // 整张样式表都不存在（这就是图谱全黑的根因）。
+        h('style', null, CSS),
+        h('div', { className: 'nm-atlas-head' },
+          h('select', {
+            value: selected, 'aria-label': '选择小说项目',
+            onChange: (event) => { setSelected(event.target.value); setExpanded({}) },
+          }, projects.length === 0
+            ? h('option', { value: '' }, '暂无项目')
+            : projects.map((p) => h('option', { key: p.name, value: p.name }, `《${p.title ?? p.name}》`))),
+          h('div', { className: 'nm-atlas-seg', role: 'group', 'aria-label': '视图切换' },
+            [['graph', '图谱'], ['map', '地图'], ['time', '时间轴'], ['list', '列表']].map(([key, text]) =>
+              h('button', {
+                key, type: 'button', 'aria-pressed': view === key, onClick: () => setView(key),
+              }, text))),
+          h('button', { className: 'nm-atlas-refresh', type: 'button', onClick: load, disabled: busy },
+            busy ? '读取中…' : '刷新')),
+        h('div', { className: 'nm-atlas-graph' },
+          ...messages,
+          project ? atlasProgressCard(project) : null,
+          project
+            ? (view === 'graph'
+              ? h(AtlasGraph, { project, groups, expanded, toggle })
+              : view === 'map'
+                ? h(AtlasMap, { project })
+                : view === 'time'
+                  ? h(AtlasTimeline, { project })
+                  : h('ul', { className: 'nm-atlas-level' },
+                    groups.map((group) => h(AtlasRow, { key: group.id, node: group, expanded, toggle, depth: 0 }))))
+            : null))
+    }
+
+    function AtlasTitle(props) {
+      const useTabInfoHook = typeof props?.useTabInfo === 'function' ? props.useTabInfo : () => null
+      const info = useTabInfoHook()
+      return h(React.Fragment, null, h(AtlasGlyph, { size: 16 }), info?.tab?.title ?? '设定树')
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 生图工作台：左侧输入 → LLM 扩写 → 生成图片 → 绑定资产
+    // ────────────────────────────────────────────────────────────
+    const ART_KINDS = [
+      ['character', '角色立绘'],
+      ['region', '场景地图'],
+      ['item', '物品道具'],
+      ['map', '世界地图底图'],
+    ]
+
+    function ArtGlyph(props) {
+      const size = props?.size ?? 16
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+        stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
+        'aria-hidden': true,
+      },
+        h('rect', { x: 3, y: 3, width: 18, height: 18, rx: 3 }),
+        h('circle', { cx: 8.5, cy: 8.5, r: 1.6 }),
+        h('path', { d: 'M21 15l-5-5L5 21' }))
+    }
+
+    function ArtBody(props) {
+      const { sessionId } = props ?? {}
+      const useSessionsHook = typeof props?.useSessions === 'function' ? props.useSessions : () => undefined
+      const cwd = useSessionsHook((state) => (sessionId === undefined ? undefined : state?.byId?.[sessionId]?.cwd))
+
+      const [projects, setProjects] = useState([])
+      const [project, setProject] = useState('')
+      const [kind, setKind] = useState('character')
+      const [brief, setBrief] = useState('')
+      const [prompt, setPrompt] = useState('')
+      const [image, setImage] = useState('')          // 已生成图片的相对路径
+      const [bindName, setBindName] = useState('')
+      const [targets, setTargets] = useState([])      // 可绑定的角色名/地名
+      const [bound, setBound] = useState('')
+      const [busy, setBusy] = useState('')
+      const [error, setError] = useState('')
+      const [notice, setNotice] = useState('')
+      const [reference, setReference] = useState(null)   // 垫图 { name, dataUrl, mime }
+      const [strength, setStrength] = useState('0.6')    // 垫图影响强度
+      const [genModel, setGenModel] = useState('')       // 本次生成覆盖的模型
+      const [artModels, setArtModels] = useState([])     // DSH 已配置的生图候选
+      const alive = useRef(true)
+
+      // 读取项目列表，供顶部选择器使用
+      useEffect(() => {
+        alive.current = true
+        api(`atlas?cwd=${encodeURIComponent(cwd ?? '')}`)
+          .then((payload) => {
+            if (!alive.current) return
+            const list = payload?.projects ?? []
+            setProjects(list)
+            setProject((prev) => prev || payload?.defaultProject || list[0]?.name || '')
+          })
+          .catch((failure) => { if (alive.current) setError(`读取项目失败：${failure?.message ?? failure}`) })
+        return () => { alive.current = false }
+      }, [cwd])
+
+      // 切换资产类型时刷新可绑定目标（角色名 / 地名）
+      useEffect(() => {
+        if (!project) { setTargets([]); return }
+        api(`atlas?cwd=${encodeURIComponent(cwd ?? '')}`)
+          .then((payload) => {
+            const found = (payload?.projects ?? []).find((item) => item.name === project)
+            if (!found) { setTargets([]); return }
+            if (kind === 'region') {
+              setTargets((found.regions ?? []).map((region) => region.name).filter(Boolean))
+            } else if (kind === 'character') {
+              const cast = (found.sections ?? []).find((section) => section.key === 'cast')
+              const names = (cast?.nodes ?? []).map((node) => String(node.label ?? '').split('（')[0].trim()).filter(Boolean)
+              setTargets(names)
+            } else {
+              setTargets([])
+            }
+          })
+          .catch(() => setTargets([]))
+      }, [project, kind, cwd])
+
+      // 读取 DSH 已配置模型，筛出疑似生图的作为本次可选模型
+      useEffect(() => {
+        let cancelled = false
+        const remoteLlm = props?.ctx?.remote?.llm
+        if (!remoteLlm || typeof remoteLlm.listProviders !== 'function') return undefined
+        remoteLlm.listProviders()
+          .then((result) => {
+            if (cancelled || !result?.ok || !Array.isArray(result.value)) return
+            const hint = /image|dall[-_ ]?e|flux|stable[-_ ]?diffusion|sdxl|midjourney|\bmj\b|seedream|cogview|imagen|kolors|wanx|seed/i
+            const rows = []
+            for (const prov of result.value) {
+              for (const item of prov?.models ?? []) {
+                const id = typeof item === 'string' ? item : item?.id
+                if (!id) continue
+                rows.push({ provider: prov.id, model: id, image: hint.test(String(id)) })
+              }
+            }
+            // 疑似生图模型排前面，其余保留供手选
+            setArtModels([...rows.filter((row) => row.image), ...rows.filter((row) => !row.image)])
+          })
+          .catch(() => { /* 读不到就用设置里的默认模型 */ })
+        return () => { cancelled = true }
+      }, [])
+
+      const post = (action, body) => api(action, { body, timeoutMs: 200000 })
+
+      const doExpand = async () => {
+        if (!brief.trim()) { setError('请先输入一句简短描述'); return }
+        setBusy('expand'); setError(''); setNotice('')
+        try {
+          const result = await post('llm/expand', { brief: brief.trim(), kind })
+          setPrompt(result?.prompt ?? '')
+          setNotice('提示词已扩写，可直接修改后再生成。')
+        } catch (failure) {
+          setError(`扩写失败：${failure?.message ?? failure}`)
+        } finally { setBusy('') }
+      }
+
+      const doGenerate = async () => {
+        if (!prompt.trim()) { setError('提示词为空，请先扩写或手写'); return }
+        if (!project) { setError('请先选择项目'); return }
+        setBusy('generate'); setError(''); setNotice(''); setImage('')
+        try {
+          const result = await post('image/generate', {
+            cwd, project, prompt: prompt.trim(),
+            name: bindName || 'art',
+            prefix: kind === 'region' ? 'region' : kind === 'character' ? 'cast' : 'item',
+            // 垫图：把原图作为参考一并送出生图接口
+            reference: reference ? { dataUrl: reference.dataUrl, mime: reference.mime } : undefined,
+            strength: reference ? Number(strength) : undefined,
+            // 本次自选的模型优先于设置里的默认值
+            model: genModel || undefined,
+          })
+          setImage(result?.file ?? '')
+          setNotice(result?.referenceIgnored
+            ? '图片已生成，但该中转站不支持垫图，本次未使用参考图。'
+            : reference ? '已按垫图风格重新生成并保存。' : '图片已生成并保存到 插图/ 目录。')
+        } catch (failure) {
+          setError(`生成失败：${failure?.message ?? failure}`)
+        } finally { setBusy('') }
+      }
+
+      // 选中本地图片作为垫图：读成 dataURL，稍后随请求提交
+      const pickReference = (event) => {
+        const file = event?.target?.files?.[0]
+        if (!file) return
+        if (!/^image\//u.test(file.type)) { setError('请选择图片文件'); return }
+        if (file.size > 6 * 1024 * 1024) { setError('垫图请小于 6MB'); return }
+        const reader = new FileReader()
+        reader.onload = () => {
+          setReference({ name: file.name, dataUrl: String(reader.result ?? ''), mime: file.type })
+          setError('')
+          setNotice(`已选垫图：${file.name}`)
+        }
+        reader.onerror = () => setError('读取图片失败')
+        reader.readAsDataURL(file)
+      }
+
+      const doBind = async () => {
+        if (!image) { setError('请先生成图片'); return }
+        if (!bindName.trim()) { setError('请填写要绑定的角色名或地名'); return }
+        setBusy('bind'); setError(''); setNotice('')
+        try {
+          await post('asset/bind', {
+            cwd, project, kind, name: bindName.trim(),
+            file: image, prompt: prompt.trim(),
+          })
+          setBound(bindName.trim())
+          setNotice(`已绑定到「${bindName.trim()}」。`)
+        } catch (failure) {
+          setError(`绑定失败：${failure?.message ?? failure}`)
+        } finally { setBusy('') }
+      }
+
+      const imageUrl = image
+        ? `${API}image/file/${encodeURIComponent(`${project}/${image}`)}`
+        : ''
+
+      const step = (index, label, running, done) => h('div', {
+        className: 'nm-art-step', 'data-on': done ? 'done' : running ? 'run' : '',
+      }, h('span', { className: 'nm-art-stepnum' }, done ? '✓' : String(index)), label)
+
+      return h('div', { className: 'nm-atlas nm-art' },
+        h('style', null, CSS),
+        h('div', { className: 'nm-art-head' },
+          h('select', {
+            value: project, 'aria-label': '选择小说项目',
+            onChange: (event) => setProject(event.target.value),
+          }, projects.length === 0
+            ? h('option', { value: '' }, '暂无项目')
+            : projects.map((item) => h('option', { key: item.name, value: item.name }, `《${item.title ?? item.name}》`))),
+          h('select', {
+            value: kind, 'aria-label': '资产类型',
+            onChange: (event) => setKind(event.target.value),
+          }, ART_KINDS.map(([value, text]) => h('option', { key: value, value }, text)))),
+        h('div', { className: 'nm-art-toolbar' },
+          h('span', { className: 'nm-muted' }, '模型'),
+          h('select', {
+            value: genModel, 'aria-label': '本次生成使用的模型',
+            onChange: (event) => setGenModel(event.target.value),
+          },
+            h('option', { value: '' }, '使用设置里的默认生图模型'),
+            ...artModels.map((item) => h('option', {
+              key: `${item.provider}::${item.model}`, value: item.model,
+            }, `${item.provider} / ${item.model}`)))),
+        // 步骤条置顶，让流程一眼可见
+        h('div', { className: 'nm-art-steps' },
+          step(1, '扩写提示词', busy === 'expand', !!prompt),
+          step(2, '生成图片', busy === 'generate', !!image),
+          step(3, '绑定资产', busy === 'bind', !!bound)),
+        // 预览区：有图才占大面积，没图时给矮占位，避免把按钮推到屏幕外
+        h('div', { className: 'nm-art-preview', 'data-empty': image ? '' : 'true' },
+          image
+            ? h('img', { src: imageUrl, alt: '生成结果', loading: 'lazy' })
+            : h('div', { className: 'nm-art-placeholder' }, '生成后的图片会显示在这里')),
+        // 输入区：单列铺满，避免左右两栏在窄侧边栏里挤压
+        h('div', { className: 'nm-art-form' },
+          h('label', { className: 'nm-field' },
+            h('span', null, '一句话描述'),
+            h('textarea', {
+              className: 'nm-art-textarea', rows: 2, value: brief,
+              placeholder: kind === 'character' ? '一个穿着红袍的精灵弓箭手'
+                : kind === 'region' ? '终年被灰烬覆盖的边境城邦'
+                  : kind === 'map' ? '一张奇幻世界的全境地图，有山脉、河流与海岸线'
+                    : '一枚刻着古老符文的青铜戒指',
+              onChange: (event) => setBrief(event.target.value),
+            })),
+          h('div', { className: 'nm-row' },
+            h('button', { type: 'button', className: 'nm-primary', disabled: !!busy || !brief.trim(), onClick: doExpand },
+              busy === 'expand' ? '正在扩写…' : '① 智能扩写提示词')),
+          h('label', { className: 'nm-field' },
+            h('span', null, '提示词（可编辑）'),
+            h('textarea', {
+              className: 'nm-art-textarea', rows: 5, value: prompt,
+              placeholder: '点击上方按钮自动生成，或直接手写英文提示词…',
+              onChange: (event) => setPrompt(event.target.value),
+            })),
+          // 垫图区
+          h('div', { className: 'nm-art-ref' },
+            h('div', { className: 'nm-art-reflabel' }, '垫图（可选参考图，用于保持风格/构图）'),
+            reference
+              ? h('div', { className: 'nm-art-refbox' },
+                h('img', { src: reference.dataUrl, alt: '垫图预览' }),
+                h('div', { className: 'nm-art-refinfo' },
+                  h('span', { className: 'nm-muted' }, reference.name),
+                  h('button', {
+                    type: 'button', className: 'nm-art-refclear',
+                    onClick: () => { setReference(null); setNotice('已移除垫图') },
+                  }, '移除')))
+              : h('label', { className: 'nm-art-refpick' },
+                h('input', {
+                  type: 'file', accept: 'image/*', style: { display: 'none' },
+                  onChange: pickReference, disabled: !!busy,
+                }),
+                h('span', null, '＋ 选择垫图')),
+            reference
+              ? h('label', { className: 'nm-field nm-art-strength' },
+                h('span', null, `影响强度 ${strength}`),
+                h('input', {
+                  type: 'range', min: 0.1, max: 1, step: 0.1, value: strength,
+                  onChange: (event) => setStrength(event.target.value),
+                }))
+              : null),
+          h('div', { className: 'nm-row' },
+            h('button', { type: 'button', className: 'nm-primary', disabled: !!busy || !prompt.trim(), onClick: doGenerate },
+              busy === 'generate' ? '正在生成图片…' : '② 生成图片')),
+          h('label', { className: 'nm-field' },
+            h('span', null, kind === 'region' ? '绑定到地区名' : kind === 'character' ? '绑定到角色名' : '绑定名称'),
+            targets.length
+              ? h('select', {
+                value: bindName, 'aria-label': '选择绑定目标',
+                onChange: (event) => setBindName(event.target.value),
+              },
+                h('option', { value: '' }, '— 选择 —'),
+                targets.map((name) => h('option', { key: name, value: name }, name)))
+              : h('input', {
+                type: 'text', value: bindName, placeholder: '直接输入名称',
+                onChange: (event) => setBindName(event.target.value),
+              })),
+          h('div', { className: 'nm-row' },
+            h('button', { type: 'button', disabled: !!busy || !image || !bindName.trim(), onClick: doBind },
+              busy === 'bind' ? '正在绑定…' : '③ 保存并绑定到资产')),
+          bound ? h('p', { className: 'nm-muted' }, `已绑定：${bound}`) : null),
+        error ? h('p', { role: 'alert', className: 'nm-alert' }, error) : null,
+        notice ? h('p', { className: 'nm-muted', role: 'status' }, notice) : null)
+    }
+
+    function ArtTitle(props) {
+      const useTabInfoHook = typeof props?.useTabInfo === 'function' ? props.useTabInfo : () => null
+      const info = useTabInfoHook()
+      return h(React.Fragment, null, h(ArtGlyph, { size: 16 }), info?.tab?.title ?? '生图工作台')
+    }
+
     return {
       name: 'novel-master', inject: ['slots', 'remote', 'remote.llm'],
       apply(ctx) {
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section', id: 'novel-master', order: 36, label: () => '小说创作大师',
         }, props => h(SettingsPage, { ...props, ctx })))
+
+        // 设定树：右侧栏页签。类型注册（ctx.sidebarRightTabs）+ 正文/标题两个
+        // 键控座位，契约与 dsh-client-ui-plan / ui-sidebar-files 完全一致。
+        const mountAtlas = (scope) => {
+          const tabs = scope?.sidebarRightTabs
+          const slots = scope?.slots
+          if (!tabs || typeof tabs.register !== 'function' || typeof slots?.inject !== 'function') return undefined
+          const cleanups = []
+          cleanups.push(tabs.register({
+            id: ATLAS_ID,
+            kind: ATLAS_KIND,
+            title: () => '设定树',
+            guide: [{
+              id: 'atlas', order: 20,
+              title: () => '设定树',
+              description: () => '世界观 · 人设 · 大纲 · 写作进度',
+              icon: AtlasGlyph,
+            }],
+          }))
+          cleanups.push(slots.inject('sidebar.right.pane.tab', () =>
+            slots.register({ name: 'sidebar.right.pane.tab', key: ATLAS_ID }, AtlasBody)))
+          cleanups.push(slots.inject('sidebar.right.pane.tab.title', () =>
+            slots.register({ name: 'sidebar.right.pane.tab.title', key: ATLAS_ID }, AtlasTitle)))
+
+          // 生图工作台：独立右侧栏页签，排在设定树之后。
+          cleanups.push(tabs.register({
+            id: ART_ID,
+            kind: ART_KIND,
+            title: () => '生图工作台',
+            guide: [{
+              id: 'art', order: 21,
+              title: () => '生图工作台',
+              description: () => '角色立绘 · 场景地图 · 物品道具',
+              icon: ArtGlyph,
+            }],
+          }))
+          cleanups.push(slots.inject('sidebar.right.pane.tab', () =>
+            slots.register({ name: 'sidebar.right.pane.tab', key: ART_ID }, ArtBody)))
+          cleanups.push(slots.inject('sidebar.right.pane.tab.title', () =>
+            slots.register({ name: 'sidebar.right.pane.tab.title', key: ART_ID }, ArtTitle)))
+          return () => {
+            for (const clean of cleanups.splice(0).reverse()) {
+              try { clean?.() } catch { /* 清理失败不能阻塞卸载 */ }
+            }
+          }
+        }
+        if (typeof ctx.inject === 'function') {
+          // sidebarRightTabs 是可选服务：缺失时插件保持安静，不影响设置页。
+          const fork = ctx.inject(['slots', 'sidebarRightTabs'], mountAtlas)
+          if (typeof fork === 'function') ctx.effect(() => fork, 'novel-master: atlas tab')
+        } else {
+          const cleanup = mountAtlas(ctx)
+          if (typeof cleanup === 'function') ctx.effect(() => cleanup, 'novel-master: atlas tab')
+        }
       },
     }
   },

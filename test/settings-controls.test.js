@@ -65,7 +65,7 @@ function harness(options = {}) {
 test('tabs mount every panel but expose only the selected accessible panel', async () => {
   const h = harness()
   const panels = () => h.nodes().filter(node => node.props.role === 'tabpanel')
-  assert.equal(panels().length, 7) // features, guidance, learning, decision, research, batch, updater
+  assert.equal(panels().length, 8) // features, guidance, learning, decision, research, batch, image, updater
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-features'])
   await h.click('学习总结')
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-learning'])
@@ -275,8 +275,26 @@ test('batch settings reject an out-of-range batch size instead of clamping silen
   assert.match(h.text(h.render()), /1 到 37/)
 })
 
-test('activity is read only on demand and renders actual backend status and errors', async () => {
+test('model picker opens a searchable list and filters candidates by keyword', async () => {
   const h = harness()
+  await h.click('AI 生图')
+  // 未展开时不渲染候选，避免长列表拖慢设置页
+  assert.doesNotMatch(h.text(h.render()), /共 \d+ 个模型/)
+
+  await h.click('从 DSH 选择模型名称')
+  assert.match(h.text(h.render()), /共 \d+ 个模型，输入关键词过滤/)
+
+  // 输入关键词后只剩匹配项
+  h.edit('模型名称搜索', 'zzz-nothing-matches')
+  const narrowed = h.text(h.render())
+  assert.match(narrowed, /匹配 0 \//)
+  assert.match(narrowed, /没有匹配的模型/)
+
+  h.edit('模型名称搜索', '')
+  assert.match(h.text(h.render()), /共 \d+ 个模型/)
+})
+
+test('activity is read only on demand and renders actual backend status and errors', async () => {  const h = harness()
   h.render()
   assert.equal(h.calls.length, 0)
   await h.click('读取学习与决策活动')

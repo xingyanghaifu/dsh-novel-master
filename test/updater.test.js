@@ -378,7 +378,8 @@ test('settings client mounts controls and saves real checkbox edits through the 
   }
   const nodes = flatten(tree)
   const toggles = nodes.filter(node => node.type === 'input' && node.props.type === 'checkbox')
-  assert.equal(toggles.length, 4, 'total switch plus every command flag are actual inputs')
+  // 总开关 + 两个命令开关 + 对话模型开关 + 生图开关
+  assert.equal(toggles.length, 6, 'total switch, command flags and AI channel switches are actual inputs')
   assert.equal(toggles[0].props.checked, false)
   await toggles[0].props.onChange({ target: { checked: true } })
   assert.equal(calls[0].url, '/prefix/api/novel-master/settings')
