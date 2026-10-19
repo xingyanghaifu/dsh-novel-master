@@ -36,7 +36,12 @@ function extractConst(name) {
   const open = { '{': '}', '[': ']', '(': ')' }
   let depth = 0
   let started = false
-  for (let k = m.index + m[0].length; k < SOURCE.length; k++) {
+  // 箭头函数形如 `(pos) => {`：参数那对括号会把 depth 走一遍又归零，
+  // 于是在真正的函数体 `{` 出现之前就误判成结束了。所以先把 `=>` 之后的
+  // 空白跳过去，从函数体本身开始数括号。
+  const arrow = SOURCE.indexOf('=>', m.index + m[0].length)
+  const from = arrow > 0 && arrow < m.index + 400 ? arrow + 2 : m.index + m[0].length
+  for (let k = from; k < SOURCE.length; k++) {
     const ch = SOURCE[k]
     if (open[ch]) { depth++; started = true } else if (Object.values(open).includes(ch)) depth--
     if (started && depth === 0) {
@@ -57,11 +62,14 @@ function buildTerrain() {
     extractFn('terraSmooth'),
     extractFn('terraNoise'),
     extractFn('terraColor'),
+    // terraSites 现在会读地区方位词（posCell），所以它也要一起装进来
+    extractConst('posCell'),
     extractFn('terraSites'),
     extractFn('terraBump'),
     extractFn('terraContour'),
     extractFn('terraLayers'),
-    'return { TERRA, terraLayers, terraSites, terraBump }',
+    extractFn('terraLabelLayout'),
+    'return { TERRA, terraLayers, terraSites, terraBump, terraLabelLayout }',
   ].join('\n')
   // eslint-disable-next-line no-new-func
   return new Function(code)()
@@ -181,4 +189,132 @@ test('地形缓存命中时几乎不花时间', () => {
   for (let i = 0; i < 200; i++) terraLayers(items)
   const ms = Number(process.hrtime.bigint() - started) / 1e6 / 200
   assert.ok(ms < 0.5, `缓存命中应接近零成本，实测 ${ms.toFixed(3)}ms`)
+})
+
+test('地区带方位词时按方位摆位，而不是按序号均匀铺', () => {
+  // 「白塔在平原中央」「深渊裂谷在极北」这类句子本来就写清了相对位置。
+  // 按序号铺等于把这层信息扔掉，再由哈希随机决定 —— 图是散的，读者对不上原文。
+  const { terraSites } = buildTerrain()
+  const sites = terraSites([
+    { name: '白塔', pos: '中', desc: '建在平原中央', chars: 20 },
+    { name: '深渊裂谷', pos: '北', desc: '极北的裂谷', chars: 20 },
+    { name: '无声之地', pos: '西南', desc: '边境荒原', chars: 20 },
+  ])
+  assert.equal(sites.length, 3)
+  const byName = Object.fromEntries(sites.map((s) => [s.key, s]))
+  // 北 → y 靠上（画面坐标上小）；南 → y 靠下
+  assert.ok(byName['深渊裂谷'].y < byName['无声之地'].y, '北边的地点应该画在上面')
+  // 西 → x 靠左；东 → 靠右
+  assert.ok(byName['无声之地'].x < byName['白塔'].x, '西南的地点应该在中央的左边')
+  // 居中那位应落在画布中部
+  assert.ok(Math.abs(byName['白塔'].x - 0.5) < 0.2, '方位为「中」应落在中部')
+  assert.ok(Math.abs(byName['白塔'].y - 0.5) < 0.2)
+})
+
+test('同一方位格里的多个地点会错开，不会完全重合', () => {
+  const { terraSites } = buildTerrain()
+  const sites = terraSites([
+    { name: '甲村', pos: '北', desc: 'x', chars: 10 },
+    { name: '乙村', pos: '北', desc: 'x', chars: 10 },
+    { name: '丙村', pos: '北', desc: 'x', chars: 10 },
+  ])
+  assert.equal(sites.length, 3)
+  let minDistance = Infinity
+  for (let i = 0; i < sites.length; i++) {
+    for (let j = i + 1; j < sites.length; j++) {
+      minDistance = Math.min(minDistance, Math.hypot(sites[i].x - sites[j].x, sites[i].y - sites[j].y))
+    }
+  }
+  assert.ok(minDistance > 0.02, `同格地点相距 ${minDistance.toFixed(3)}，会叠成一个点`)
+})
+
+test('地区地形有保底高度，说明写得短也看得见', () => {
+  // 地区都写出来了却因为说明太短而完全看不见，会让人以为地名丢了
+  const { terraSites } = buildTerrain()
+  const short = terraSites([{ name: '某地', pos: '东', desc: '短', chars: 0 }])[0]
+  assert.ok(short.height > 0.2, `地区保底高度不足：${short.height}`)
+})
+
+test('没有方位词时退回按序号均匀铺开', () => {
+  const { terraSites } = buildTerrain()
+  const sites = terraSites([
+    { name: '甲', desc: 'x', chars: 100 },
+    { name: '乙', desc: 'x', chars: 100 },
+    { name: '丙', desc: 'x', chars: 100 },
+    { name: '丁', desc: 'x', chars: 100 },
+  ])
+  // 四个纬度相近的点应在画面上分散开，而不是挤在同一侧
+  const xs = sites.map((s) => s.x)
+  const ys = sites.map((s) => s.y)
+  assert.ok(Math.max(...xs) - Math.min(...xs) > 0.3, 'x 方向应拉得开')
+  assert.ok(Math.max(...ys) - Math.min(...ys) > 0.3, 'y 方向应拉得开')
+})
+
+test('地名标签不许压住任何一个标杆', () => {
+  // 文字盖住标杆，那个地点就等于从图上消失了。标杆是数据，必须优先。
+  // 用《末影之龙》的真实布局复现：中央的大陆名会横着扫向右侧的白塔。
+  const { terraLayers, terraSites, terraLabelLayout, TERRA } = buildTerrain()
+  const regions = [
+    { name: '艾尔登维尔大陆', desc: '主舞台，四族共存', pos: '中' },
+    { name: '边境村·石锤镇', desc: '故事起点', pos: '西南' },
+    { name: '白塔', desc: '光辉圣教总部，建在源质最浓的平原中央', pos: '东' },
+    { name: '无声之地', desc: '源质稀薄的边境荒原', pos: '西' },
+    { name: '深渊裂谷', desc: '绝对无源质', pos: '北' },
+  ].map((r) => ({ ...r, chars: r.desc.length }))
+
+  TERRA.cache = null
+  TERRA.seed = ''
+  terraLayers(regions)
+  const sites = terraSites(regions)
+  const size = TERRA.size
+  const plan = terraLabelLayout(sites.map((s) => ({ ...s, label: s.key })), size, size)
+
+  const pins = sites.map((s) => ({ x: s.x * size, y: s.y * size, name: s.key }))
+  for (const item of plan) {
+    // 估算文字框（与 terraLabelLayout 内部一致）
+    const w = 2.9 * Math.min(9, Math.max(2, item.label.length)) + 2
+    const left = item.flip ? item.ax - w - 2.4 : item.ax + 2.4
+    const box = { x1: left, y1: item.ay - 1.8, x2: left + w, y2: item.ay + 1.8 }
+    for (const pin of pins) {
+      // 自己的标杆允许被自己的引线连接，但文字不能盖住任何标杆
+      if (pin.name === item.label) continue
+      const over = pin.x > box.x1 && pin.x < box.x2 && pin.y > box.y1 && pin.y < box.y2
+      assert.ok(!over, `「${item.label}」的文字压住了「${pin.name}」的标杆`)
+    }
+  }
+})
+
+test('避让后仍然放不下的标签宁可丢掉，也不硬挤', () => {
+  // 全部堆在同一个点：能放几个放几个，但留下来的彼此绝不重叠。
+  // 之前断言「必须丢掉一部分」太武断 —— 8 个短名字在 84 的画布上
+  // 恰好排得开。真正要保证的是「不重叠」，不是「必须少」。
+  const { terraLabelLayout } = buildTerrain()
+  const sites = Array.from({ length: 8 }, (_, i) => ({
+    key: `地点${i}`, label: `地点${i}`, x: 0.5, y: 0.5,
+  }))
+  const plan = terraLabelLayout(sites, 84, 84)
+  assert.ok(plan.length >= 1, '至少要有能放下的那个')
+  // 保留下来的彼此不能重叠
+  for (let i = 0; i < plan.length; i++) {
+    for (let j = i + 1; j < plan.length; j++) {
+      const a = plan[i]; const b = plan[j]
+      const aw = 2.9 * Math.min(9, Math.max(2, a.label.length)) + 2
+      const bw = 2.9 * Math.min(9, Math.max(2, b.label.length)) + 2
+      const al = a.flip ? a.ax - aw - 2.4 : a.ax + 2.4
+      const bl = b.flip ? b.ax - bw - 2.4 : b.ax + 2.4
+      const overlap = al < bl + bw && al + aw > bl
+        && Math.abs(a.ay - b.ay) < 3.6
+      assert.ok(!overlap, `「${a.label}」与「${b.label}」仍然重叠`)
+    }
+  }
+})
+
+test('挤不下的时候确实会放弃，而不是全画出来', () => {
+  // 用超长名字把画布塞满，逼出「放弃」这条分支
+  const { terraLabelLayout } = buildTerrain()
+  const sites = Array.from({ length: 20 }, (_, i) => ({
+    key: `非常非常长的地点名称${i}`, label: `非常非常长的地点名称${i}`, x: 0.5, y: 0.5,
+  }))
+  const plan = terraLabelLayout(sites, 84, 84)
+  assert.ok(plan.length < sites.length, `20 个超长名字不可能全放下，实际放了 ${plan.length} 个`)
 })

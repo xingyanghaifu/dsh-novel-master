@@ -2495,6 +2495,8 @@ window.__ModuleLoader__.load({
     function terraSites(items) {
       const list = Array.isArray(items) ? items : []
       const sites = []
+      // 记录每个方位格子里已经放了几处，同格的地点要按黄金角错开
+      const cellsTaken = new Map()
       const total = list.filter(Boolean).length || 1
       for (let index = 0; index < list.length; index++) {
         const item = list[index]
@@ -2520,18 +2522,56 @@ window.__ModuleLoader__.load({
         // 角度又恰好靠近，实测最近间距掉到 0.14，隆起连成一片。
         // 收窄之后相邻山头始终有足够的角向余量。
         const radius = 0.38 + (((acc >>> 11) % 1000) / 1000) * 0.22
-        // 完成度：有字数按字数，没有就按 done 标记。封顶在 1。
+        // 有方位词就按方位词摆，序号只负责在同方位的几个地点之间错开。
+        //
+        // 「白塔在平原中央」「深渊裂谷在极北」这类句子本来就写清了相对位置，
+        // 按序号均匀铺等于把这层信息扔掉，然后再由哈希随机决定 —— 图上是
+        // 散的，读者却对不上原文。方位词只用 9 个格子，同格内的地点再按
+        // 序号在格子里散开，既守住语义又不会重叠。
+        const cell = posCell(item.pos)
+        let x; let y
+        if (cell) {
+          // posCell 给的是 1..3 的格号：1=北/西，2=中，3=南/东。
+          // 换算成画布比例时，1→0.18、2→0.5、3→0.82，
+          // 让地点落在格子中部而不是贴着画布边缘。
+          const toRatio = (n) => (n - 1) * 0.32 + 0.18
+          const gridX = toRatio(cell.col)
+          const gridY = toRatio(cell.row)
+          // 同一格子里可能有多个地点，用序号算一个小偏移（半径 0.09 内）
+          const sameCell = cellsTaken.get(`${cell.row}:${cell.col}`) ?? 0
+          cellsTaken.set(`${cell.row}:${cell.col}`, sameCell + 1)
+          const spread = 0.09
+          const slotAngle = sameCell * 2.399963 // 黄金角，第 n 个点分布最匀
+          const push = sameCell === 0 ? 0 : spread * Math.min(1, sameCell / 3)
+          x = gridX + Math.cos(slotAngle) * push
+          y = gridY + Math.sin(slotAngle) * push
+        } else {
+          x = (Math.cos(angle) * radius + 1) / 2
+          y = (Math.sin(angle) * radius + 1) / 2
+        }
+        // 体量：有字数按字数，没有就按 done 标记。封顶在 1。
+        //
+        // 地区没有「正文字数」，它的厚度取说明写得多细 —— 一句「主舞台，
+        // 四族共存」和一段「建在源质最浓的平原中央，塔身由白曜石砌成」，
+        // 后者显然写得更多，山头也该更高。所以地区把 desc 长度塞进 chars，
+        // 在这里走同一条曲线，不用为地区单开一套参数。
         const mass = Math.max(0, Math.min(1, Number(item.chars) > 0
           ? Math.log10(1 + Number(item.chars)) / 3.2
           : item.done ? 0.55 : 0.12))
+        // 一点保底高度：地区都写出来了却因为说明太短而完全看不见，会让人
+        // 以为地名丢了。0.18 的起跳刚好比海岸线高一线，看得见又不抢山。
+        const heightBoost = item.pos !== undefined || item.terrain !== undefined ? 0.12 : 0
         sites.push({
           key,
-          x: (Math.cos(angle) * radius + 1) / 2,
-          y: (Math.sin(angle) * radius + 1) / 2,
+          // 用上面算好的位置：有方位词走格子，没有就按序号铺
+          x,
+          y,
           // 影响半径压得比较小（0.11–0.17）。给大了相邻山头会连成一片，
           // 又会退回「中间是平台」的老问题。
           reach: 0.11 + mass * 0.06,
-          height: 0.18 + mass * 0.62,
+          height: Math.min(1, 0.18 + mass * 0.62 + heightBoost),
+          // 地区可以带方位词，摆位时优先按它来，而不是纯按序号
+          pos: item.pos,
         })
       }
       return sites
@@ -2817,6 +2857,12 @@ window.__ModuleLoader__.load({
     function terraLabelLayout(sites, size, reach) {
       const placed = []
       const out = []
+      // 所有标杆的位置都要预留出来 —— 文字不能盖住任何一个标杆。
+      //
+      // 之前的判定只比较「文字框之间」是否相交，于是「艾尔登维尔大陆」
+      // 这几个字正好压在白塔的圆点上，把那个地点的标记整个盖掉了。
+      // 标杆是数据，比文字重要，所以它必须先占位。
+      const pins = sites.map((site) => ({ x: site.x * size, y: site.y * size }))
       // 标签的估算占位。字号 2.9，中文按一个字 2.9 宽算，再留两个字的余量
       const widthOf = (text) => 2.9 * Math.min(9, Math.max(2, String(text).length)) + 2
       for (const site of sites) {
@@ -2834,18 +2880,33 @@ window.__ModuleLoader__.load({
         const w = widthOf(label)
         const hgt = 3.6
         let best = null
-        // 从 0 开始逐渐加长外推距离，找第一个不打架的位置
-        for (let push = 0; push <= 14; push += 1.4) {
-          const ax = cx + ux * push
-          const ay = cy + uy * push
-          // 文字从锚点向内侧展开，贴边时翻转锚点，避免被裁
-          const flip = ax > size * 0.66
-          const left = flip ? ax - w - 2.4 : ax + 2.4
-          const box = { x1: left, y1: ay - hgt / 2, x2: left + w, y2: ay + hgt / 2 }
-          // 出界就不考虑这个位置
-          if (box.x1 < 0.5 || box.x2 > size - 0.5 || box.y1 < 0.5 || box.y2 > size - 0.5) continue
-          const clash = placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1)
-          if (!clash) { best = { ax, ay, flip, box }; break }
+        // 候选位置：先沿径向试，再试 8 个方向。
+        //
+        // 一开始只沿径向往外推，结果在中心附近的地点怎么推都往同一侧走 ——
+        // 「艾尔登维尔大陆」正好横在一座塔的圆点上，把那个地点盖住了。
+        // 单一方向在拥挤的地图上必然有解不开的死角，多给几个方向就能绕开。
+        const directions = [[ux, uy]]
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2
+          directions.push([Math.cos(a), Math.sin(a)])
+        }
+        outer:
+        for (const [dx, dy] of directions) {
+          for (let push = 0; push <= 16; push += 1.6) {
+            const ax = cx + dx * push
+            const ay = cy + dy * push
+            // 文字从锚点向内侧展开，贴边时翻转锚点，避免被裁
+            const flip = ax > size * 0.66
+            const left = flip ? ax - w - 2.4 : ax + 2.4
+            const box = { x1: left, y1: ay - hgt / 2, x2: left + w, y2: ay + hgt / 2 }
+            // 出界就不考虑这个位置
+            if (box.x1 < 0.5 || box.x2 > size - 0.5 || box.y1 < 0.5 || box.y2 > size - 0.5) continue
+            const clash = placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1)
+            // 文字框碰到任何一个标杆也算冲突（留 1.2 的余量，别贴着圆点）
+            const onPin = pins.some((pin) => pin.x > box.x1 - 1.2 && pin.x < box.x2 + 1.2
+              && pin.y > box.y1 - 1.2 && pin.y < box.y2 + 1.2)
+            if (!clash && !onPin) { best = { ax, ay, flip, box }; break outer }
+          }
         }
         if (!best) continue
         placed.push(best.box)
@@ -2866,16 +2927,35 @@ window.__ModuleLoader__.load({
       // 完成度：资产数与百分比取较大者，中途刷新时地貌不会倒退。
       const p = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
       const pct = Math.min(1, Math.max(0, p))
-      const layers = terraLayers(list)
       const complete = total > 0 && done >= total
       const peak = TERRA.peak ?? { x: TERRA.size / 2, y: TERRA.size / 2 }
       const S = TERRA.size
-      // 地名标注用与造山完全相同的一套坐标，标注点才会正好落在山头上。
-      // label 取资产的显示名（去掉 .md 后缀），没有就用原始 key。
-      const sites = terraSites(list).map((site) => ({
+      // ---- 造山用的「地点」从哪来 ----
+      //
+      // 优先用项目里真实的地理设定（地区.md / 设定.md「地理」/ 世界状态.md「地理」）。
+      // 没有地理设定时才退回按资产分山头。
+      //
+      // 之前一直用的是后者，于是地图上标的是「设定」「角色」「大纲」——
+      // 那是文档名，不是地名。作者写了「白塔在源质最浓的平原中央」，
+      // 图上却只会写「设定」，这张图就白画了。
+      const regions = Array.isArray(project?.regions) ? project.regions : []
+      const placeLike = regions
+        .filter((region) => region && String(region.name ?? '').trim())
+        .map((region) => ({
+          name: String(region.name).trim(),
+          desc: String(region.desc ?? '').trim(),
+          pos: String(region.pos ?? '').trim(),
+          terrain: String(region.terrain ?? '').trim(),
+          // 地区的「厚」按说明写得多细算，而不是按正文字数 —— 地区没有字数
+          chars: String(region.desc ?? '').length,
+        }))
+      const sites = terraSites(placeLike.length ? placeLike : list).map((site) => ({
         ...site,
         label: String(site.key).replace(/\.(md|txt|json)$/iu, ''),
       }))
+      // 地形与标注必须用同一组地点，否则山和名字会错位
+      const hills = placeLike.length ? placeLike : list
+      const layers = terraLayers(hills)
 
       // 揭示半径：进度从中心向外扩张，把已经「写出来」的那一块显影。
       //
