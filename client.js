@@ -322,26 +322,29 @@ window.__ModuleLoader__.load({
    「正文 40/40 章」那行插进资产清单中间，压住「伏笔」「剧情树」。
    整块面板本身已经是 overflow:auto，溢出交给它滚就够了。 */
 .nm-prog-sections{flex:none;display:flex;flex-direction:column;gap:16px}
-/* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
-   重点是小而密的方块地图 —— 28×28 格，缝隙 1px，肉眼数不清单格，
-   整体才读成「一片地形」。做成十来个大色块只会像图例表格。 */
+/* 世界生成区块图：仿 Minecraft Java 版加载屏。
+   真实画面几乎是黑白的 —— 纯黑是「尚未生成」，一大片浅灰是「已生成」，
+   彩色只有零星几格。所以底色必须是纯黑，格子之间不留缝（真实画面里
+   区块是紧挨着的，留缝会变成点阵）。 */
 .nm-world{display:flex;flex-direction:column;gap:9px;padding:12px 12px 11px;border-radius:var(--nm-r-lg);background:var(--nm-raised);box-shadow:var(--nm-ring)}
 .nm-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted)}
 .nm-world-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
-/* 地图本体。用 grid 而不是 canvas：格数固定为 28×28=784 个元素，
-   比 canvas 更好做无障碍标注，也不需要额外的重绘逻辑。
-   底色用固定的深色而不是主题色 —— 未生成区域在浅色主题下也必须是暗的，
-   否则「还没长出来」和「已经长好」的明度关系会反过来，读着像倒放。 */
-.nm-world-map{display:grid;grid-template-columns:repeat(var(--nm-world-size,28),1fr);gap:1px;width:100%;aspect-ratio:1;background:#0b0d10;padding:1px}
-.nm-world-map i{display:block;border-radius:0;background:var(--nm-block-tint,#21C600)}
-/* 未点亮的格子分两档：贴着已生成区的一圈是「正在生成」，再往外更暗。
-   两档之间差一点点亮度就够了，差太多会让边界看起来像一道刻意画的线。 */
-.nm-world-map i[data-shade="-1"]{background:#3a3d42}
-.nm-world-map i[data-shade="-2"]{background:#1c1f23}
-/* 底部那条进度条保留，但压得很薄 —— 主视觉是地图，条只是刻度。 */
+/* 地图本体。格数 30×30=900，无缝隙 —— 真实加载屏里区块是紧贴的，
+   加缝会立刻变成「点阵图」而不是「地形」。底色 #000 与未生成格同色，
+   这样地图边界不会被一条外框显形。 */
+.nm-world-map{display:grid;grid-template-columns:repeat(var(--nm-world-size,30),1fr);width:100%;aspect-ratio:1;background:#000}
+.nm-world-map i{display:block;border-radius:0;background:#000}
+/* 已生成区的棋盘微纹理。参考画面的浅灰部分能看到细分网格 —— 区块色图
+   的分辨率比区块网格更细。不给这层，整片就是一块死平的灰，像色块不像地图。 */
+.nm-world-map i[data-alt="1"]{filter:brightness(.955)}
+/* 未生成区的两档：贴着已生成区的那一圈极暗灰，其余纯黑。
+   差别必须小到几乎看不出边界，只用来暗示「正在往前推」。 */
+.nm-world-map i[data-dim="1"]{background:#1a1a1a}
+.nm-world-map i[data-dim="2"]{background:#000}
+/* 底部进度条压得很薄 —— 主视觉是地图，条只是一个刻度。 */
 .nm-world-bar{height:3px;background:color-mix(in srgb,#000 50%,transparent);overflow:hidden}
-.nm-world-bar-fill{height:100%;background:#21C600;transition:width 420ms var(--nm-ease-std)}
+.nm-world-bar-fill{height:100%;background:#D1D1D1;transition:width 420ms var(--nm-ease-std)}
 /* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
 @media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-world-grid i,.nm-world-bar-fill{transition:none}}
 `
@@ -2358,33 +2361,33 @@ window.__ModuleLoader__.load({
     /**
      * 世界生成区块图 —— 仿 Minecraft Java 版的世界加载屏幕。
      *
-     * 关键是「像素」而不是「色卡」：Java 版加载屏是一张密集的方块地图，
-     * 每格 = 一个区块，颜色 = 该区块的生成阶段（未生成 → 结构 → 生物群系 →
-     * 地形 → 光照 → 完毕）。区块从玩家出生点向外逐圈加载，像素就一圈圈
-     * 变色铺开。
+     * 看过真实加载屏的画面后，最要紧的一点是：**它几乎是黑白的**。
+     * 黑色是「尚未生成」，一大片均匀的浅灰是「已经生成」，彩色只是零星
+     * 几格（生物群系绿 #80B252、结构紫 #5F6191）。
      *
-     * 我第一版做成了 12 列大色块、按资产逐行上色，那读起来是「表格」不是
-     * 「地图」—— 每项一行的横条只会让人以为在看图例。真正的观感来自：
-     *   1) 格子够小够密（32×32，眼看不数得清）；
-     *   2) 由内向外扩散，而不是逐行填；
-     *   3) 相邻格子轻微色差，像地形纹理而不是纯色块。
+     * 我之前的版本把 11 种阶段色平铺满屏，出来是彩色拼贴画 —— 那是
+     * 「色卡」，不是加载屏。真实画面之所以像「地图在长出来」，靠的是：
+     *   1) 大面积留黑 —— 未生成区域占绝大多数，已生成的是其中一块不规则区域；
+     *   2) 已生成部分以灰为主（地形 #D1D1D1 占九成），颜色只是点缀；
+     *   3) 边界参差 —— 已生成区是带着碎块的城状轮廓，不是圆或方。
      *
-     * 把八项资产当成八个「生成阶段」：完成度决定有多少圈像素被点亮到哪一级
-     * 配色。未完成的资产会在地图边缘留下一圈尚未生成的地带。
+     * 八项资产不逐一配色，而是汇成一个 0–1 的完成度，驱动「已生成区域有多大」。
+     * 资产本身的信息已在下方清单里逐项列出，地图只负责给整体直觉。
      */
     function WorldBlocks({ items, percent }) {
-      // 官方区块状态色表。整张画以地形色为主，八项资产只是决定「点亮到哪一级」。
-      const STAGE = ['#545454', '#999999', '#5F6191', '#80B252', '#D1D1D1', '#726809', '#303572', '#21C600', '#FFE0A0', '#F26060', '#FFFFFF']
-      const SIZE = 28
+      // 官方区块状态色。实际画面里只有前三种高频出现，其余是零星点缀。
+      const FULL = '#D1D1D1'   // noise：初始地形，绝大多数的已生成区块
+      const BIOME = '#80B252'  // biomes：生物群系，成片的绿色
+      const STRUCT = '#5F6191' // structure_references：结构，少量紫
+      const WHITE = '#FFFFFF'  // full：已完全生成
+      const SIZE = 30
       const list = items ?? []
       const total = list.length
       const done = list.filter((i) => i.exists).length
-      // 推进比例：用「已完成资产数 + 整体百分比」一起决定已生成范围，
-      // 这样中途刷新时地图也会跟着长，而不是等整项完成才跳一下。
       const ratio = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
 
-      // 确定性哈希 → 值噪声。必须确定性：同一格重渲染要给同一颜色，
-      // 否则每次 4 秒轮询刷新整张图都在抖，像故障而不是在生成。
+      // 确定性哈希 → 值噪声。必须确定性：面板每 4 秒轮询一次，
+      // 非确定性场会让整张图每次刷新都重排，看着像渲染故障。
       const hash = (x, y) => {
         const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
         return s - Math.floor(s)
@@ -2397,30 +2400,48 @@ window.__ModuleLoader__.load({
         const c = hash(xi, yi + 1); const d = hash(xi + 1, yi + 1)
         return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
       }
-      // 两个八度叠起来：大尺度决定「哪片已经长好」，小尺度提供毛边。
-      // 只用单层时色块边界过于方正；只用哈希白噪声又会变成椒盐噪点，
-      // 都不像地形。值噪声才有成片而不规整的形状。
-      const fieldAt = (x, y) => valueNoise(x / 6.5, y / 6.5) * 0.62 + valueNoise(x / 2.7, y / 2.7) * 0.38
+      // 三层八度：大尺度给区域形状，中尺度给城状碎边，小尺度给单格毛刺。
+      // 只叠两层时边界偏圆润，不像区块加载那种锯齿推进。
+      const fieldAt = (x, y) =>
+        valueNoise(x / 9.5, y / 9.5) * 0.5
+        + valueNoise(x / 4.1, y / 4.1) * 0.33
+        + valueNoise(x / 1.9, y / 1.9) * 0.17
 
       const cells = []
       const half = SIZE / 2
       for (let y = 0; y < SIZE; y++) {
         for (let x = 0; x < SIZE; x++) {
-          // 切比雪夫距离：方块地图是方形扩散，用欧氏距离四角会明显缺一块。
+          // 加载从出生点向外推进，所以距离是主项；噪声只负责把边界打碎。
+          // 这里噪声权重给到 0.55，边界才会碎成方块状而不是一圈套一圈。
           const dist = Math.max(Math.abs(x + 0.5 - half) / half, Math.abs(y + 0.5 - half) / half)
-          // 把「离中心多远」和「噪声」混成一个场：中心必然先长好，但边界
-          // 是参差的。噪声权重给到 0.42 才会打散成斑块；给 0.15 只是让
-          // 同心方框边缘毛糙一点，整体仍然是靶心。
-          const field = dist * 0.58 + fieldAt(x, y) * 0.42
+          const field = dist * 0.45 + fieldAt(x, y) * 0.55
           const lit = field < ratio
-          // 已生成的格按场的值取阶段色：越靠内越接近「完成」的亮色，
-          // 外围停在早期阶段的深蓝/暗绿。即使 100% 也保有地形层次。
-          const stageIdx = Math.min(STAGE.length - 1, Math.floor((1 - field) * (STAGE.length - 1)))
+          let color = null
+          if (lit) {
+            // 已生成的格子里绝大多数是地形灰；只有噪声同时取到很高的局部
+            // 极值才染生物群系绿或结构紫。阈值必须定得很高 —— 参考画面里
+            // 1032 个格子里彩色不到十格，阈值放低一点就会变成迷彩色块，
+            // 那读起来是「伪装图案」而不是「地形」。
+            const n = valueNoise(x / 3.3, y / 3.3)
+            const n2 = valueNoise(x / 1.7 + 40, y / 1.7 + 40)
+            if (n > 0.855 && n2 > 0.52) color = BIOME
+            else if (n < 0.145 && n2 > 0.58) color = STRUCT
+            // 完全生成时中心一小片转白，其余仍是地形灰 —— 真实画面里
+            // 白色也只出现在最后完成的区块，不会整片刷白。
+            else if (ratio >= 0.999 && dist < 0.16) color = WHITE
+            else color = FULL
+          }
           cells.push({
             key: `${x}-${y}`,
             lit,
-            // 未点亮也分两档：贴着已生成区的一圈是「正在生成」，再往外更暗。
-            shade: lit ? stageIdx : (field < ratio + 0.16 ? -1 : -2),
+            color,
+            // 未生成区域分两档：紧贴已生成区的「下一圈」稍亮，其余纯黑。
+            // 两档差异必须很小，否则那条边会显得像刻意画的轮廓线。
+            dim: lit ? 0 : (field < ratio + 0.09 ? 1 : 2),
+            // 已生成区里再叠一层极淡的棋盘纹理。参考画面的浅灰区能看到
+            // 细分网格，因为区块色图的分辨率比区块网格更细。不加这层，
+            // 已生成区就是一块死平的灰，像色块而不像地图。
+            alt: lit && ((x + y) & 1) === 1,
           })
         }
       }
@@ -2435,8 +2456,10 @@ window.__ModuleLoader__.load({
           role: 'img', 'aria-label': `资产生成进度 ${percent ?? 0}%，八项中已完成 ${done} 项`,
         }, cells.map((cell) => h('i', {
           key: cell.key,
-          'data-shade': cell.shade,
-          style: cell.lit ? { '--nm-block-tint': STAGE[cell.shade] ?? '#21C600' } : undefined,
+          'data-dim': cell.dim,
+          'data-alt': cell.alt ? '1' : '0',
+          // 颜色直接写成内联值：只有零星几格需要着色，走 CSS 变量反而绕。
+          style: cell.color ? { background: cell.color } : undefined,
         }))),
         h('div', { className: 'nm-world-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
           h('div', { className: 'nm-world-bar-fill', style: { width: `${percent ?? 0}%` } })))

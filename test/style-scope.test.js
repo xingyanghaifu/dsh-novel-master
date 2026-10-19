@@ -57,35 +57,37 @@ test('世界生成区块图使用官方区块状态色', () => {
   }
 })
 
-test('未生成格子要与背景区分得开', () => {
-  const dim = CSS.match(/\.nm-world-map i\[data-shade="-1"\]\{([^}]*)\}/)
-  const dark = CSS.match(/\.nm-world-map i\[data-shade="-2"\]\{([^}]*)\}/)
-  assert.ok(dim && dark, '未生成的两档都要有样式')
-  // 早先用 #3a3a2a / #2a2a2a，在近黑底上糊成一片，看着像没画出来
-  for (const [name, decl] of [['shade-1', dim[1]], ['shade-2', dark[1]]]) {
-    assert.doesNotMatch(decl, /#3a3a2a|#2a2a2a/i, `${name} 不能是近黑色`)
-    assert.match(decl, /color-mix|#[0-9a-f]{6}/i, `${name} 要有可见的亮度`)
-  }
+test('未生成区必须接近纯黑，与已生成区拉开亮度', () => {
+  // 参考画面里约三分之二是纯黑。未生成区如果发灰，整张图就失去
+  // 「还没长出来」的对比，看着像一片均匀的贴图。
+  const dim1 = CSS.match(/\.nm-world-map i\[data-dim="1"\]\{([^}]*)\}/)
+  const dim2 = CSS.match(/\.nm-world-map i\[data-dim="2"\]\{([^}]*)\}/)
+  assert.ok(dim1 && dim2, '未生成的两档都要有样式')
+  // 最深一档必须是纯黑：参考画面的底就是黑的
+  assert.match(dim2[1], /#000\b/i, '最深一档应为纯黑')
+  // 紧贴已生成区的那一档只能极暗，不能到中灰
+  const hex = dim1[1].match(/#([0-9a-f]{6})/i)
+  assert.ok(hex, '需为十六进制色')
+  const lum = parseInt(hex[1].slice(0, 2), 16) + parseInt(hex[1].slice(2, 4), 16) + parseInt(hex[1].slice(4, 6), 16)
+  assert.ok(lum < 120, `紧邻生成区的那档必须很暗（当前总和 ${lum}），否则边界看着像画的线`)
 })
 
-test('区块格子不用圆角，保住方块语感', () => {
-  const m = CSS.match(/\.nm-world-map i\{([^}]*)\}/)
-  assert.ok(m, '必须存在格子规则')
-  // 允许 0–2px：1px 是为了消除方块边缘的抗锯齿毛边，视觉上仍是直角。
-  // 一旦上到常见的 6/8/12px，格子就变成圆点阵，方块语感整个丢掉。
-  const radius = m[1].match(/border-radius:([^;]+)/)
-  if (radius) {
-    const px = Number(radius[1].replace(/[^\d.]/g, ''))
-    assert.ok(px <= 2, `圆角必须是 2px 以内，当前 ${radius[1]}`)
-  }
-})
-
-test('地图必须是密集小格，不能缩成十来个大色块', () => {
-  // 上一版按资产逐行上色、12 列，读起来是「图例表格」不是「地图」。
-  // 观感差异全在密度上，所以直接锁死格数与缝隙。
+test('地图格数够密，且区块之间不留缝', () => {
+  // 真实加载屏里区块是紧贴的。加缝隙会立刻从「地形」变成「点阵图」。
   assert.match(SOURCE, /const SIZE = (?:2[4-9]|3\d)/, '地图边长至少 24 格，太粗就变成色卡')
-  const gap = CSS.match(/\.nm-world-map\{([^}]*)\}/)[1].match(/gap:(\d+)px/)
-  assert.ok(gap && Number(gap[1]) <= 2, '缝隙必须 ≤2px，否则格子之间断开成散点')
+  const map = CSS.match(/\.nm-world-map\{([^}]*)\}/)[1]
+  assert.doesNotMatch(map, /gap:/, '不能有缝隙，区块是紧贴的')
+  assert.doesNotMatch(map, /padding:/, '不能有内边距，否则外圈多出一道框')
+})
+
+test('彩色必须是极小比例，不能变成迷彩', () => {
+  // 第一次按参考重做时把阈值定低了，绿紫铺满整片，读起来像迷彩服。
+  // 参考画面里 1032 格中彩色不到十格 —— 密度本身就是这个效果的关键。
+  const biome = SOURCE.match(/if \(n > ([\d.]+) && n2 > ([\d.]+)\) color = BIOME/)
+  const struct = SOURCE.match(/else if \(n < ([\d.]+) && n2 > ([\d.]+)\) color = STRUCT/)
+  assert.ok(biome && struct, '生物群系与结构的判定必须存在')
+  assert.ok(Number(biome[1]) >= 0.8, `生物群系阈值需 ≥0.8，当前 ${biome[1]}`)
+  assert.ok(Number(struct[1]) <= 0.2, `结构阈值需 ≤0.2，当前 ${struct[1]}`)
 })
 
 test('地形用噪声塑形，不能是按距离分层的同心方框', () => {
