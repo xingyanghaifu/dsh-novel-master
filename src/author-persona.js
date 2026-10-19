@@ -34,6 +34,72 @@ export const PERSONA_DIMENSIONS = Object.freeze([
 const DIMENSION_KEYS = PERSONA_DIMENSIONS.map(item => item.key)
 
 /**
+ * 维度的中英文别名。
+ *
+ * 用户说「对话」比说 `dialogueStyle` 自然得多，而这个命令是要人天天敲的。
+ * 收窄成单一标准名会让每次使用都得翻文档，所以三种写法都认：key、中文
+ * 标签、以及一个更短的口语词。
+ */
+const DIMENSION_ALIASES = new Map([
+  ['narrativepacing', 'narrativePacing'], ['叙事节奏', 'narrativePacing'], ['节奏', 'narrativePacing'], ['pacing', 'narrativePacing'],
+  ['dialoguestyle', 'dialogueStyle'], ['对话风格', 'dialogueStyle'], ['对话', 'dialogueStyle'], ['dialogue', 'dialogueStyle'],
+  ['descriptiondensity', 'descriptionDensity'], ['描写密度', 'descriptionDensity'], ['描写', 'descriptionDensity'], ['description', 'descriptionDensity'],
+  ['emotionaltone', 'emotionalTone'], ['情感基调', 'emotionalTone'], ['情感', 'emotionalTone'], ['emotion', 'emotionalTone'],
+  ['conflictintensity', 'conflictIntensity'], ['冲突烈度', 'conflictIntensity'], ['冲突', 'conflictIntensity'], ['conflict', 'conflictIntensity'],
+  ['characterdepth', 'characterDepth'], ['人物刻画', 'characterDepth'], ['人物', 'characterDepth'], ['character', 'characterDepth'],
+])
+
+/**
+ * 解析「只评哪些维度」。
+ *
+ * 空输入返回全部维度，也就是原来那种整体分析。认不出的词不静默丢掉 ——
+ * 用户写 `--只评 对白` 时若被忽略，命令会做一次全维度分析并把另外五个
+ * 维度改掉，那是最坏的结果。
+ *
+ * @param {string|string[]} [raw]
+ * @returns {{keys: string[], unknown: string[]}}
+ */
+export function parseFocusDimensions(raw) {
+  const words = (Array.isArray(raw) ? raw : [raw])
+    .flatMap(item => String(item ?? '').split(/[,，、+\/\s]+/u))
+    .map(item => item.trim())
+    .filter(Boolean)
+  if (words.length === 0) return { keys: [...DIMENSION_KEYS], unknown: [] }
+  const keys = []
+  const unknown = []
+  for (const word of words) {
+    const key = DIMENSION_ALIASES.get(word.toLowerCase()) ?? DIMENSION_ALIASES.get(word)
+    if (key === undefined) { unknown.push(word); continue }
+    if (!keys.includes(key)) keys.push(key)
+  }
+  return { keys, unknown }
+}
+
+/** 某维度是否属于本次要评的范围；persona.analyzed 缺省表示全部评过。 */
+export function isAnalyzed(persona, key) {
+  const analyzed = persona?.analyzed
+  if (!Array.isArray(analyzed) || analyzed.length === 0) return true
+  return analyzed.includes(key)
+}
+
+/**
+ * 只保留含对话的段落。
+ *
+ * 用途是「这本书对话写得好，我只想学它的对话」。正文照旧整段保留，不把
+ * 引号外面的「他冷冷地说」剥掉 —— 对话的节奏有一半在那句提示语里，剥了
+ * 就只剩台词，学不到怎么说。
+ *
+ * @param {string} text
+ * @returns {{text: string, keptParagraphs: number, totalParagraphs: number}}
+ */
+export function dialogueOnlyText(text) {
+  const body = String(text ?? '').replace(/\r\n?/gu, '\n')
+  const paragraphs = body.split(/\n+/u).map(item => item.trim()).filter(Boolean)
+  const kept = paragraphs.filter(item => /[“”「」『』『』"]/u.test(item))
+  return { text: kept.join('\n\n'), keptParagraphs: kept.length, totalParagraphs: paragraphs.length }
+}
+
+/**
  * 一次人格提取能吃的文本量上限。
  *
  * 与 model-intelligence 的 48000 输入上限留出余量：系统提示词、维度说明、
@@ -140,12 +206,21 @@ function dimensionGuide() {
 }
 
 /** 提取结果必须长成的样子，作为提示词的一部分约束模型。 */
-function personaSkeleton() {
+function personaSkeleton(keys = DIMENSION_KEYS) {
+  const wanted = keys.filter(key => DIMENSION_KEYS.includes(key))
+  const list = wanted.length > 0 ? wanted : DIMENSION_KEYS
+  const partial = list.length < DIMENSION_KEYS.length
   return `{
   "traits": {
-${DIMENSION_KEYS.map(key => `    "${key}": { "score": 0, "label": "" }`).join(',\n')}
+${list.map(key => `    "${key}": { "score": 0, "label": "" }`).join(',\n')}
   },
-  "signature": ["可执行的写法签名，3-6 条，每条不超过 40 字"],
+  "signature": ["可执行的写法签名，3-6 条，每条不超过 40 字"],${
+  partial
+    ? `
+  "dimensionNotes": {
+${list.map(key => `    "${key}": { "signature": ["只属于该维度的写法，1-3 条"], "avoid": ["该维度上不这么写，0-2 条"] }`).join(',\n')}
+  },`
+    : ''}
   "avoid": ["该作者明显不用的写法，0-4 条"],
   "sample": "最能代表该风格的一小段自创新句，60 字以内，不得照搬原文情节",
   "closestMatch": "内置风格 id 或 null",
@@ -171,7 +246,14 @@ export function normalizePersona(raw) {
     throw new IntelligenceError('invalid-persona', '人格数据缺少 traits')
   }
   const traits = {}
-  for (const key of DIMENSION_KEYS) {
+  // 只评部分维度时模型按要求只返回那几个，此时不能因为「缺了别的维度」
+  // 就整份判死 —— 那会让 --只取 永远拿不到结果。传了 analyzed 就只校验
+  // analyzed 里的维度；没传就仍要求六个齐全（手改的 JSON 必须写全）。
+  const declared = Array.isArray(raw.analyzed)
+    ? raw.analyzed.filter(key => DIMENSION_KEYS.includes(key))
+    : undefined
+  const required = declared !== undefined && declared.length > 0 ? declared : DIMENSION_KEYS
+  for (const key of required) {
     const entry = source[key]
     const score = typeof entry === 'number' ? entry : entry?.score
     if (typeof score !== 'number' || !Number.isFinite(score)) {
@@ -207,6 +289,39 @@ export function normalizePersona(raw) {
     trace.covered = Math.min(1, Math.max(0, raw.covered))
   }
   if (raw.truncated === true) trace.truncated = true
+  // 只评了部分维度时，模型会额外给出按维度分开的签名，拼接时按维度取用，
+  // 否则「只学对话」会连节奏规则一起搬过来。
+  const notes = {}
+  if (raw.dimensionNotes !== null && typeof raw.dimensionNotes === 'object' && !Array.isArray(raw.dimensionNotes)) {
+    for (const key of DIMENSION_KEYS) {
+      const entry = raw.dimensionNotes[key]
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue
+      const signature = strings(entry.signature, 3, 80)
+      const avoid = strings(entry.avoid, 2, 80)
+      if (signature.length > 0 || avoid.length > 0) notes[key] = { signature, avoid }
+    }
+  }
+  if (Object.keys(notes).length > 0) trace.dimensionNotes = notes
+  const analyzed = Array.isArray(raw.analyzed)
+    ? [...new Set(raw.analyzed.filter(key => DIMENSION_KEYS.includes(key)))]
+    : undefined
+  if (analyzed !== undefined && analyzed.length > 0) trace.analyzed = analyzed
+  if (raw.mergedFrom !== null && typeof raw.mergedFrom === 'object' && !Array.isArray(raw.mergedFrom)) {
+    const merged = {}
+    for (const key of DIMENSION_KEYS) {
+      const from = raw.mergedFrom[key]
+      if (typeof from === 'string' && from.trim()) merged[key] = from.trim().slice(0, 60)
+    }
+    if (Object.keys(merged).length > 0) trace.mergedFrom = merged
+  }
+  if (raw.mergedModels !== null && typeof raw.mergedModels === 'object' && !Array.isArray(raw.mergedModels)) {
+    const models = {}
+    for (const key of DIMENSION_KEYS) {
+      const model = raw.mergedModels[key]
+      if (typeof model === 'string' && model.trim()) models[key] = model.trim().slice(0, 120)
+    }
+    if (Object.keys(models).length > 0) trace.mergedModels = models
+  }
   return {
     name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim().slice(0, 40) : '未命名风格',
     traits,
@@ -347,11 +462,20 @@ function scoreBar(score) {
  */
 export function personaPromptSection(persona) {
   const lines = [`## 作者风格：${persona.name}`]
-  const traitLines = PERSONA_DIMENSIONS.map(dimension => {
-    const entry = persona.traits[dimension.key]
-    const label = entry.label ?? (entry.score <= 3 ? dimension.low : entry.score >= 7 ? dimension.high : '居中')
-    return `- ${dimension.label}：${scoreBar(entry.score)} ${entry.score}/10 ${label}`
-  })
+  const merged = persona.mergedFrom ?? {}
+  // 只跳过缺失的维度，不能按六个维度硬取：部分维度的人格（--只取 的中间
+  // 产物、手改的 JSON）会让 entry 为 undefined，直接崩在这里。
+  const traitLines = PERSONA_DIMENSIONS
+    .filter(dimension => persona.traits[dimension.key] !== undefined)
+    .map(dimension => {
+      const entry = persona.traits[dimension.key]
+      const label = entry.label ?? (entry.score <= 3 ? dimension.low : entry.score >= 7 ? dimension.high : '居中')
+      // 拼接来的维度要标出处：模型需要知道「对话照这本书、其余照那本书」，
+      // 否则会把整份风格当成同一个作者的，写出来两头不像。
+      const from = merged[dimension.key]
+      const note = from === undefined ? '' : `（此维度取自《${from}》）`
+      return `- ${dimension.label}：${scoreBar(entry.score)} ${entry.score}/10 ${label}${note}`
+    })
   lines.push(traitLines.join('\n'))
   if (persona.signature.length > 0) {
     lines.push('', '**必须照做的写法**（这才是风格，不是建议）', ...persona.signature.map(item => `- ${item}`))
@@ -372,11 +496,16 @@ export function personaPromptSection(persona) {
  * @returns {string}
  */
 export function personaReport(persona) {
-  const traits = PERSONA_DIMENSIONS.map(dimension => {
-    const entry = persona.traits[dimension.key]
-    const label = entry.label ?? ''
-    return `  ${dimension.label}：${scoreBar(entry.score)} ${entry.score}/10 ${label}`.trimEnd()
-  }).join('\n')
+  const merged = persona.mergedFrom ?? {}
+  const traits = PERSONA_DIMENSIONS
+    .filter(dimension => persona.traits[dimension.key] !== undefined)
+    .map(dimension => {
+      const entry = persona.traits[dimension.key]
+      const label = entry.label ?? ''
+      const from = merged[dimension.key]
+      const note = from === undefined ? '' : `  ←《${from}》`
+      return `  ${dimension.label}：${scoreBar(entry.score)} ${entry.score}/10 ${label}${note}`.trimEnd()
+    }).join('\n')
   const sections = [traits]
   if (persona.signature.length > 0) sections.push('  风格签名：', ...persona.signature.map(item => `    · ${item}`))
   if (persona.avoid.length > 0) sections.push('  刻意避开：', ...persona.avoid.map(item => `    · ${item}`))
@@ -404,16 +533,29 @@ export function personaReport(persona) {
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<object>} 规范化后的人格，附带 `model` 与 `evidence`。
  */
-export async function extractPersona(ctx, { text, route, name, signal }) {
-  const body = String(text ?? '')
-  if (body.replace(/\s/gu, '').length < 1000) {
+export async function extractPersona(ctx, { text, route, name, signal, only }) {
+  const original = String(text ?? '')
+  if (original.replace(/\s/gu, '').length < 1000) {
     throw new IntelligenceError('text-too-short', '参考文本太短：至少需要 1000 字才能判断风格，建议给 3 章以上')
   }
-  const evidence = personaEvidence(body)
-  const { sample, truncated, covered } = samplePersonaText(body)
+  const { keys: onlyKeys, unknown: unknownOnly } = parseFocusDimensions(only)
+  // 点名了维度却一个都认不出：绝不能退回「全都要」，否则会把用户已有的
+  // 其余维度一并覆盖掉，而这正好是他想保留的部分。
+  const partial = Array.isArray(only) && only.length > 0
+  if (partial && onlyKeys.length === 0) {
+    throw new IntelligenceError('unknown-dimension',
+      `不认识的维度：${unknownOnly.join('、')}。可用：${PERSONA_DIMENSIONS.map(item => `${item.key}（${item.label}）`).join('、')}`)
+  }
+  const wanted = new Set(onlyKeys)
+  const evidence = personaEvidence(original)
+  const { sample, truncated, covered } = samplePersonaText(original)
+  const guides = PERSONA_DIMENSIONS.filter(item => wanted.has(item.key))
+  const scopeLine = partial
+    ? `本次只分析这 ${guides.length} 个维度，其余维度不要评分也不要输出：`
+    : '按下面的刻度给每个维度打 0-10 的整数分，并写一句不超过 20 字的中文说明：'
   const prompt = [
     truncated
-      ? `以下是一份参考作品正文的采样（全长 ${body.length} 字，均匀取材约 ${Math.round(covered * 100)}%，含开头/中段/结尾）：`
+      ? `以下是一份参考作品正文的采样（全长 ${original.length} 字，均匀取材约 ${Math.round(covered * 100)}%，含开头/中段/结尾）：`
       : '以下是一份参考作品正文：',
     '```',
     sample,
@@ -422,14 +564,16 @@ export async function extractPersona(ctx, { text, route, name, signal }) {
     '插件已统计的客观数据（据此给分，不要另编数字）：',
     evidenceLines(evidence),
     '',
-    '按下面的刻度给每个维度打 0-10 的整数分，并写一句不超过 20 字的中文说明：',
-    dimensionGuide(),
+    scopeLine,
+    guides.map(item => `${item.key}（${item.label}）：0-3 ${item.low}；4-6 居中；7-10 ${item.high}`).join('\n'),
     '',
-    'signature 写「照着就能做」的写法规则，不写形容词；avoid 写该作者明显不用的写法。',
+    partial
+      ? 'signature 只写与该维度相关的写法规则；avoid 只写该维度上该作者明显不用的写法。'
+      : 'signature 写「照着就能做」的写法规则，不写形容词；avoid 写该作者明显不用的写法。',
     'closestMatch 只能是以下 id 之一或 null：' + BUILTIN_PERSONA_IDS.join(', '),
     '',
     '严格按此结构只输出 JSON，不要 Markdown 代码块，不要解释：',
-    personaSkeleton(),
+    personaSkeleton(onlyKeys),
   ].join('\n')
 
   const raw = await callText(ctx, {
@@ -443,13 +587,84 @@ export async function extractPersona(ctx, { text, route, name, signal }) {
     maxOutputChars: 8192,
     timeoutMs: 120000,
   })
-  const persona = normalizePersona({ ...parsePersonaJson(raw), name: name ?? '参考作品' })
+  // analyzed 要先于校验传进去：只评部分维度时模型只返回那几个，
+  // 校验器靠它知道「缺的维度是本来就不该有」，而不是数据损坏。
+  const parsed = parsePersonaJson(raw)
+  const persona = normalizePersona({
+    ...parsed,
+    name: name ?? '参考作品',
+    analyzed: partial ? onlyKeys : [...DIMENSION_KEYS],
+  })
   if (persona.closestMatch !== undefined && BUILTIN_PERSONAS[persona.closestMatch] === undefined) {
     // A hallucinated id would render a broken "closest match" line; drop it
     // instead of failing the whole extraction.
     delete persona.closestMatch
   }
-  return { ...persona, model: `${route.provider}/${route.model}`, evidence, truncated, covered }
+  return {
+    ...persona,
+    model: `${route.provider}/${route.model}`,
+    evidence,
+    truncated,
+    covered,
+    // 记下这份人格覆盖了哪些维度。拼接时必须靠它判断哪些能覆盖、
+    // 哪些要保留原值，否则一次只评对话就会把节奏描写的分数写成默认值。
+    analyzed: partial ? onlyKeys : [...DIMENSION_KEYS],
+    ...(partial && unknownOnly.length > 0 ? { ignoredDimensions: unknownOnly } : {}),
+  }
+}
+
+/**
+ * 把参考人格的指定维度拼到自己的人格上。
+ *
+ * 这是「这本书只有对话写得好，我只想要它的对话」的实现。规则有两条，
+ * 都是为了不把用户已有的东西悄悄弄丢：
+ *
+ * 1. 只覆盖点名的维度，base 的其余维度原样保留（分数、说明都不动）。
+ * 2. base 若本来就是部分维度的人格，没被覆盖、又不是这次拼进来的维度，
+ *    会从结果里删掉，而不是留着上一次的旧值让人以为是新的。
+ *
+ * @param {object} base - 自己的人格（可以是内置风格或之前拆的结果）。
+ * @param {object} patch - 参考人格，只用它的 traits 与签名。
+ * @param {string[]} keys - 要接过来的维度 key。
+ * @returns {object} 合并后的人格，带 `analyzed` 标记与拼接出处。
+ */
+export function mergePersonaDimensions(base, patch, keys) {
+  const wanted = Array.isArray(keys) ? keys.filter(key => DIMENSION_KEYS.includes(key)) : []
+  if (wanted.length === 0) {
+    throw new IntelligenceError('unknown-dimension', '没有指定要拼接的维度')
+  }
+  const merged = {
+    ...base,
+    traits: { ...base.traits },
+    signature: [...(base.signature ?? [])],
+    avoid: [...(base.avoid ?? [])],
+  }
+  for (const key of wanted) {
+    const source = patch.traits?.[key]
+    if (source === undefined) continue
+    merged.traits[key] = { ...source }
+  }
+  // 只留与本次拼接维度相关的签名：参考人格的签名未必句句都在讲对话，
+  // 全盘接收会让「学对话」变成「连节奏规则一起搬过来」。
+  const patches = patch.dimensionNotes ?? {}
+  const added = []
+  for (const key of wanted) {
+    for (const item of patches[key]?.signature ?? []) {
+      if (!merged.signature.includes(item) && !added.includes(item)) added.push(item)
+    }
+  }
+  if (added.length > 0) merged.signature = [...added, ...merged.signature].slice(0, 8)
+  // analyzed 记的是「这份人格里哪些维度是真正算出来的」，而不是「这次拼了
+  // 哪几个」。写成后者会让 savePersona 之后的 normalizePersona 只校验一个
+  // 维度、把 base 的其余维度全丢掉 —— 拼接功能等于把用户原来的风格清空了。
+  const present = DIMENSION_KEYS.filter(key => merged.traits[key] !== undefined)
+  merged.analyzed = present
+  merged.mergedFrom = {
+    ...(merged.mergedFrom ?? {}),
+    ...Object.fromEntries(wanted.map(key => [key, patch.name ?? '参考作品'])),
+  }
+  if (patch.model !== undefined) merged.mergedModels = { ...(merged.mergedModels ?? {}), ...Object.fromEntries(wanted.map(key => [key, patch.model])) }
+  return merged
 }
 
 /** 模型有时仍会包一层代码块，容错解析一次。 */

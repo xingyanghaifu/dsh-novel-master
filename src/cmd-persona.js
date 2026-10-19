@@ -16,6 +16,7 @@ import { actualModelOf } from './model-intelligence.js'
 import {
   BUILTIN_PERSONA_IDS,
   BUILTIN_PERSONAS,
+  PERSONA_DIMENSIONS,
   PERSONA_FILE,
   builtinPersona,
   extractPersona,
@@ -40,11 +41,21 @@ function takeRouteOptions(raw) {
   const model = grab(/(?:^|\s)--model\s+([^\s]+)(?=\s|$)/iu, current)
   const reasoningEffort = grab(/(?:^|\s)--effort\s+([^\s]+)(?=\s|$)/iu, current)
   const listModels = grab(/(?:^|\s)--(?:list-models|模型列表)(?=\s|$)/iu, current) !== undefined
+  // 只取某几个维度并拼到已有风格上。值里允许中文与逗号：`--只取 对话`、
+  // `--只取 对话,冲突烈度`。用「直到下一个 -- 参数」的贪婪匹配，否则
+  // `--只取 对话 --to 某书` 会把 `--to` 当成维度单词的一部分。
+  let only
+  const onlyMatch = current.rest.match(/(?:^|\s)--(?:只取|只学|only)\s+([^-][\s\S]*?)(?=\s--|$)/iu)
+  if (onlyMatch !== null) {
+    only = onlyMatch[1].trim()
+    current.rest = `${current.rest.slice(0, onlyMatch.index)} ${current.rest.slice(onlyMatch.index + onlyMatch[0].length)}`
+  }
   return {
     provider,
     model,
     reasoningEffort,
     listModels,
+    only,
     rest: current.rest.replace(/\s+/gu, ' ').trim(),
   }
 }
@@ -185,7 +196,7 @@ export function personaStudyCommand(ctx, config) {
     name: 'novel-persona-study',
     description: '拆书提取作者人格：分析参考作品的写法，生成可套用的风格（可指定模型）',
     input: {
-      hint: '<参考文件.txt|md> [--to 项目名] [--provider X --model Y --effort Z]',
+      hint: '<参考文件.txt|md> [--to 项目名] [--只取 维度] [--provider X --model Y --effort Z]',
       attachments: true,
     },
     handler: async (invocation) => {
@@ -238,6 +249,34 @@ export function personaStudyCommand(ctx, config) {
         ]))
       }
 
+      // --只取 的前置检查必须放在调用模型之前：没有基础风格时先把错误说清楚，
+      // 不要让用户白付一次请求才发现拼不了。
+      let mergeBase
+      if (options.only !== undefined) {
+        const { mergePersonaDimensions, parseFocusDimensions, PERSONA_DIMENSIONS: dims } = await import('./author-persona.js')
+        const parsed = parseFocusDimensions(options.only)
+        if (parsed.unknown.length > 0) {
+          return fail(formatError(`不认识的维度：${parsed.unknown.join('、')}`, [
+            `可用维度：${dims.map(item => `${item.key}（${item.label}）`).join('、')}`,
+            '也可以只说中文：--只取 对话',
+          ]))
+        }
+        if (to === undefined) {
+          return fail(formatError('--只取 需要配合 --to 项目名', [
+            '它要把取到的维度拼到你已有的风格上，所以必须知道拼给谁',
+            `/novel-persona-study 参考.txt --只取 对话 --to 我的书`,
+          ]))
+        }
+        const base = loadPersona(cwd, to)
+        if (base === undefined) {
+          return fail(formatError(`《${to}》还没有风格可以拼接`, [
+            `先建一个基础风格：/novel-persona ${to} wangyu-classic`,
+            `或直接不加 --只取 做一次完整分析：/novel-persona-study ${reference.label}.txt --to ${to}`,
+          ]))
+        }
+        mergeBase = { base, keys: parsed.keys, merge: mergePersonaDimensions }
+      }
+
       let persona
       try {
         persona = await extractPersona(ctx, {
@@ -245,6 +284,9 @@ export function personaStudyCommand(ctx, config) {
           route: resolved.route,
           name: reference.label,
           signal: invocation.signal,
+          // 值已在上面的 --只取 处理里校验过；这里传原始数组形式，
+          // 让 extractPersona 只评这几个维度。
+          ...(options.only === undefined ? {} : { only: [options.only] }),
         })
       } catch (error) {
         // "指定 provider 未注册" surfaces from callText and reads like a plugin
@@ -258,6 +300,7 @@ export function personaStudyCommand(ctx, config) {
             '插件设置 → 作者人格提取，或命令行 --provider / --model',
           ]))
         }
+        if (/不认识的维度|unknown-dimension/u.test(message)) return fail(formatError(message))
         return fail(`提取作者人格失败：${message}`)
       }
 
@@ -265,6 +308,15 @@ export function personaStudyCommand(ctx, config) {
       const sampleLine = persona.truncated
         ? `${Math.round(persona.evidence.chars / 1000)}K 字（均匀采样约 ${Math.round((persona.covered ?? 0) * 100)}%）`
         : `${Math.round(persona.evidence.chars / 1000)}K 字（全文）`
+
+      // --只取：把参考作品的部分维度拼到已有风格上，其余维度保持原样。
+      // 前置检查已在调用模型前做完，这里只做合并。
+      let merged
+      if (mergeBase !== undefined) {
+        merged = mergeBase.merge(mergeBase.base, persona, mergeBase.keys)
+        merged.name = mergeBase.base.name
+      }
+
       if (to === undefined) {
         // 没指定项目：只在回复里给结论，不落盘。用户可能只是想看看。
         return ok(formatSuccess(`作者人格分析：${reference.label}`, {
@@ -275,12 +327,20 @@ export function personaStudyCommand(ctx, config) {
         }))
       }
 
-      const file = savePersona(cwd, to, { ...persona, source: `study:${reference.label}` })
+      const final = merged ?? persona
+      const file = savePersona(cwd, to, { ...final, source: `study:${reference.label}` })
       // 拆完要立刻能用：只在 作者人格.json 里还不够，写作命令每轮读的是
       // 写作规范.md，不写进去就要等下一次 /novel-* 才生效。
-      writePersonaToRules(cwd, to, persona)
+      writePersonaToRules(cwd, to, final)
+      const pickedKeys = merged === undefined ? [] : Object.keys(merged.mergedFrom ?? {})
+      const pickedLine = pickedKeys.length === 0
+        ? undefined
+        : pickedKeys.map(key => PERSONA_DIMENSIONS.find(item => item.key === key)?.label ?? key).join('、')
       return ok(formatSuccess(`作者人格已保存到《${to}》`, {
-        '🎨 风格特征': `\n${personaReport(persona)}`,
+        '🎨 风格特征': `\n${personaReport(final)}`,
+        ...(pickedLine === undefined
+          ? {}
+          : { '🧩 拼接维度': `${pickedLine}　取自《${reference.label}》，其余维度保持原样` }),
         '🤖 使用模型': `${persona.model}（来源：${routeSourceLabel(resolved.source)}）`,
         '📏 分析样本': sampleLine,
         '📁 人格文件': `${projectRelativeDir(to)}/${PERSONA_FILE}`,
