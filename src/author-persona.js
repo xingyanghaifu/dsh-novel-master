@@ -41,12 +41,17 @@ const DIMENSION_KEYS = PERSONA_DIMENSIONS.map(item => item.key)
  * 标签、以及一个更短的口语词。
  */
 const DIMENSION_ALIASES = new Map([
-  ['narrativepacing', 'narrativePacing'], ['叙事节奏', 'narrativePacing'], ['节奏', 'narrativePacing'], ['pacing', 'narrativePacing'],
+  ['narrativepacing', 'narrativePacing'], ['叙事节奏', 'narrativePacing'], ['节奏', 'narrativePacing'], ['pacing', 'narrativePacing'], ['故事节奏', 'narrativePacing'],
   ['dialoguestyle', 'dialogueStyle'], ['对话风格', 'dialogueStyle'], ['对话', 'dialogueStyle'], ['dialogue', 'dialogueStyle'],
+  ['对白', 'dialogueStyle'], ['台词', 'dialogueStyle'],
   ['descriptiondensity', 'descriptionDensity'], ['描写密度', 'descriptionDensity'], ['描写', 'descriptionDensity'], ['description', 'descriptionDensity'],
+  ['细节', 'descriptionDensity'], ['画面感', 'descriptionDensity'],
   ['emotionaltone', 'emotionalTone'], ['情感基调', 'emotionalTone'], ['情感', 'emotionalTone'], ['emotion', 'emotionalTone'],
+  ['情绪', 'emotionalTone'], ['基调', 'emotionalTone'],
   ['conflictintensity', 'conflictIntensity'], ['冲突烈度', 'conflictIntensity'], ['冲突', 'conflictIntensity'], ['conflict', 'conflictIntensity'],
+  ['张力', 'conflictIntensity'], ['矛盾', 'conflictIntensity'],
   ['characterdepth', 'characterDepth'], ['人物刻画', 'characterDepth'], ['人物', 'characterDepth'], ['character', 'characterDepth'],
+  ['角色', 'characterDepth'], ['人设', 'characterDepth'],
 ])
 
 /**

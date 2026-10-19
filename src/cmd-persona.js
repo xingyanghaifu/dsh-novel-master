@@ -27,6 +27,59 @@ import {
   writePersonaToRules,
 } from './author-persona.js'
 
+/**
+ * 从自然语言里认出用户要什么。
+ *
+ * 命令参数要求 `--只取 对话 --to 某书`，但人说话不是这么说的：「这本小说
+ * 对话写得好，帮我拼到《网管修仙》上」才是常态。这里只做「认出明显意图」，
+ * 不做猜测：认不出来就返回空，让后续流程按原样把输入当文件路径处理，
+ * 并在缺少必要信息时报错给出正确写法。
+ *
+ * @param {string} raw - 原始输入。
+ * @returns {{only?: string, to?: string, consumed: boolean}}
+ */
+export function parseNaturalIntent(raw) {
+  const text = String(raw ?? '')
+  const result = { consumed: false }
+
+  // 项目名：《书名》、「书名」、"书名"、直接说「拼到网管修仙上」都认。
+  const quoted = text.match(/[《「"“]([^》」"”]{1,60})[》」"”]/u)
+  if (quoted !== null) {
+    result.to = quoted[1].trim()
+    result.consumed = true
+  } else {
+    // 没有引号时只认「拼到 / 拼给 / 接到 / 合到 X」这种明确句式，
+    // 后面必须是已有项目名；否则一句普通描述也会被当成项目名。
+    const bare = text.match(/(?:拼到|拼给|拼进|接到|合到|应用到|套到)\s*([^\s，,。；;]{1,40})/u)
+    if (bare !== null) {
+      result.to = bare[1].replace(/(?:上|里|中|去|吧|了)$/u, '').trim()
+      result.consumed = true
+    }
+  }
+
+  // 维度：只认到明确的维度词为止，避免把整句话当成维度。
+  // 「对话写得好」「对白很棒」「只学对话」都指向 dialogueStyle。
+  const dimensionWords = []
+  const patterns = [
+    /(叙事节奏|节奏|故事节奏)/gu,
+    /(对话风格|对话|对白|台词)/gu,
+    /(描写密度|描写|细节|画面感)/gu,
+    /(情感基调|情感|情绪|基调)/gu,
+    /(冲突烈度|冲突|张力|矛盾)/gu,
+    /(人物刻画|人物|角色|人设)/gu,
+  ]
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      if (!dimensionWords.includes(match[1])) dimensionWords.push(match[1])
+    }
+  }
+  if (dimensionWords.length > 0) {
+    result.only = dimensionWords.join(',')
+    result.consumed = true
+  }
+  return result
+}
+
 /** 从原始输入里剥掉模型路由参数，剩下的才是项目名/文件路径。 */
 function takeRouteOptions(raw) {
   const text = ` ${String(raw ?? '')} `
@@ -50,12 +103,20 @@ function takeRouteOptions(raw) {
     only = onlyMatch[1].trim()
     current.rest = `${current.rest.slice(0, onlyMatch.index)} ${current.rest.slice(onlyMatch.index + onlyMatch[0].length)}`
   }
+  let to
+  const toMatch = current.rest.match(/(?:^|\s)--to\s+([^\s]+)(?=\s|$)/iu)
+  if (toMatch !== null) {
+    to = toMatch[1]
+    current.rest = `${current.rest.slice(0, toMatch.index)} ${current.rest.slice(toMatch.index + toMatch[0].length)}`
+  }
   return {
     provider,
     model,
     reasoningEffort,
     listModels,
     only,
+    to,
+    explicit: { provider: provider !== undefined, model: model !== undefined, only: only !== undefined, to: to !== undefined },
     rest: current.rest.replace(/\s+/gu, ' ').trim(),
   }
 }
@@ -222,11 +283,45 @@ export function personaStudyCommand(ctx, config) {
         }))
       }
 
-      const toMatch = options.rest.match(/(?:^|\s)--to\s+(\S+)(?=\s|$)/u)
-      const to = toMatch === null ? undefined : toMatch[1]
-      const input = toMatch === null
-        ? options.rest
-        : `${options.rest.slice(0, toMatch.index)} ${options.rest.slice(toMatch.index + toMatch[0].length)}`.trim()
+      // 自然语言兜底：显式参数优先，缺的部分才从整句话里认。
+      // 「这本小说对话写得好，帮我拼到《网管修仙》上」不该要求用户改写。
+      const intent = parseNaturalIntent(options.rest)
+      const only = options.only ?? intent.only
+      const to = options.to ?? intent.to
+      // 自然语言认出的部分要从剩余输入里去掉，否则「《书名》」会被当成
+      // 参考文件路径去找。但只删「认出来的那些词」，其余原样保留 ——
+      // 文件路径常常和自然语言混在同一句里（`这本书.txt 对话写得好…`），
+      // 整句清掉就找不到参考作品了。
+      let input = options.rest
+      if (options.to === undefined && intent.to !== undefined) {
+        input = input.replace(/[《「"“][^》」"”]{1,60}[》」"”]/u, ' ')
+        if (intent.to !== undefined) input = input.replace(intent.to, ' ')
+      }
+      if (options.only === undefined && intent.only !== undefined) {
+        for (const word of intent.only.split(',')) input = input.replace(word, ' ')
+      }
+      // 去掉「拼到 / 写得很好 / 帮我」这类已经用过的口语残渣，留下路径。
+      input = input
+        .replace(/拼到|拼给|拼进|接到|合到|应用到|套到|帮我|帮忙|我想|我要|把|的话|写得好|写得不错|很好|很棒|不错/gu, ' ')
+        .replace(/[，,。；;、]/gu, ' ')
+        .replace(/\s+/gu, ' ')
+        .trim()
+      // 自然语言和路径混在一句里时，上面的清洗必然留下碎片（「这本书 上」）。
+      // 与其把碎片拼成不存在的路径，不如在目录里认含扩展名的真实文件：
+      // 句子中出现的路径优先，其次是整句里唯一带扩展名的词。
+      // 只要句子被自然语言解析过，就可能夹着非路径的词（`这本书.txt 对话
+      // 写得好 --只取 …`）。此时必须在 input 里挑出真正的文件，否则会把
+      // 整句当成路径读不到。两个显式参数都给了也一样要抢救。
+      if (intent.consumed) {
+        const candidates = input.split(/\s+/u).filter(token => /\.(?:txt|md|markdown)$/iu.test(token))
+        if (candidates.length > 0) {
+          // 取最长的那个：「这本书.txt」优于可能残留的「书.txt」。
+          input = candidates.sort((a, b) => b.length - a.length)[0]
+        } else {
+          const anywhere = options.rest.match(/[^\s"'《》「」]+\.(?:txt|md|markdown)/iu)
+          if (anywhere !== null) input = anywhere[0]
+        }
+      }
 
       if (to !== undefined) {
         const projects = listProjects(cwd)
@@ -236,7 +331,17 @@ export function personaStudyCommand(ctx, config) {
       }
 
       const reference = readReference(invocation, cwd, input)
-      if (reference.error !== undefined) return fail(reference.error)
+      if (reference.error !== undefined) {
+        // 说了「拼到某本书」但没给参考文件：这是能理解的最常见漏项，
+        // 直接说要给什么，而不是丢一句「读不到文件」。
+        if (to !== undefined && only !== undefined) {
+          return fail(formatError('还没有参考作品可以拆', [
+            '请把参考文件附上，或在命令后写文件路径',
+            `/novel-persona-study 参考.txt ${only === undefined ? '' : `--只取 ${only} `}--to ${to}`,
+          ]))
+        }
+        return fail(reference.error)
+      }
 
       // 路由解析放在读文件之后：文件都读不到时不必去问会话模型是谁。
       const resolved = await resolveRoute(ctx, invocation, config, options)
@@ -252,9 +357,9 @@ export function personaStudyCommand(ctx, config) {
       // --只取 的前置检查必须放在调用模型之前：没有基础风格时先把错误说清楚，
       // 不要让用户白付一次请求才发现拼不了。
       let mergeBase
-      if (options.only !== undefined) {
+      if (only !== undefined) {
         const { mergePersonaDimensions, parseFocusDimensions, PERSONA_DIMENSIONS: dims } = await import('./author-persona.js')
-        const parsed = parseFocusDimensions(options.only)
+        const parsed = parseFocusDimensions(only)
         if (parsed.unknown.length > 0) {
           return fail(formatError(`不认识的维度：${parsed.unknown.join('、')}`, [
             `可用维度：${dims.map(item => `${item.key}（${item.label}）`).join('、')}`,
@@ -262,9 +367,10 @@ export function personaStudyCommand(ctx, config) {
           ]))
         }
         if (to === undefined) {
-          return fail(formatError('--只取 需要配合 --to 项目名', [
-            '它要把取到的维度拼到你已有的风格上，所以必须知道拼给谁',
-            `/novel-persona-study 参考.txt --只取 对话 --to 我的书`,
+          return fail(formatError('还不知道要拼给哪个项目', [
+            '拼接需要一个已有的风格作底子，请说明是哪本书',
+            `/novel-persona-study 参考.txt --只取 ${parsed.keys.map(key => dims.find(item => item.key === key)?.label ?? key).join(',')} --to 我的书`,
+            '或者用书名号写：《我的书》',
           ]))
         }
         const base = loadPersona(cwd, to)
@@ -286,7 +392,7 @@ export function personaStudyCommand(ctx, config) {
           signal: invocation.signal,
           // 值已在上面的 --只取 处理里校验过；这里传原始数组形式，
           // 让 extractPersona 只评这几个维度。
-          ...(options.only === undefined ? {} : { only: [options.only] }),
+          ...(only === undefined ? {} : { only: [only] }),
         })
       } catch (error) {
         // "指定 provider 未注册" surfaces from callText and reads like a plugin

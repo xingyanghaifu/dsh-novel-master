@@ -98,9 +98,10 @@ test('parseFocusDimensions 空输入表示全部维度', () => {
 })
 
 test('parseFocusDimensions 把认不出的词单独交出来，而不是悄悄丢掉', () => {
-  const { keys, unknown } = parseFocusDimensions('对话 对白 描写')
+  // 「对白」现在是合法别名了，用一个确实不存在的词来验证未知项。
+  const { keys, unknown } = parseFocusDimensions('对话 文笔 描写')
   assert.deepEqual(keys, ['dialogueStyle', 'descriptionDensity'])
-  assert.deepEqual(unknown, ['对白'])
+  assert.deepEqual(unknown, ['文笔'])
 })
 
 test('mergePersonaDimensions 只覆盖点名的维度，其余原样保留', () => {
@@ -190,7 +191,7 @@ test('extractPersona 全量分析时 analyzed 覆盖全部维度', async () => {
 test('extractPersona 对认不出的维度直接报错，不退化成全量分析', async () => {
   const h = host(partialJson(['dialogueStyle']))
   await assert.rejects(
-    extractPersona(h.ctx, { text: SAMPLE, route, only: ['对白'] }),
+    extractPersona(h.ctx, { text: SAMPLE, route, only: ['文笔'] }),
     /不认识的维度/u,
   )
   assert.equal(h.calls.length, 0, '维度不合法时不该发起请求')
@@ -260,7 +261,8 @@ test('/novel-persona-study --只取 不带 --to 时明确报错', async () => {
   try {
     const result = await run(personaStudyCommand(h.ctx, {}), h.ctx, '参考.txt --只取 对话 --provider p --model m', cwd)
     assert.equal(result.kind, 'error')
-    assert.match(result.text, /需要配合 --to/u)
+    assert.match(result.text, /还不知道要拼给哪个项目/u)
+    assert.match(result.text, /--to/u, '错误里要给出正确写法')
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true })
   }
@@ -271,7 +273,7 @@ test('/novel-persona-study --只取 对未知维度给出可用清单', async ()
   const h = host(partialJson(['dialogueStyle']))
   try {
     run(personaCommand(), {}, '我的新书 wangyu-classic', cwd)
-    const result = await run(personaStudyCommand(h.ctx, {}), h.ctx, '参考.txt --只取 对白 --to 我的新书 --provider p --model m', cwd)
+    const result = await run(personaStudyCommand(h.ctx, {}), h.ctx, '参考.txt --只取 文笔 --to 我的新书 --provider p --model m', cwd)
     assert.equal(result.kind, 'error')
     assert.match(result.text, /不认识的维度/u)
     assert.match(result.text, /dialogueStyle/u)
