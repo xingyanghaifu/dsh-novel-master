@@ -152,7 +152,15 @@ function flattenHeadings(nodes, out = []) {
   return out
 }
 
-/** 地区：优先 `地区.md` 表格（地区/方位/说明/人物），回退到 设定.md「地理」分支的子条目。 */
+/**
+ * 地区：优先 `地区.md` 表格（地区/方位/说明/人物），
+ * 依次回退到 `设定.md` 的「地理」分支、`世界状态.md` 的「地理」段。
+ *
+ * 第三条回退是后补的：`世界状态.md` 本身就有 `## 地理` 段，模板也让作者
+ * 往那里写地点，但读取逻辑只看 `设定.md`。结果是把地点写在世界状态里的
+ * 项目，设定树的地图和「按世界布局生成地形」都读到零条 —— 数据写对了，
+ * 只是没人去看。三条路径按「结构化程度」排序，表格最准，自由列表兜底。
+ */
 export function regionsOf(cwd, name) {
   const table = parseTable(readProjectFile(cwd, name, '地区.md'))
   if (table && table.rows.length) {
@@ -172,12 +180,49 @@ export function regionsOf(cwd, name) {
       .filter((region) => region.name)
   }
   const text = readProjectFile(cwd, name, '设定.md')
+  if (text !== undefined) {
+    const { nodes } = headingTree(text.slice(0, MAX_FILE_CHARS))
+    const hoisted = nodes.length === 1 && nodes[0].children.length > 0 ? nodes[0].children : nodes
+    const geo = hoisted.find((node) => /地理|地图|地点|地区|世界地图/u.test(node.label))
+    const fromSetting = (geo?.children ?? []).slice(0, MAX_REGIONS)
+      .map((child) => ({ name: cleanLabel(child.label), pos: '', terrain: '', desc: '', people: '' }))
+    if (fromSetting.length) return fromSetting
+  }
+  return regionsFromWorldState(cwd, name)
+}
+
+/**
+ * 从 `世界状态.md` 的「地理」段读地区。
+ *
+ * 这一段通常是 Markdown 列表，形如 `- **地名**：一句话说明`。
+ * 粗体名后面跟中文冒号是最常见的写法，但也有直接写 `- 地名：说明` 的，
+ * 两种都要认。读不到分隔符就整行当地名 —— 宁可显示一个长名字，
+ * 也好过把作者写下的地点丢掉。
+ */
+function regionsFromWorldState(cwd, name) {
+  const text = readProjectFile(cwd, name, '世界状态.md')
   if (text === undefined) return []
-  const { nodes } = headingTree(text.slice(0, MAX_FILE_CHARS))
-  const hoisted = nodes.length === 1 && nodes[0].children.length > 0 ? nodes[0].children : nodes
-  const geo = hoisted.find((node) => /地理|地图|地点|地区|世界地图/u.test(node.label))
-  return (geo?.children ?? []).slice(0, MAX_REGIONS)
-    .map((child) => ({ name: cleanLabel(child.label), pos: '', terrain: '', desc: '', people: '' }))
+  const lines = String(text).split('\n')
+  const start = lines.findIndex((line) => /^#{2,4}\s*.*地理|地区|世界地图/u.test(line))
+  if (start < 0) return []
+  const regions = []
+  for (let i = start + 1; i < lines.length; i++) {
+    const raw = lines[i].trim()
+    // 遇到下一个同级或更高级标题就停，别把后面的势力态势也当地点
+    if (/^#{1,4}\s/u.test(raw)) break
+    if (!raw) continue
+    const item = raw.match(/^[-*+]\s+(.*)$/u)
+    if (!item) continue
+    // `**艾尔登维尔大陆**：主舞台` / `艾尔登维尔大陆：主舞台` / `艾尔登维尔大陆`
+    const body = item[1].replace(/\*\*/g, '')
+    const sep = body.search(/[:：]/u)
+    const region = sep > 0
+      ? { name: body.slice(0, sep).trim(), desc: body.slice(sep + 1).trim() }
+      : { name: body.trim(), desc: '' }
+    if (region.name) regions.push({ ...region, pos: '', terrain: '', people: '' })
+    if (regions.length >= MAX_REGIONS) break
+  }
+  return regions
 }
 
 /** 世界状态.md「世界时钟」段落的正文行（背景/史前事件）。 */

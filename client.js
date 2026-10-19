@@ -2461,7 +2461,79 @@ window.__ModuleLoader__.load({
      * 出来的。整张地形只算一次并缓存：它由确定性噪声决定，与进度无关，
      * 进度只决定「露出哪些层」。
      */
-    const TERRA = { size: 84, levels: 12, cache: null }
+    const TERRA = { size: 84, levels: 12, cache: null, seed: '' }
+
+    /**
+     * 把设定资产摆到地图上，形成地形骨架。
+     *
+     * 之前的地形完全由噪声决定 —— 好看，但和这部小说没有任何关系：换个项目
+     * 山形一样，写没写世界观也一样。既然已经有 `items`（每项资产的完成度）
+     * 和地区名，就让它参与造山：
+     *
+     *   · 每项资产落到一个由**名字哈希**决定的固定位置。同一部小说每次打开
+     *     山都在原地 —— 位置不能随刷新乱跳，否则用户没法靠地形记住进度。
+     *   · 写得越完整（chars 越多），那一点越高，形成山峰；只写了个标题就是
+     *     矮丘。于是「哪里有山」直接对应「哪部分设定写得厚」。
+     *   · 相邻的山头之间用一条低矮的山脊连起来，避免各长各的变成一堆孤岛。
+     *
+     * 这是叠加在高程场上的偏置，不是替换：底噪仍然决定山体的细部走向，
+     * 资产只决定大尺度的隆起位置。两者相加才不会看起来像贴了几个圆点。
+     */
+    function terraSites(items) {
+      const list = Array.isArray(items) ? items : []
+      const sites = []
+      const total = list.filter(Boolean).length || 1
+      for (let index = 0; index < list.length; index++) {
+        const item = list[index]
+        if (!item) continue
+        const key = String(item.name ?? item.key ?? item.id ?? '')
+        if (!key) continue
+        // 位置：按序号均匀铺在环上，再用名字散列微扰。
+        //
+        // 一开始纯用哈希定位，结果几个资产算出的坐标几乎重合 —— 它们的
+        // 隆起叠成一大片高地，顶上平坦，等高线绕着平台边缘走，正中裂出
+        // 一个巨大的空洞。均匀铺开后每个资产各占一方，既不会撞在一起，
+        // 也符合「资产就是地图上的一个地点」这个直觉。
+        // 微扰只负责让不同项目的同一序号不完全重合。
+        let acc = 2166136261
+        for (let i = 0; i < key.length; i++) {
+          acc ^= key.charCodeAt(i)
+          acc = Math.imul(acc, 16777619) >>> 0
+        }
+        const jitter = ((acc % 1000) / 1000 - 0.5)
+        const angle = (index / total) * Math.PI * 2 + jitter * 0.55
+        // 半径在 0.38–0.60 之间。这个区间比看上去要紧：范围放宽到
+        // 0.34–0.62 时，两个相邻序号可能一个贴内圈一个贴外圈，
+        // 角度又恰好靠近，实测最近间距掉到 0.14，隆起连成一片。
+        // 收窄之后相邻山头始终有足够的角向余量。
+        const radius = 0.38 + (((acc >>> 11) % 1000) / 1000) * 0.22
+        // 完成度：有字数按字数，没有就按 done 标记。封顶在 1。
+        const mass = Math.max(0, Math.min(1, Number(item.chars) > 0
+          ? Math.log10(1 + Number(item.chars)) / 3.2
+          : item.done ? 0.55 : 0.12))
+        sites.push({
+          key,
+          x: (Math.cos(angle) * radius + 1) / 2,
+          y: (Math.sin(angle) * radius + 1) / 2,
+          // 影响半径压得比较小（0.11–0.17）。给大了相邻山头会连成一片，
+          // 又会退回「中间是平台」的老问题。
+          reach: 0.11 + mass * 0.06,
+          height: 0.18 + mass * 0.62,
+        })
+      }
+      return sites
+    }
+
+    /** 高斯隆起：距离中心越近越高，到 reach 处衰减到 0。 */
+    function terraBump(site, u, v) {
+      const dx = u - site.x
+      const dy = v - site.y
+      const d2 = (dx * dx + dy * dy) / (site.reach * site.reach)
+      if (d2 >= 1) return 0
+      // (1-d²)² 在边缘一阶导为零，接缝不会出现折痕
+      const falloff = 1 - d2
+      return site.height * falloff * falloff
+    }
 
     /** 确定性哈希。面板每 4 秒轮询，非确定性的场会让整张图每次刷新都重排。 */
     function terraHash(x, y) {
@@ -2621,8 +2693,13 @@ window.__ModuleLoader__.load({
     }
 
     /** 一次性算出地形与全部高程层，之后只按进度决定露哪些层。 */
-    function terraLayers() {
-      if (TERRA.cache) return TERRA.cache
+    function terraLayers(items) {
+      // 缓存必须把「资产指纹」算进去。地形现在由 items 决定，只按空缓存判断
+      // 的话，写完一章再回来山还是旧形状 —— 那正是这次要修的问题。
+      const sites = terraSites(items)
+      const seed = sites.map(s => `${s.key}:${s.height.toFixed(2)}`).join('|') || 'bare'
+      if (TERRA.cache && TERRA.seed === seed) return TERRA.cache
+      TERRA.seed = seed
       const n = TERRA.size
       const field = new Float32Array(n * n)
       let peak = 0
@@ -2662,10 +2739,35 @@ window.__ModuleLoader__.load({
           const raw = sum / norm
           // 把噪声归一到 0–1 后再乘掩膜，幅度才稳定。幂次略大于 1，
           // 低处（浅滩）因此更平缓，等高线在岸边疏、在山腰密。
-          const h = Math.pow(Math.max(0, Math.min(1, (raw - 0.16) / 0.66)), 1.15) * edge
+          let h = Math.pow(Math.max(0, Math.min(1, (raw - 0.16) / 0.66)), 1.15) * edge
+          // 叠加资产隆起。
+          //
+          // 这一步前后试错三次，值得记下来：
+          // ① 权重 0.66 —— 浅资产的隆起（0.18–0.44）压不过底噪的峰（0.84），
+          //    「空项目」和「写了三项」画出来一模一样，看着像没生效。
+          // ② Math.min(1, ...) 硬截断 —— 几个山头一起顶到 1.0，中间成为
+          //    一片高程相同的平地，顶层等值线全挤到边缘，正中裂出巨大空洞。
+          // ③ 软饱和（1-e^-x）—— 空洞小了一点，但还是平台，还是空洞。
+          //
+          // 症结在于「只要出现平台，等值线就会绕着平台走，平台内部空掉」。
+          // 所以根本不该截断：先按无上限累加，循环结束后整场归一化。
+          // 这样每一处都保留原本的起伏，量级问题交给最后那一次缩放解决。
+          if (sites.length) {
+            let lift = 0
+            for (let s = 0; s < sites.length; s++) lift += terraBump(sites[s], x / (n - 1), y / (n - 1))
+            if (lift > 0) h += lift * 1.6 * edge
+          }
           field[y * n + x] = h
           if (h > peak) { peak = h; peakAt = y * n + x }
         }
+      }
+
+      // 整场归一到 0–1。隆起不设上限，最后统一缩放 —— 这样任何一处都
+      // 不会因为「顶到天花板」而变成平台。
+      if (peak > 1) {
+        const scale = 1 / peak
+        for (let i = 0; i < field.length; i++) field[i] *= scale
+        peak = 1
       }
 
       // 高程层用「等面积分位」定阈值，而不是固定步长。
@@ -2693,7 +2795,7 @@ window.__ModuleLoader__.load({
       // 完成度：资产数与百分比取较大者，中途刷新时地貌不会倒退。
       const p = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
       const pct = Math.min(1, Math.max(0, p))
-      const layers = terraLayers()
+      const layers = terraLayers(list)
       const complete = total > 0 && done >= total
       const peak = TERRA.peak ?? { x: TERRA.size / 2, y: TERRA.size / 2 }
       const S = TERRA.size
