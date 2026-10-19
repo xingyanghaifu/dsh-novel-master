@@ -337,6 +337,11 @@ window.__ModuleLoader__.load({
    有色调的，纯黑会让等高线看起来像描在虚空里，没有空间感。 */
 .nm-terra-canvas{position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:radial-gradient(120% 120% at 50% 42%,#0d1620 0%,#080c12 62%,#05070a 100%);box-shadow:inset 0 0 0 1px color-mix(in srgb,#8fd3ff 9%,transparent)}
 .nm-terra-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* 地名标注。字号用 SVG 用户单位（画布 84），换算下来在侧边栏里约 8–9px。
+   不能再小：再小就糊成一团墨点，比不标还糟。描边用底色的 stroke 加在字后面，
+   保证压在最亮的等高线上也读得出来 —— 这是地图标注的通用做法，
+   比加半透明底板干净，也不会挡住地形。 */
+.nm-terra-site-label{font-size:2.9px;font-family:var(--nm-font,ui-sans-serif,system-ui,"PingFang SC","Microsoft YaHei",sans-serif);font-weight:600;letter-spacing:.02px;fill:#d8ecfa;paint-order:stroke fill;stroke:#060a0f;stroke-width:.42px;stroke-linejoin:round}
 /* 前沿那一条要能「呼吸」，但不能抢戏：慢速脉冲，幅度极小。 */
 .nm-terra-front{animation:nm-terra-pulse 3.6s var(--nm-ease-std) infinite}
 @keyframes nm-terra-pulse{0%,100%{opacity:.95}50%{opacity:.62}}
@@ -350,6 +355,14 @@ window.__ModuleLoader__.load({
 .nm-terra-scale-bar{display:block;flex:1;height:4px;border-radius:999px;background:linear-gradient(90deg,rgb(36 52 70) 0%,rgb(58 88 112) 28%,rgb(104 143 172) 55%,rgb(168 200 222) 78%,rgb(226 240 250) 100%)}
 .nm-terra-bar{display:block;height:3px;border-radius:2px;background:color-mix(in srgb,#8fd3ff 14%,transparent);overflow:hidden}
 .nm-terra-bar-fill{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#3d7ea6,#8fd3ff);transition:width 420ms var(--nm-ease-std)}
+/* 存为地图资产。放在进度条下面一行，和「高程」图例同区域 —— 
+   它是这张图的一个动作，不该跑到卡片外面去。 */
+.nm-terra-save{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}
+.nm-terra-save-btn{padding:6px 13px;font-size:11.5px;font-weight:600;color:var(--nm-text);background:var(--nm-card);border:1px solid var(--nm-border);border-radius:8px;cursor:pointer;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out)}
+.nm-terra-save-btn:hover:not(:disabled){border-color:color-mix(in srgb,var(--nm-accent) 55%,var(--nm-border));color:var(--nm-accent)}
+.nm-terra-save-btn:disabled{opacity:.55;cursor:default}
+.nm-terra-save-ok{font-size:11px;color:var(--nm-good)}
+.nm-terra-save-err{font-size:11px;color:var(--nm-error)}
 /* 尊重系统的减少动效设置。 */
 @media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-terra-front,.nm-terra-glow,.nm-terra-bar-fill{transition:none;animation:none}}
 `
@@ -2788,7 +2801,65 @@ window.__ModuleLoader__.load({
       return levels
     }
 
-    function TerrainGlyph({ items, percent }) {
+    /**
+     * 地名标注的避让。
+     *
+     * 山头位置由资产序号决定，两个相邻序号本来就挨得不远，标签一长就直接
+     * 压在一起 —— 实测「世界状态」把「大纲」盖掉了，两个名字都读不出来。
+     *
+     * 做法是沿径向把过近的标签往外推：标签相对自己那个山头往外挪，
+     * 挪到与已放置的标签都不冲突为止。只推标签不推标杆，标杆位置始终
+     * 忠实反映山头 —— 那是数据，不能被排版挪动。
+     *
+     * 推不动了（推到画布边缘）就放弃这个标签，而不是硬挤着画。
+     * 少一个名字，好过两个名字糊成一团。
+     */
+    function terraLabelLayout(sites, size, reach) {
+      const placed = []
+      const out = []
+      // 标签的估算占位。字号 2.9，中文按一个字 2.9 宽算，再留两个字的余量
+      const widthOf = (text) => 2.9 * Math.min(9, Math.max(2, String(text).length)) + 2
+      for (const site of sites) {
+        const label = String(site.label ?? site.key ?? '')
+        if (!label) continue
+        const cx = site.x * size
+        const cy = site.y * size
+        // 没探明的不标 —— 和等高线保持同一套「还没长出来」的语义
+        if (Math.hypot(cx - size / 2, cy - size / 2) > reach + 1) continue
+        // 往外推的方向：从画布中心指向该点。正好在中心时给个默认方向。
+        let ux = cx - size / 2
+        let uy = cy - size / 2
+        const len = Math.hypot(ux, uy) || 1
+        ux /= len; uy /= len
+        const w = widthOf(label)
+        const hgt = 3.6
+        let best = null
+        // 从 0 开始逐渐加长外推距离，找第一个不打架的位置
+        for (let push = 0; push <= 14; push += 1.4) {
+          const ax = cx + ux * push
+          const ay = cy + uy * push
+          // 文字从锚点向内侧展开，贴边时翻转锚点，避免被裁
+          const flip = ax > size * 0.66
+          const left = flip ? ax - w - 2.4 : ax + 2.4
+          const box = { x1: left, y1: ay - hgt / 2, x2: left + w, y2: ay + hgt / 2 }
+          // 出界就不考虑这个位置
+          if (box.x1 < 0.5 || box.x2 > size - 0.5 || box.y1 < 0.5 || box.y2 > size - 0.5) continue
+          const clash = placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1)
+          if (!clash) { best = { ax, ay, flip, box }; break }
+        }
+        if (!best) continue
+        placed.push(best.box)
+        out.push({ key: site.key, label, cx, cy, ax: best.ax, ay: best.ay, flip: best.flip })
+      }
+      return out
+    }
+
+    function TerrainGlyph({ items, percent, project }) {
+      const [saving, setSaving] = useState(false)
+      const [saved, setSaved] = useState('')
+      const [saveError, setSaveError] = useState('')
+      const alive = useRef(true)
+      useEffect(() => () => { alive.current = false }, [])
       const list = items ?? []
       const total = list.length
       const done = list.filter((i) => i.exists).length
@@ -2799,6 +2870,12 @@ window.__ModuleLoader__.load({
       const complete = total > 0 && done >= total
       const peak = TERRA.peak ?? { x: TERRA.size / 2, y: TERRA.size / 2 }
       const S = TERRA.size
+      // 地名标注用与造山完全相同的一套坐标，标注点才会正好落在山头上。
+      // label 取资产的显示名（去掉 .md 后缀），没有就用原始 key。
+      const sites = terraSites(list).map((site) => ({
+        ...site,
+        label: String(site.key).replace(/\.(md|txt|json)$/iu, ''),
+      }))
 
       // 揭示半径：进度从中心向外扩张，把已经「写出来」的那一块显影。
       //
@@ -2811,6 +2888,48 @@ window.__ModuleLoader__.load({
       // 增长与百分比同步 —— 线性映射半径时，前 20% 才覆盖 4% 的面积，
       // 观感上会显得「卡住不动」。
       const reach = Math.sqrt(pct) * S * 0.80
+      // 标注的最终位置：避让、边界裁剪、未探明过滤都在这个函数里做
+      const labelPlan = terraLabelLayout(sites, S, reach)
+
+      /**
+       * 把当前地形与地名交给后端落盘。
+       *
+       * 客户端只发「地名、位置、高度、等高线路径」，SVG 由服务端拼 ——
+       * 让前端提交成品文件等于给这个接口开了个通用写文件口子。
+       *
+       * 只发已经探明的地名：没写完的资产在界面上没标，存下来也不该有。
+       */
+      async function saveMapAsset() {
+        if (saving) return
+        setSaving(true)
+        setSaved('')
+        setSaveError('')
+        try {
+          const projectName = project?.name ?? project?.project ?? ''
+          if (!projectName) throw new Error('还没选中项目')
+          const result = await api('atlas/map', {
+            body: {
+              project: projectName,
+              cwd: project?.cwd ?? '',
+              size: S,
+              layers: layers.map((layer) => layer.d),
+              sites: labelPlan.map((plan) => ({
+                name: plan.label,
+                x: plan.cx / S,
+                y: plan.cy / S,
+                height: (sites.find((site) => site.key === plan.key)?.height ?? 0.3),
+              })),
+            },
+          })
+          if (!alive.current) return
+          if (result?.error) throw new Error(result.error)
+          setSaved((result?.files ?? []).join('、') || '地图')
+        } catch (error) {
+          if (alive.current) setSaveError(String(error?.message ?? error))
+        } finally {
+          if (alive.current) setSaving(false)
+        }
+      }
 
       return h('div', { className: 'nm-terra', 'data-complete': complete ? '1' : '0' },
         h('div', { className: 'nm-terra-head' },
@@ -2868,12 +2987,49 @@ window.__ModuleLoader__.load({
           // 渲染瑕疵，双环加柔光才像「山顶的光」，也才配得上地形图的气质。
           complete ? h('g', { className: 'nm-terra-glow' },
             h('circle', { cx: peak.x, cy: peak.y, r: 4.2, fill: 'none', stroke: '#9adcff', strokeWidth: 0.35, opacity: 0.45 }),
-            h('circle', { cx: peak.x, cy: peak.y, r: 1.5, fill: '#dff3ff', opacity: 0.95 })) : null)),
+            h('circle', { cx: peak.x, cy: peak.y, r: 1.5, fill: '#dff3ff', opacity: 0.95 })) : null,
+          // ---- 地名标注 ----
+          //
+          // 只标「已经探明」的那几个：地名跟着资产走，没写完的资产本来就
+          // 还没定名，提前把名字钉在地图上属于剧透自己。
+          // 揭示遮罩不作用于文字 —— 文字半透明压在等高线上会看不清，
+          // 而看不清的地图等于没有地图。这里改用 opacity 直接控制。
+          // 位置由 terraLabelLayout 统一避让，见那个函数的注释。
+          labelPlan.length ? h('g', { className: 'nm-terra-sites' },
+            labelPlan.map((plan) => h('g', { key: plan.key, opacity: 0.86 },
+              // 标杆固定在山头真实位置，只有文字被推开
+              h('circle', { cx: plan.cx, cy: plan.cy, r: 0.85, fill: '#dff3ff', opacity: 0.9 }),
+              h('circle', { cx: plan.cx, cy: plan.cy, r: 2.1, fill: 'none', stroke: '#9adcff', strokeWidth: 0.22, opacity: 0.5 }),
+              // 文字被推远时，用一根细线连回标杆，才看得出这个地名属于哪个山头
+              Math.hypot(plan.ax - plan.cx, plan.ay - plan.cy) > 1.8 ? h('line', {
+                x1: plan.cx, y1: plan.cy, x2: plan.ax, y2: plan.ay,
+                stroke: '#9adcff', strokeWidth: 0.16, opacity: 0.4,
+              }) : null,
+              h('text', {
+                x: plan.ax + (plan.flip ? -2.4 : 2.4), y: plan.ay + 1.05,
+                textAnchor: plan.flip ? 'end' : 'start',
+                className: 'nm-terra-site-label',
+              }, plan.label)))) : null)),
         h('div', { className: 'nm-terra-scale' },
           h('span', { className: 'nm-terra-scale-label' }, '高程'),
           h('i', { className: 'nm-terra-scale-bar' })),
         h('div', { className: 'nm-terra-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
-          h('div', { className: 'nm-terra-bar-fill', style: { width: `${percent ?? 0}%` } })))
+          h('div', { className: 'nm-terra-bar-fill', style: { width: `${percent ?? 0}%` } })),
+        // ---- 存为地图资产 ----
+        //
+        // 这张图光在面板里看有点浪费：它其实是这部小说的地理结构。
+        // 存成项目里的 地图.svg + 地图.md 之后，它能被大纲引用、被模型读到、
+        // 也能直接拿去当生图参考。
+        h('div', { className: 'nm-terra-save' },
+          h('button', {
+            type: 'button',
+            className: 'nm-terra-save-btn',
+            disabled: saving || !project,
+            onClick: saveMapAsset,
+            title: '把当前地形连同地名存成项目里的 地图.svg 与 地图.md',
+          }, saving ? '正在保存…' : '存为地图资产'),
+          saved ? h('span', { className: 'nm-terra-save-ok', role: 'status' }, `已保存 ${saved}`) : null,
+          saveError ? h('span', { className: 'nm-terra-save-err', role: 'alert' }, saveError) : null))
     }
 
     /** 资产清单里每一项的图标：已写好打勾，空文件是空心点，没建过是虚线圈。 */
@@ -2985,7 +3141,7 @@ window.__ModuleLoader__.load({
         // 总览：一个环形进度 + 两个关键数字
         // 地貌等高线：把「8 项里完成了几项」变成一块正在浮出水面的陆地。
         // 环形图保留在上方给一个精确数字，两者互补 —— 图给直觉，环给刻度。
-        h(TerrainGlyph, { items: readiness?.items, percent: readiness?.percent ?? 0 }),
+        h(TerrainGlyph, { items: readiness?.items, percent: readiness?.percent ?? 0, project }),
 
         h('div', { className: 'nm-prog-hero' },
           h('div', { className: 'nm-prog-ring', style: { '--pct': readiness?.percent ?? 0 }, role: 'img', 'aria-label': `基础资产完成 ${readiness?.percent ?? 0}%` },

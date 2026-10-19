@@ -35,6 +35,7 @@ import {
 import { marketCommand } from './cmd-market.js'
 import { withProjectsDirectory } from './project.js'
 import { buildAtlas } from './atlas.js'
+import { saveWorldMap } from './world-map.js'
 import { buildPrompt, generateImage, imageStatus } from './artwork.js'
 import { bindAsset, listAssets, unbindAsset } from './assets.js'
 import { resolveImageConfig } from './image-config.js'
@@ -388,6 +389,13 @@ export function apply(ctx, config = {}) {
     atlas: (searchParams) => buildAtlas({
       cwd: searchParams?.get?.('cwd') ?? '',
       projectsDirectory: readField(config, 'projectsDir') ?? 'novel_projects',
+    }),
+    // 把设定树里的地形存成项目资产（地图.svg + 地图.md）。
+    // 客户端只提交地名与位置，SVG 全由服务端生成。
+    saveMap: (body) => saveWorldMap(body?.cwd ?? '', body?.project, {
+      layers: body?.layers,
+      sites: body?.sites,
+      size: body?.size,
     }),
     imageStatus: () => imageStatus(config),
     // 对话模型：把一句话描述扩写成生图提示词（宿主侧发请求，无 CORS）

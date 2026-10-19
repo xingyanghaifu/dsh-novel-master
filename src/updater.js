@@ -275,6 +275,16 @@ export function installUpdater(ctx, options = {}) {
           if (typeof options.atlas !== 'function') return send(res, 503, { error: 'atlas-unavailable' })
           return send(res, 200, options.atlas(new URL(req.url, 'http://localhost').searchParams))
         }
+        // 把设定树里画出来的地形存成项目资产（地图.svg + 地图.md）。
+        // 放在 /atlas 之下是因为它就是设定树的一个动作，客户端也只从那里调。
+        if (req.method === 'POST' && action === '/atlas/map') {
+          if (typeof options.saveMap !== 'function') return send(res, 503, { error: 'atlas-unavailable' })
+          try {
+            return send(res, 200, await options.saveMap(await body(req)))
+          } catch (error) {
+            return send(res, 400, { error: String(error?.message ?? error) })
+          }
+        }
         if (req.method === 'GET' && action === '/image/status') {
           if (typeof options.imageStatus !== 'function') return send(res, 503, { error: 'image-unavailable' })
           return send(res, 200, options.imageStatus())

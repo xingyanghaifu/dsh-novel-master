@@ -142,6 +142,37 @@ export function readProjectFile(cwd, name, file) {
   }
 }
 
+/**
+ * 往项目目录里写一个文本文件，原子替换。
+ *
+ * 和 writeState 一样先写临时文件再 rename —— 中途失败不会留下半个文件，
+ * 读者永远看到完整的旧版本或完整的新版本。
+ *
+ * 文件名必须落在项目目录内。这个函数会被「把地形导出为地图资产」这类
+ * 上层调用，文件名一旦能被外部影响，`../` 就能写到项目外面去。这里用
+ * 解析后的绝对路径做前缀比对，而不是正则拦 `..` —— 后者挡不住符号链接，
+ * 也挡不住 Windows 上的短名与大小写差异。
+ *
+ * @returns {boolean} 是否写入成功
+ */
+export function writeProjectFile(cwd, name, file, content) {
+  const root = path.resolve(projectDir(cwd, name))
+  const target = path.resolve(root, file)
+  // 等于 root 说明 file 解析成了目录本身；不在 root 下说明穿越了
+  if (target === root || !target.startsWith(root + path.sep)) return false
+  const temp = `${target}.${process.pid}.tmp`
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(temp, content, 'utf8')
+    fs.renameSync(temp, target)
+    return true
+  } catch {
+    // 失败时清掉临时文件，别在项目里留垃圾
+    try { fs.rmSync(temp, { force: true }) } catch { /* 清理失败就算了 */ }
+    return false
+  }
+}
+
 /** Chapters sorted by number: `{ number, title, file, chars }`. */
 export function listChapters(cwd, name) {
   const dir = path.join(projectDir(cwd, name), CHAPTER_DIR)
