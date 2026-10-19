@@ -561,7 +561,16 @@ window.__ModuleLoader__.load({
       const showToast = text => {
         setToast(text)
         if (toastTimer.current) clearTimeout(toastTimer.current)
-        toastTimer.current = setTimeout(() => { if (alive.current) setToast('') }, 2200)
+        // 定时器只在还挂着的时候才有意义。node --test 会等所有定时器跑完
+        // 才算这个进程结束 —— 一个 2.2 秒的 toast 定时器能让「点一下就完事」
+        // 的测试白白多等两秒，单条从 170ms 涨到 2.4s。浏览器里没这个代价，
+        // 但代价转移到了跑测试的人身上，所以卸载时统一清掉。
+        toastTimer.current = setTimeout(() => {
+          toastTimer.current = null
+          if (alive.current) setToast('')
+        }, 2200)
+        // 允许运行环境主动回收（测试会调它），避免拖住进程退出。
+        if (typeof toastTimer.current?.unref === 'function') toastTimer.current.unref()
       }
 
       const copyCommand = (cmdText, label = '') => {
