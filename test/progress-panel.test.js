@@ -84,7 +84,12 @@ function mount(options = {}) {
   const body = slots['sidebar.right.pane.tab']?.['dsh-novel-master/progress']
   const title = slots['sidebar.right.pane.tab.title']?.['dsh-novel-master/progress']
   const flatten = node => Array.isArray(node) ? node.flatMap(flatten) : !node || typeof node !== 'object' ? [] : [node, ...(node.children ?? []).flatMap(flatten)]
-  const text = node => Array.isArray(node) ? node.map(text).join('') : node && typeof node === 'object' ? (node.children ?? []).map(text).join('') : node == null || node === false ? '' : String(node)
+  // 把渲染树拼成纯文本用于断言。必须跳过 <style>：它的子节点是整张 CSS，
+  // 里面必然出现界面用词（比如某条注释写了「批量写作」），一旦纳入，
+  // 「页面上没有这段文字」这类断言会假失败 —— 排查起来极浪费时间。
+  const text = node => Array.isArray(node) ? node.map(text).join('')
+    : node && typeof node === 'object' ? (node.type === 'style' ? '' : (node.children ?? []).map(text).join(''))
+    : node == null || node === false ? '' : String(node)
 
   const paint = () => {
     stateIndex = 0

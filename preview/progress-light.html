@@ -61,8 +61,16 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
 @keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
 /* 帮助按钮原来 absolute 在 hero 右上角，正好压住「刷新设置与状态」按钮，
    文字被遮掉一半。改成跟着文档流排在右侧，靠 margin-left:auto 顶到最右。 */
-.nm-help-btn{flex:none;margin-left:auto;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:34px;height:34px;font-size:16px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 32%,transparent);transition:transform .2s ease,box-shadow .2s ease}
-.nm-help-btn:hover{transform:scale(1.08) rotate(5deg);box-shadow:0 8px 24px rgba(0,0,0,0.28),0 0 0 4px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+/* 帮助按钮。
+   两个坑叠在一起：
+   1) 「.nm-settings button」优先级 0,1,1，会盖掉「.nm-help-btn」的 0,1,0，
+      于是 border-radius 被改成 12px、padding 被改成 9px 16px —— 圆形变圆角
+      方形，问号被 padding 挤得偏右上。选择器必须带上 .nm-settings。
+   2) 问号不垂直居中：按钮继承了父级 line-height:1.65，字框比 34px 高，
+      grid 居中居的是那个更高的字框。显式 line-height:1 后用 padding 微调
+      字形自身的光学重心。 */
+.nm-settings .nm-help-btn{flex:none;margin:6px 0 0 auto;width:34px;height:34px;padding:0 0 1px;line-height:1;font-size:15px;font-weight:600;color:var(--nm-muted);background:var(--nm-card);border:1px solid var(--nm-border);border-radius:50%;cursor:pointer;display:grid;place-items:center;transition:color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),background-color var(--nm-t-fast) var(--nm-ease-out)}
+.nm-settings .nm-help-btn:hover{color:var(--nm-text);border-color:var(--nm-hairline);background:var(--nm-raised);transform:none;box-shadow:none}
 .nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
 .nm-guide-box{background:var(--nm-card);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
 .nm-guide-header{padding:32px 32px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),var(--nm-card));border-bottom:1px solid color-mix(in srgb,var(--nm-accent) 15%,var(--nm-border));display:flex;align-items:center;gap:16px;position:relative}
@@ -303,7 +311,356 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
 /* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
    渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
 .nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
+   每个格子代表一块正在生成的地形，靠颜色而非数字表达进度。
+   格子用 2px 间距 + 1px 内描边做出方块感，不用圆角 —— 圆角会立刻失去
+   「像素方块」的语感，变成普通的进度点阵。 */
+.nm-world{display:flex;flex-direction:column;gap:9px;padding:13px 13px 12px;border-radius:var(--nm-r-lg);background:color-mix(in srgb,var(--nm-text) 5%,var(--nm-card));box-shadow:var(--nm-ring)}
+.nm-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted);text-transform:uppercase}
+.nm-world-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-world-grid{display:grid;grid-template-columns:repeat(var(--nm-world-cols,12),1fr);gap:2px}
+.nm-world-grid i{display:block;aspect-ratio:1;border-radius:1px;background:#000;box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 8%,transparent);transition:background-color 420ms var(--nm-ease-std)}
+/* 三种状态用三种明度层次。已完成的格子按资产类型取不同地形色，
+   让整片图看起来像真的长出了不同地形，而不是一色刷到底。 */
+.nm-world-grid i[data-state=done]{background:var(--nm-block-tint,#21C600)}
+/* 未生成的两档要和背景区分得开：早先 #3a3a2a / #2a2a2a 在近黑底上糊成一片，
+   九成格子看着像压根没画出来。参照官方色表 empty=#545454，取更亮一档并降低
+   不透明度，保留「暗但可见」的层次。 */
+.nm-world-grid i[data-state=empty]{background:color-mix(in srgb,#999999 42%,transparent)}
+.nm-world-grid i[data-state=missing]{background:color-mix(in srgb,#848484 26%,transparent)}
+.nm-world-grid i[data-pad="1"]{background:transparent;box-shadow:none}
+.nm-world-bar{height:4px;border-radius:0;background:color-mix(in srgb,#000 45%,transparent);overflow:hidden}
+.nm-world-bar-fill{height:100%;border-radius:0;background:linear-gradient(90deg,#21C600,#7ef07e);transition:width 420ms var(--nm-ease-std)}
 /* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
-@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill{transition:none}}
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-world-grid i,.nm-world-bar-fill{transition:none}}
 
-</style></head><body><div style="width:330px;height:720px;background:var(--dsw-alias-bg-base)"><div class="nm-atlas nm-prog"><div class="nm-atlas-head"><span class="nm-atlas-title-icon"><svg class="nm-progress-title-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" opacity="0.35"/><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" stroke-width="2.2"/><path d="M12 7.5V12l3 1.8"/></svg>长夜将至</span><div class="nm-prog-actions"><label class="nm-prog-auto"><input type="checkbox" checked="true" aria-label="自动刷新进度"/><span >自动刷新</span></label><button class="nm-atlas-refresh" type="button" aria-label="刷新进度"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.9-4.2"/><path d="M13.5 2v3.2h-3.2"/></svg></button></div></div><div class="nm-prog-hero"><div class="nm-prog-ring" style="--pct:63" role="img" aria-label="基础资产完成 63%"><svg viewBox="0 0 48 48" width="60" height="60"><circle class="nm-prog-ring-track" cx="24" cy="24" r="19" stroke-width="5"/><circle class="nm-prog-ring-arc" cx="24" cy="24" r="19" stroke-width="5" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="44.178" transform="rotate(-90 24 24)"/></svg><span class="nm-prog-ring-num">63%</span></div><div class="nm-prog-hero-text"><div class="nm-prog-hero-title">基础资产<b >5/8</b></div><div class="nm-prog-next"><span >下一步：生成大纲</span><code class="nm-inlinecode">/novel-outline</code></div></div></div><div class="nm-prog-sections"><div class="nm-prog-section"><div class="nm-prog-section-head">资产清单</div><ul class="nm-prog-list"><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">世界观</span><span class="nm-prog-meta">4 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">人设</span><span class="nm-prog-meta">6 节</span></li><li class="nm-prog-item" data-state="missing"><span class="nm-prog-mark" data-state="missing" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6" stroke-width="1.4" stroke-dasharray="2.5 3" opacity="0.55"/></svg></span><span class="nm-prog-label">大纲</span><span class="nm-prog-meta">未创建</span></li><li class="nm-prog-item" data-state="missing"><span class="nm-prog-mark" data-state="missing" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6" stroke-width="1.4" stroke-dasharray="2.5 3" opacity="0.55"/></svg></span><span class="nm-prog-label">世界状态</span><span class="nm-prog-meta">未创建</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">伏笔</span><span class="nm-prog-meta">0 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">剧情树</span><span class="nm-prog-meta">3 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">写作规范</span><span class="nm-prog-meta">2 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">正文</span><span class="nm-prog-meta">5 章</span></li></ul></div><div class="nm-prog-section"><div class="nm-prog-section-head">批量写作<span class="nm-prog-phase" data-phase="running">正在写</span></div><div class="nm-prog-bar" role="progressbar" aria-valuenow="42" aria-valuemin="0" aria-valuemax="100"><div class="nm-prog-bar-fill" style="width:42%" data-phase="running"></div></div><div class="nm-prog-batch-meta">5 / 12 章</div></div></div><div class="nm-prog-foot">正文 5 / 12 章 · 23400 字</div></div></div></body></html>
+</style></head><body><div style="width:330px;height:720px;background:var(--dsw-alias-bg-base)"><div class="nm-atlas nm-prog"><style >
+.nm-settings,.nm-atlas,.nm-art{--nm-r-sm:6px;--nm-r-md:10px;--nm-r-lg:14px;--nm-r-xl:20px;--nm-t-fast:120ms;--nm-t-base:200ms;--nm-ease-out:cubic-bezier(.22,1,.36,1);--nm-ease-std:cubic-bezier(.4,0,.2,1);--nm-ring:0 0 0 .5px var(--nm-hairline);--nm-hairline:color-mix(in srgb,var(--nm-text) 11%,transparent)}
+.nm-settings{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-caption:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-border-glow:color-mix(in srgb,var(--nm-accent) 22%,var(--nm-border));--nm-accent:var(--dsw-alias-state-business-primary,var(--dsw-alias-link,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);--nm-error:var(--dsw-alias-state-error-primary,#c84d55);--nm-raised:color-mix(in srgb,var(--nm-text) 4%,var(--nm-card));max-width:1200px;margin:0 auto;padding:32px 28px;color:var(--nm-text);font-size:13px;line-height:1.65;display:flex;flex-direction:column;gap:28px}
+.nm-settings *{box-sizing:border-box}.nm-settings [hidden]{display:none!important}.nm-settings h2,.nm-settings h3,.nm-settings h4,.nm-settings p{margin:0}.nm-settings h2{font-size:26px;font-weight:700;letter-spacing:-.6px}.nm-settings h3{font-size:17px;font-weight:600;display:flex;align-items:center;gap:10px}.nm-settings h4{font-size:14px;font-weight:600}.nm-settings .nm-muted{color:var(--nm-muted);font-size:12px}
+/* Hero 卡：原来是一层 18% 彩色径向光晕 + 145deg 对角渐变。深色下前者就是一块
+   蓝斑，后者在近黑底上会显出「幕布折痕」。改成几乎不可见的顶部微亮 + 0.5px
+   边环 + 双层阴影 —— 层次靠明度与边环表达，不靠彩色氛围。 */
+.nm-settings .nm-hero{padding:26px 28px;border:0;border-radius:var(--nm-r-xl);background:var(--nm-card);box-shadow:var(--nm-ring),0 1px 2px color-mix(in srgb,var(--nm-text) 8%,transparent),0 10px 30px -12px color-mix(in srgb,var(--nm-text) 22%,transparent),inset 0 1px 0 color-mix(in srgb,#fff 5%,transparent);display:flex;flex-direction:column;gap:20px}
+.nm-settings .nm-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.nm-settings .nm-between{justify-content:space-between}.nm-settings .nm-brand{display:flex;align-items:center;gap:18px}.nm-settings .nm-logo{width:58px;height:58px;display:grid;place-items:center;border-radius:20px;color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 16%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card)));border:1px solid color-mix(in srgb,var(--nm-accent) 35%,transparent);box-shadow:0 6px 18px -4px color-mix(in srgb,var(--nm-accent) 30%,transparent);transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}.nm-settings .nm-logo:hover{box-shadow:0 8px 24px -4px color-mix(in srgb,var(--nm-accent) 40%,transparent)}.nm-settings .nm-logo svg{width:32px;height:32px}
+.nm-settings .nm-badge,.nm-settings .nm-chip{font-size:11px;border:1px solid var(--nm-border);border-radius:999px;padding:5px 13px;display:inline-flex;align-items:center;gap:8px;background:var(--nm-card);color:var(--nm-muted);transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}.nm-settings .nm-badge{color:var(--nm-accent);font-weight:650;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 30%,transparent);box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 15%,transparent)}.nm-settings .nm-chip{backdrop-filter:blur(8px)}.nm-settings .nm-chip i{width:7px;height:7px;border-radius:50%;background:var(--nm-muted);transition:background .2s ease;box-shadow:0 0 0 0 transparent}.nm-settings .nm-chip[data-on=true]{color:var(--nm-text);border-color:color-mix(in srgb,var(--nm-good) 35%,var(--nm-border));background:color-mix(in srgb,var(--nm-good) 8%,var(--nm-card))}.nm-settings .nm-chip[data-on=true] i{background:var(--nm-good);box-shadow:0 0 8px var(--nm-good),0 0 0 2px color-mix(in srgb,var(--nm-good) 20%,transparent)}
+.nm-settings .nm-tabs{display:flex;gap:8px;padding:8px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:14px;overflow:auto;box-shadow:0 2px 8px rgba(0,0,0,0.04)}.nm-settings .nm-tabs button{flex:1;white-space:nowrap;border:0;background:transparent;border-radius:12px;color:var(--nm-muted);padding:11px 20px;font-weight:550;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);position:relative}.nm-settings .nm-tabs button:hover:not([aria-selected=true]){color:var(--nm-text);background:color-mix(in srgb,CanvasText 5%,transparent)}.nm-settings .nm-tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-raised)));color:var(--nm-accent);box-shadow:0 3px 12px color-mix(in srgb,CanvasText 10%,transparent),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);font-weight:700}
+.nm-settings button{font:inherit;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-raised);padding:9px 16px;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);font-weight:550}.nm-settings button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised));transform:translateY(-2px);box-shadow:0 4px 12px color-mix(in srgb,var(--nm-accent) 20%,transparent)}.nm-settings button:active:not(:disabled){transform:translateY(0)}.nm-settings button:focus-visible,.nm-settings input:focus-visible,.nm-settings summary:focus-visible,.nm-settings select:focus-visible{outline:2px solid var(--nm-accent);outline-offset:3px}.nm-settings button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.nm-settings .nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 18%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:650;box-shadow:0 3px 10px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}.nm-settings .nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 25%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 18%,var(--nm-card)));border-color:var(--nm-accent);box-shadow:0 6px 16px -2px color-mix(in srgb,var(--nm-accent) 45%,transparent)}.nm-settings .nm-quiet{background:transparent;border-color:transparent;color:var(--nm-muted);font-size:12px}.nm-settings .nm-stack{display:flex;flex-direction:column;gap:24px}
+.nm-settings .nm-card{padding:28px;border:0;box-shadow:var(--nm-ring),0 1px 2px color-mix(in srgb,var(--nm-text) 7%,transparent),0 8px 24px -12px color-mix(in srgb,var(--nm-text) 20%,transparent);border-radius:20px;background:var(--nm-card);display:flex;flex-direction:column;gap:20px;min-width:0;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}.nm-settings .nm-card:hover{box-shadow:var(--nm-ring),0 2px 4px color-mix(in srgb,var(--nm-text) 8%,transparent),0 14px 32px -14px color-mix(in srgb,var(--nm-text) 24%,transparent)}.nm-settings .nm-cardhead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.nm-settings .nm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.nm-settings .nm-wide{grid-column:1/-1}.nm-settings .nm-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.nm-settings .nm-search{flex:1;min-width:220px;box-shadow:0 2px 6px color-mix(in srgb,CanvasText 5%,transparent);border-radius:12px}
+.nm-settings input:not([type=checkbox]),.nm-settings select.nm-select{font:inherit;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-bg);padding:11px 16px;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}.nm-settings select.nm-select{cursor:pointer}.nm-settings select.nm-select option{background:var(--nm-card);color:var(--nm-text)}.nm-settings input:not([type=checkbox]):hover,.nm-settings select.nm-select:hover{border-color:color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border))}.nm-settings input:not([type=checkbox]):focus,.nm-settings select.nm-select:focus{border-color:var(--nm-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--nm-accent) 18%,transparent)}.nm-settings input:disabled,.nm-settings select:disabled{opacity:.55}
+.nm-settings .nm-field{display:flex;flex-direction:column;gap:8px;min-width:0}.nm-settings .nm-field&gt;span{font-weight:600;font-size:13px;color:var(--nm-text)}
+.nm-settings .nm-switch{display:flex;align-items:center;justify-content:space-between;gap:18px;position:relative;cursor:pointer;min-height:48px;padding:4px 0}.nm-settings .nm-switch input{position:absolute;right:0;top:50%;transform:translateY(-50%);width:46px;height:26px;opacity:0;margin:0;cursor:pointer}.nm-settings .nm-switch input:focus-visible + .nm-track{outline:2px solid var(--nm-accent);outline-offset:5px}.nm-settings .nm-track{width:46px;height:26px;border-radius:99px;border:1px solid var(--nm-border);background:var(--nm-bg);position:relative;flex:none;pointer-events:none;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);box-shadow:inset 0 2px 4px rgba(0,0,0,0.06)}.nm-settings .nm-track:after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--nm-muted);transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.nm-settings .nm-switch input:checked + .nm-track{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 22%,var(--nm-bg)));border-color:var(--nm-accent);box-shadow:inset 0 2px 4px color-mix(in srgb,var(--nm-accent) 30%,transparent)}.nm-settings .nm-switch input:checked + .nm-track:after{transform:translateX(20px);background:white;box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 60%,transparent),0 0 12px color-mix(in srgb,var(--nm-accent) 40%,transparent)}.nm-settings .nm-switch:has(input:disabled){opacity:.55;cursor:not-allowed}
+.nm-settings .nm-switchcopy{display:flex;flex-direction:column;gap:4px;min-width:0}.nm-settings .nm-switchcopy strong{font-size:14px;font-weight:650;color:var(--nm-text)}.nm-settings .nm-switchcopy small{font-size:12px;color:var(--nm-muted);line-height:1.6}.nm-settings .nm-group{padding:0;border:0;min-width:0;margin:0}.nm-settings .nm-group legend{font-weight:700;font-size:16px;margin-bottom:14px;width:100%;color:var(--nm-text)}.nm-settings .nm-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.nm-settings .nm-feature{padding:16px 18px;border:1px solid var(--nm-border);border-radius:14px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 95%,var(--nm-bg)));transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);display:flex;flex-direction:column;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.03)}.nm-settings .nm-feature:hover{border-color:color-mix(in srgb,var(--nm-accent) 65%,var(--nm-border));transform:translateY(-3px);box-shadow:0 6px 18px -4px color-mix(in srgb,var(--nm-accent) 25%,transparent),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent)}
+.nm-settings .nm-feature code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 7%,var(--nm-card)));padding:4px 9px;border-radius:6px;border:1px solid color-mix(in srgb,var(--nm-accent) 22%,transparent);cursor:pointer;overflow-wrap:anywhere;display:inline-flex;align-items:center;gap:6px;width:fit-content;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);font-weight:600}.nm-settings .nm-feature code:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 22%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 16%,var(--nm-card)));border-color:var(--nm-accent);transform:scale(1.03);box-shadow:0 3px 10px color-mix(in srgb,var(--nm-accent) 25%,transparent)}
+.nm-settings .nm-savebar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:18px;border-top:1px solid var(--nm-border);flex-wrap:wrap}.nm-settings .nm-dirty{color:var(--nm-accent);font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px}.nm-settings .nm-callout{padding:16px 20px;border-radius:14px;border:1px solid color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));color:var(--nm-text);font-size:13px;line-height:1.7;box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 12%,transparent)}.nm-settings .nm-alert{padding:18px 20px;border-radius:14px;border:1px solid color-mix(in srgb,var(--nm-error) 45%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-error) 9%,var(--nm-card)),color-mix(in srgb,var(--nm-error) 6%,var(--nm-card)));display:flex;align-items:center;justify-content:space-between;gap:14px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 3px 12px color-mix(in srgb,var(--nm-error) 15%,transparent)}.nm-settings .nm-success{border-color:color-mix(in srgb,var(--nm-good) 45%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-good) 9%,var(--nm-card)),color-mix(in srgb,var(--nm-good) 6%,var(--nm-card)));box-shadow:0 3px 12px color-mix(in srgb,var(--nm-good) 15%,transparent)}
+.nm-settings details{border:1px solid var(--nm-border);border-radius:14px;padding:16px 18px;background:color-mix(in srgb,var(--nm-bg) 65%,var(--nm-card));transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}.nm-settings details:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border))}.nm-settings summary{cursor:pointer;color:var(--nm-muted);font-weight:650;font-size:13px}.nm-settings details[open]&gt;summary{margin-bottom:18px;color:var(--nm-text)}.nm-settings .nm-metric{padding:20px;border:1px solid var(--nm-border);background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border-radius:14px;min-width:0;box-shadow:0 3px 10px color-mix(in srgb,CanvasText 4%,transparent);transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}.nm-settings .nm-metric:hover{box-shadow:0 5px 16px color-mix(in srgb,CanvasText 7%,transparent);border-color:color-mix(in srgb,var(--nm-accent) 25%,var(--nm-border))}.nm-settings .nm-metric span{font-size:11px;color:var(--nm-muted);display:block;font-weight:600}.nm-settings .nm-metric strong{display:block;font-size:24px;font-weight:750;margin:8px 0;color:var(--nm-text);letter-spacing:-.5px}.nm-settings .nm-metric code{display:block;font-size:11px;color:var(--nm-accent);overflow-wrap:anywhere;font-weight:600}
+.nm-settings .nm-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.nm-settings .nm-skeleton{height:110px;border-radius:14px;background:linear-gradient(100deg,var(--nm-card),var(--nm-raised),var(--nm-card));background-size:200% 100%;animation:nm-settings-load 1.6s ease infinite}.nm-settings .nm-empty{text-align:center;padding:40px;color:var(--nm-muted);font-size:14px}.nm-settings .nm-footer{font-size:12px;color:var(--nm-muted);text-align:center;padding:16px 0}
+.nm-settings .nm-inlinecode{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:4px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--nm-accent) 25%,transparent);overflow-wrap:anywhere;font-weight:600}
+.nm-settings .nm-workbench-pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;padding:18px;background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:14px}
+.nm-settings .nm-pipeline-step{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,var(--nm-card),color-mix(in srgb,var(--nm-bg) 98%,var(--nm-card)));border:1px solid var(--nm-border);transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-pipeline-step:hover{border-color:var(--nm-accent);box-shadow:0 6px 16px -3px color-mix(in srgb,var(--nm-accent) 25%,transparent)}
+.nm-settings .nm-pipeline-badge{font-size:11px;font-weight:700;color:var(--nm-accent);display:inline-flex;align-items:center;gap:7px}
+.nm-settings .nm-pipeline-title{font-size:14px;font-weight:650;color:var(--nm-text)}
+.nm-settings .nm-pipeline-desc{font-size:11px;color:var(--nm-muted);line-height:1.5}
+/* 模型选择：带搜索的浮层，模型多时按关键词过滤 */
+.nm-settings .nm-modelpick{flex:none;white-space:nowrap;font-size:12px;padding:9px 14px}
+.nm-settings .nm-modelpop{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);box-shadow:0 8px 24px -8px color-mix(in srgb,CanvasText 22%,transparent);margin-top:8px}
+.nm-settings .nm-modelsearch{width:100%}
+.nm-settings .nm-modelhint{font-size:11px;color:var(--nm-muted);padding:0 2px}
+.nm-settings .nm-modellist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.nm-settings .nm-modelitem{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;background:transparent;padding:7px 9px;cursor:pointer;font:inherit;font-size:12px;color:var(--nm-text)}
+.nm-settings .nm-modelitem:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-settings .nm-modelitem[aria-selected=true]{background:color-mix(in srgb,var(--nm-accent) 16%,transparent);color:var(--nm-accent);font-weight:650}
+.nm-settings .nm-modelprov{flex:none;font-size:10.5px;color:var(--nm-muted);min-width:64px}
+.nm-settings .nm-modelname{font-family:var(--nm-mono,ui-monospace,monospace);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-settings .nm-modelempty{font-size:11.5px;color:var(--nm-muted);padding:12px 10px;text-align:center;line-height:1.6}
+.nm-settings .nm-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.nm-settings .nm-quick-card{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border:1px solid var(--nm-border);border-radius:14px;cursor:pointer;gap:14px;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-quick-card:hover{border-color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));transform:translateY(-2px);box-shadow:0 5px 14px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-settings .nm-toast{position:fixed;bottom:32px;right:32px;z-index:9999;padding:12px 24px;border-radius:999px;background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-card) 95%,var(--nm-raised)));border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));color:var(--nm-text);font-size:13px;font-weight:650;box-shadow:0 10px 32px -6px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);display:flex;align-items:center;gap:10px;animation:nm-toast-in .3s cubic-bezier(0.34,1.56,0.64,1);backdrop-filter:blur(12px)}
+.nm-settings .nm-topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
+/* 输入框吃掉剩余宽度，按钮保持自身宽度不换行 —— 否则窄一点就把
+   「📁 浏览…」挤成两行，按钮高度跟着变，整行错位。 */
+.nm-path-box&gt;input{flex:1;min-width:0}
+.nm-path-box&gt;button{flex:none;white-space:nowrap}
+@keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
+/* 帮助按钮原来 absolute 在 hero 右上角，正好压住「刷新设置与状态」按钮，
+   文字被遮掉一半。改成跟着文档流排在右侧，靠 margin-left:auto 顶到最右。 */
+/* 帮助按钮。
+   两个坑叠在一起：
+   1) 「.nm-settings button」优先级 0,1,1，会盖掉「.nm-help-btn」的 0,1,0，
+      于是 border-radius 被改成 12px、padding 被改成 9px 16px —— 圆形变圆角
+      方形，问号被 padding 挤得偏右上。选择器必须带上 .nm-settings。
+   2) 问号不垂直居中：按钮继承了父级 line-height:1.65，字框比 34px 高，
+      grid 居中居的是那个更高的字框。显式 line-height:1 后用 padding 微调
+      字形自身的光学重心。 */
+.nm-settings .nm-help-btn{flex:none;margin:6px 0 0 auto;width:34px;height:34px;padding:0 0 1px;line-height:1;font-size:15px;font-weight:600;color:var(--nm-muted);background:var(--nm-card);border:1px solid var(--nm-border);border-radius:50%;cursor:pointer;display:grid;place-items:center;transition:color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),background-color var(--nm-t-fast) var(--nm-ease-out)}
+.nm-settings .nm-help-btn:hover{color:var(--nm-text);border-color:var(--nm-hairline);background:var(--nm-raised);transform:none;box-shadow:none}
+.nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
+.nm-guide-box{background:var(--nm-card);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
+.nm-guide-header{padding:32px 32px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),var(--nm-card));border-bottom:1px solid color-mix(in srgb,var(--nm-accent) 15%,var(--nm-border));display:flex;align-items:center;gap:16px;position:relative}
+.nm-guide-icon{font-size:48px;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.12))}
+.nm-guide-title{font-size:24px;font-weight:750;margin:0;flex:1;color:var(--nm-text);letter-spacing:-.5px}
+.nm-guide-close{position:absolute;top:24px;right:24px;background:color-mix(in srgb,var(--nm-bg) 80%,transparent);border:0;color:var(--nm-muted);font-size:20px;cursor:pointer;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);backdrop-filter:blur(8px)}
+.nm-guide-close:hover{background:var(--nm-bg);color:var(--nm-text);transform:rotate(90deg)}
+.nm-guide-content{padding:32px;overflow-y:auto;flex:1;line-height:1.7}
+.nm-guide-intro{font-size:15px;color:var(--nm-text);margin:0 0 28px;padding:18px 20px;background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-bg));border-left:3px solid var(--nm-accent);border-radius:10px}
+.nm-guide-section{margin:20px 0;padding:20px;background:var(--nm-bg);border-radius:14px;border:1px solid var(--nm-border);transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}
+.nm-guide-section:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+.nm-guide-section-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.nm-guide-section-icon{font-size:28px;line-height:1}
+.nm-guide-section-title{font-size:16px;font-weight:700;color:var(--nm-text);margin:0}
+.nm-guide-section-content{color:var(--nm-text);font-size:13px;line-height:1.7}
+.nm-guide-section-content p{margin:8px 0}
+.nm-guide-section-content ul{margin:10px 0;padding-left:0;list-style:none}
+.nm-guide-section-content li{margin:8px 0;padding-left:24px;position:relative}
+.nm-guide-section-content li:before{content:'→';position:absolute;left:0;color:var(--nm-accent);font-weight:700}
+.nm-guide-commands{display:grid;gap:10px;margin-top:12px}
+.nm-guide-cmd{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--nm-card);border:1px solid var(--nm-border);border-radius:10px;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}
+.nm-guide-cmd:hover{border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card))}
+.nm-guide-cmd code{font-family:ui-monospace,monospace;font-size:12px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:5px 12px;border-radius:6px;border:1px solid color-mix(in srgb,var(--nm-accent) 20%,transparent);flex:1;font-weight:600}
+.nm-guide-cmd-desc{font-size:11px;color:var(--nm-muted);white-space:nowrap}
+.nm-guide-footer{padding:24px 32px;background:linear-gradient(to top,color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card)),transparent);border-top:1px solid color-mix(in srgb,var(--nm-accent) 12%,var(--nm-border));display:flex;align-items:center;justify-content:space-between;gap:16px}
+.nm-guide-footer-tip{font-size:12px;color:var(--nm-muted);display:flex;align-items:center;gap:8px}
+.nm-guide-footer button{background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 90%,#6366f1));border:0;color:white;cursor:pointer;font-size:14px;font-weight:650;padding:13px 32px;border-radius:12px;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 30%,transparent)}
+.nm-guide-footer button:hover{transform:translateY(-2px);box-shadow:0 6px 20px color-mix(in srgb,var(--nm-accent) 40%,transparent)}
+.nm-guide-wide{max-width:860px}
+.nm-guide-note{margin:10px 0;padding:10px 14px;background:color-mix(in srgb,var(--nm-accent) 7%,var(--nm-bg));border-radius:10px;border-left:3px solid var(--nm-accent);font-size:12px;line-height:1.65}
+.nm-guide-section-content code{font-family:ui-monospace,monospace;font-size:11.5px;background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-bg));padding:2px 7px;border-radius:6px;color:var(--nm-accent);white-space:nowrap}
+.nm-guide-section-content strong{color:var(--nm-text);font-weight:650}
+@keyframes nm-fade-in{from{opacity:0}}
+@keyframes nm-slide-up{from{transform:translateY(40px) scale(0.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.nm-atlas{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-caption:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-accent:var(--dsw-alias-state-business-primary,var(--dsw-alias-link,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);--nm-error:var(--dsw-alias-state-error-primary,#c84d55);--nm-raised:color-mix(in srgb,var(--nm-text) 4%,var(--nm-card));height:100%;min-height:0;display:flex;flex-direction:column;color:var(--nm-text);font-size:13px;line-height:1.5}
+.nm-atlas *{box-sizing:border-box}.nm-atlas button{font:inherit;color:inherit}
+.nm-atlas-head{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--nm-border);flex-wrap:wrap}
+.nm-atlas-head select{flex:1;min-width:0;font:inherit;color:var(--nm-text);background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:8px;padding:5px 8px}
+.nm-atlas-refresh{flex:none;border:1px solid var(--nm-border);background:var(--nm-card);border-radius:8px;padding:5px 10px;cursor:pointer}
+.nm-atlas-refresh:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-atlas-refresh:disabled{opacity:.55;cursor:default}
+.nm-atlas-scroll{flex:1;min-height:0;overflow:auto;padding:10px 10px 16px}
+.nm-atlas-progress{padding:12px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.nm-atlas-progress-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-bar{height:8px;border-radius:99px;background:var(--nm-bg);border:1px solid var(--nm-border);overflow:hidden}
+.nm-atlas-bar-fill{height:100%;background:linear-gradient(90deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 55%,var(--nm-good)));transition:width .3s ease}
+.nm-atlas-stats{display:flex;flex-wrap:wrap;gap:6px}
+.nm-atlas-chip{font-size:11px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.nm-atlas-chip[data-warn=true]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 45%,var(--nm-border))}
+.nm-atlas-level{list-style:none;margin:0;padding:0}
+.nm-atlas-level .nm-atlas-level{border-left:1px solid var(--nm-border);margin-left:15px}
+.nm-atlas-item{margin:0;padding:0}
+.nm-atlas-row{width:100%;display:flex;align-items:center;gap:6px;text-align:left;border:0;background:transparent;border-radius:8px;padding:4px 8px;cursor:pointer;min-width:0}
+.nm-atlas-row:hover:not([data-leaf=true]){background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,CanvasText 6%,transparent))}
+.nm-atlas-row[data-leaf=true]{cursor:default}
+.nm-atlas-row:focus-visible{outline:2px solid var(--nm-accent);outline-offset:-2px}
+.nm-atlas-chevron{flex:none;width:12px;color:var(--nm-muted);font-size:10px;text-align:center}
+.nm-atlas-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-meta{flex:none;font-size:11px;color:var(--nm-muted)}
+.nm-atlas-row[data-missing=true] .nm-atlas-label,.nm-atlas-row[data-missing=true] .nm-atlas-chevron{color:var(--nm-muted);opacity:.75}
+.nm-atlas-message{padding:16px 10px;font-size:12px;color:var(--nm-muted);line-height:1.7}
+.nm-atlas-title-icon{flex:none}
+.nm-atlas-seg{flex:none;display:flex;gap:2px;padding:2px;border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-bg)}
+.nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px}
+.nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
+.nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+.nm-atlas-svg{display:block}
+.nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
+.nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-text-root{font-size:13px;font-weight:650}
+.nm-atlas-more{fill:var(--nm-muted);font-size:10px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-gnode{cursor:pointer}
+.nm-atlas-gnode:hover .nm-atlas-text{text-decoration:underline}
+.nm-atlas-gnode:focus-visible{outline:2px solid var(--nm-accent)}
+.nm-atlas-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.nm-atlas-world{border:1px solid var(--nm-border);border-radius:12px;overflow:hidden;background:var(--nm-map-sea,#24333f);line-height:0}
+/* 地图底图切换条 */
+.nm-atlas-artbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 11px;border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-card);margin-top:8px;line-height:1.5}
+.nm-atlas-artbar .nm-muted{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-arttoggle{font:inherit;font-size:11px;cursor:pointer;color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));border-radius:6px;background:transparent;padding:4px 11px;flex:none;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}
+.nm-atlas-arttoggle:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-atlas-world-wrap{display:flex;flex-direction:column;gap:8px}
+.nm-atlas-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-world-title{font-size:12px;font-weight:600;color:var(--nm-text)}
+.nm-atlas-world-sub{font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend{display:flex;flex-wrap:wrap;gap:8px;padding:0 2px}
+.nm-atlas-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend-swatch{width:10px;height:10px;border-radius:4px;border:1px solid rgba(0,0,0,0.35)}
+.nm-atlas-region{border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-atlas-terrain{border-radius:8px;overflow:hidden;line-height:0;border:1px solid var(--nm-border)}
+.nm-atlas-region-meta{font-size:10.5px;color:var(--nm-muted);display:flex;gap:4px;flex-wrap:wrap}
+.nm-atlas-region-head{display:flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;min-width:0;width:100%}
+.nm-atlas-swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.nm-atlas-region-title-text{font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-count{margin-left:auto;flex:none;font-size:10.5px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:1px 7px}
+.nm-atlas-region-desc{font-size:11px;color:var(--nm-muted);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* ── 生图工作台 ── */
+/* 面板贴边时每个框的边框都会顶到滚动条，留出左右呼吸空间 */
+.nm-art{padding-left:14px;padding-right:14px}
+/* 面板不在 .nm-settings 作用域内，必须自带控件样式，否则按钮会退化成纯文本 */
+.nm-art button{font:inherit;font-size:12px;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-raised);padding:8px 14px;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);font-weight:550}
+.nm-art button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised))}
+.nm-art button:disabled{opacity:.45;cursor:not-allowed}
+.nm-art button.nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 13%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:700;box-shadow:0 2px 8px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}
+.nm-art button.nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)));border-color:var(--nm-accent)}
+.nm-art select,.nm-art input[type=text],.nm-art input[type=password]{font:inherit;font-size:12px;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:10px;background:var(--nm-bg);padding:8px 11px}
+.nm-art select{cursor:pointer}
+.nm-art select option{background:var(--nm-card);color:var(--nm-text)}
+.nm-art select:focus,.nm-art input:focus,.nm-art textarea:focus{outline:none;border-color:var(--nm-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--nm-accent) 16%,transparent)}
+.nm-art .nm-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-art .nm-field&gt;span{font-weight:600;font-size:11.5px;color:var(--nm-text)}
+.nm-art .nm-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.nm-art .nm-muted{font-size:11px;color:var(--nm-muted)}
+.nm-art .nm-alert{font-size:11.5px;color:#e06c75;background:color-mix(in srgb,#e06c75 10%,transparent);border:1px solid color-mix(in srgb,#e06c75 30%,transparent);border-radius:8px;padding:8px 10px;line-height:1.6}
+.nm-art-form{display:flex;flex-direction:column;gap:9px;padding:12px 0 4px;min-width:0}
+.nm-art-toolbar{display:flex;align-items:center;gap:8px;margin-top:10px}
+.nm-art-toolbar select{flex:1;min-width:0}
+.nm-art-textarea{width:100%;resize:vertical;font:inherit;font-size:12px;line-height:1.6;padding:8px 10px;border-radius:10px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text)}
+.nm-art-textarea:focus{outline:none;border-color:var(--nm-accent)}
+.nm-art-preview{position:relative;display:flex;align-items:center;justify-content:center;min-height:260px;max-height:440px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);overflow:hidden;margin-top:10px}
+/* 空状态收矮，避免把下方的生成按钮推出可视区 */
+.nm-art-preview[data-empty=true]{min-height:130px;max-height:170px}
+.nm-art-preview img{max-width:100%;max-height:440px;display:block;object-fit:contain}
+/* 主按钮全宽显示，明确告诉用户「点这里」 */
+.nm-art-form&gt;.nm-row&gt;button.nm-primary{width:100%;padding:11px 16px;font-size:12.5px;letter-spacing:.02em}
+.nm-art-placeholder{font-size:11px;color:var(--nm-muted);padding:24px;text-align:center;line-height:1.7}
+.nm-art-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.nm-art-step{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted);padding:3px 9px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card)}
+.nm-art-step[data-on=run]{border-color:var(--nm-accent);color:var(--nm-accent)}
+.nm-art-step[data-on=done]{border-color:color-mix(in srgb,var(--nm-accent) 45%,transparent);color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card))}
+.nm-art-stepnum{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:color-mix(in srgb,CanvasText 8%,transparent);font-size:9.5px;font-weight:700}
+/* 垫图区 */
+.nm-art-ref{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px dashed var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-reflabel{font-size:10.5px;color:var(--nm-muted);font-weight:600}
+.nm-art-refpick{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:8px;border:1px dashed var(--nm-border);cursor:pointer;font-size:11.5px;color:var(--nm-accent);background:var(--nm-card);transition:border-color .15s}
+.nm-art-refpick:hover{border-color:var(--nm-accent)}
+.nm-art-refbox{display:flex;align-items:center;gap:10px}
+.nm-art-refbox img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--nm-border);flex:none}
+.nm-art-refinfo{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.nm-art-refinfo .nm-muted{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-art-refclear{align-self:flex-start;font-size:10.5px;padding:2px 9px}
+.nm-art-strength{gap:4px}
+.nm-art-strength input[type=range]{width:100%;accent-color:var(--nm-accent)}
+/* 构图控制：宽高比 / 分辨率 / 张数 / 透明背景 */
+.nm-art-compose{display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-compose-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.nm-compose-label{flex:none;font-size:10.5px;font-weight:600;color:var(--nm-muted);min-width:56px;white-space:nowrap}
+.nm-compose-group{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
+.nm-compose-chip{flex:none;font-size:10.5px;padding:4px 9px;border-radius:6px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out);line-height:1.5}
+.nm-compose-chip:hover:not(:disabled){border-color:var(--nm-accent);color:var(--nm-accent)}
+/* 选中态用「正文色填充 + 背景色文字」的反色方案。
+   不用品牌色是因为 --nm-accent 在某些主题下解析出接近底色，
+   会导致「浅底 + 浅字」整块看不见（实测截图就是这个现象）。
+   反色方案的对比度恒等于正文对比度，任何主题都不会失效。 */
+.nm-compose-chip[data-active=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700;box-shadow:none}
+.nm-compose-chip[data-active=true]:hover:not(:disabled){background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg)}
+.nm-compose-chip:disabled{opacity:.5;cursor:not-allowed}
+.nm-compose-hint{flex:none;font-size:10px;color:var(--nm-muted);white-space:nowrap}
+.nm-compose-switch{flex:none;font-size:10.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:background-color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),color var(--nm-t-fast) var(--nm-ease-out),box-shadow var(--nm-t-base) var(--nm-ease-out),transform var(--nm-t-fast) var(--nm-ease-out)}
+/* 开关开启态同样用反色，避免依赖 --nm-good 的实际亮度 */
+.nm-compose-switch[data-on=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700}
+.nm-compose-switch:disabled{opacity:.5;cursor:not-allowed}
+/* 多图缩略图条 */
+.nm-art-thumbs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-thumb{padding:0;border:2px solid transparent;border-radius:6px;background:none;cursor:pointer;line-height:0;overflow:hidden;flex:none;transition:border-color .14s}
+.nm-art-thumb img{width:52px;height:52px;object-fit:cover;display:block}
+.nm-art-thumb[data-active=true]{border-color:var(--nm-accent)}
+.nm-art-thumb:hover{border-color:color-mix(in srgb,var(--nm-accent) 55%,transparent)}
+.nm-subhead{margin:14px 0 6px;font-size:12px;font-weight:700;color:var(--nm-text)}.nm-atlas-spoke{margin-top:6px;border-top:1px dashed var(--nm-border);padding-top:8px}
+.nm-atlas-timeline{position:relative;padding-left:20px;display:flex;flex-direction:column}
+.nm-atlas-trail{position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--nm-border)}
+.nm-atlas-tgroup{margin:12px 0 6px;font-size:11px;font-weight:650;color:var(--nm-muted)}
+.nm-atlas-trow{position:relative;padding:5px 0}
+.nm-atlas-tdot{position:absolute;left:-18px;top:11px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px var(--nm-bg)}
+.nm-atlas-tline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nm-atlas-tline strong{font-size:11px;color:var(--nm-accent);flex:none}
+.nm-atlas-ttitle{font-size:12px;line-height:1.5}
+.nm-atlas-tmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+/* ── 生成进度面板 ──────────────────────────────────────────────
+   侧边栏宽度通常只有 300–360px，所以全部按单列竖排设计：环形总览在上，
+   清单在中，批量写作在下。字号比设置页再小一号，因为这里离眼睛更远，
+   而且旁边就是正文。 */
+.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+.nm-prog-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.nm-prog-auto{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--nm-muted);cursor:pointer;user-select:none;white-space:nowrap}
+.nm-prog-auto input{width:12px;height:12px;accent-color:var(--nm-accent);cursor:pointer;margin:0}
+.nm-prog-select{flex:1;min-width:0}
+/* 总览卡：环形进度 + 文字。用 1px 半透明描边 + 极淡渐变做出层次，
+   不靠重阴影——深色主题下重阴影会显脏。左上角那道 accent 微光让卡片
+   和背景分离，又不至于抢走正文的注意力。 */
+.nm-prog-hero{position:relative;display:flex;align-items:center;gap:14px;padding:14px 15px;border-radius:14px;border:1px solid var(--nm-border);background:radial-gradient(120% 130% at 0% 0%,color-mix(in srgb,var(--nm-accent) 11%,transparent),transparent 62%),var(--nm-card);overflow:hidden}
+.nm-prog-ring{position:relative;flex:none;width:60px;height:60px;display:grid;place-items:center}
+/* 只给 inset 不给宽高，SVG 会在 grid 里塌成 0×0 —— 预览时就是这里让
+   进度弧整条不可见，只剩外圈的圆环背景。明确写出 60×60。 */
+.nm-prog-ring svg{position:absolute;inset:0;width:60px;height:60px;overflow:visible}
+/* 颜色一律走 CSS 规则，不写 stroke="var(--nm-accent)" 这种表现属性 ——
+   表现属性里的 var() 不保证被解析，变量取不到时整条弧直接变成不可见，
+   而且不报错，最难查。 */
+.nm-prog-ring-track{stroke:var(--nm-border);fill:none}
+.nm-prog-ring-arc{stroke:var(--nm-accent);fill:none;transition:stroke-dashoffset .6s cubic-bezier(.22,.61,.36,1);filter:drop-shadow(0 0 3px color-mix(in srgb,var(--nm-accent) 45%,transparent))}
+.nm-prog-ring-num{position:relative;font-size:14px;font-weight:700;letter-spacing:-.4px;color:var(--nm-text);font-variant-numeric:tabular-nums;line-height:1}
+.nm-prog-hero-text{min-width:0;flex:1;display:flex;flex-direction:column;gap:7px}
+.nm-prog-hero-title{font-size:12px;color:var(--nm-muted);display:flex;align-items:baseline;gap:6px}
+.nm-prog-hero-title b{font-size:15px;color:var(--nm-text);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-prog-next{font-size:11px;color:var(--nm-muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.5}
+.nm-prog-next code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10.5px;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--nm-accent) 13%,var(--nm-bg));color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 26%,transparent);font-weight:600}
+.nm-prog-allset{color:var(--nm-good)}
+.nm-prog-section{display:flex;flex-direction:column;gap:7px}
+.nm-prog-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--nm-muted);letter-spacing:.4px;text-transform:uppercase}
+.nm-prog-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+/* 行高压到 30px：八项资产用两行间距会吃掉侧边栏一半高度，而这里每项
+   只需要「名字 + 状态」两段信息，不需要呼吸感。 */
+.nm-prog-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:12px;transition:background .16s ease}
+.nm-prog-item:hover{background:color-mix(in srgb,CanvasText 4%,transparent)}
+.nm-prog-item[data-state=missing] .nm-prog-label{color:var(--nm-muted)}
+.nm-prog-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-prog-meta{flex:none;font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+.nm-prog-item[data-state=done] .nm-prog-meta{color:color-mix(in srgb,var(--nm-good) 80%,var(--nm-muted))}
+.nm-prog-item[data-state=empty] .nm-prog-meta{color:color-mix(in srgb,var(--nm-accent) 70%,var(--nm-muted))}
+/* 状态点：已写好是实心绿勾，空文件是空心环，没建过是虚线圈。
+   三种状态的形状本身不同，不依赖颜色区分——灰度下也读得出来。 */
+.nm-prog-mark{flex:none;width:14px;height:14px;display:grid;place-items:center;color:var(--nm-muted)}
+.nm-prog-mark[data-state=done]{color:var(--nm-good)}
+.nm-prog-mark[data-state=empty]{color:var(--nm-accent)}
+.nm-prog-mark[data-state=missing]{color:color-mix(in srgb,var(--nm-muted) 65%,transparent)}
+.nm-prog-phase{flex:none;font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);font-weight:600;letter-spacing:0;text-transform:none}
+.nm-prog-phase[data-phase=running]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 40%,transparent);background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=complete]{color:var(--nm-good);border-color:color-mix(in srgb,var(--nm-good) 40%,transparent);background:color-mix(in srgb,var(--nm-good) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=error]{color:var(--nm-error);border-color:color-mix(in srgb,var(--nm-error) 40%,transparent);background:color-mix(in srgb,var(--nm-error) 12%,var(--nm-card))}
+.nm-prog-bar{height:5px;border-radius:999px;background:color-mix(in srgb,CanvasText 9%,transparent);overflow:hidden}
+.nm-prog-bar-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--nm-accent) 75%,transparent),var(--nm-accent));transition:width .5s cubic-bezier(.22,.61,.36,1)}
+.nm-prog-bar-fill[data-phase=complete]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-good) 75%,transparent),var(--nm-good))}
+.nm-prog-bar-fill[data-phase=error],.nm-prog-bar-fill[data-phase=aborted]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-error) 70%,transparent),var(--nm-error))}
+.nm-prog-batch-meta{font-size:11px;color:var(--nm-muted);display:flex;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.nm-prog-stale{color:color-mix(in srgb,var(--nm-error) 80%,var(--nm-muted))}
+.nm-prog-error{font-size:11px;color:var(--nm-error);line-height:1.55;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 9%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent);overflow-wrap:anywhere}
+.nm-prog-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+/* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
+   渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
+.nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
+   每个格子代表一块正在生成的地形，靠颜色而非数字表达进度。
+   格子用 2px 间距 + 1px 内描边做出方块感，不用圆角 —— 圆角会立刻失去
+   「像素方块」的语感，变成普通的进度点阵。 */
+.nm-world{display:flex;flex-direction:column;gap:9px;padding:13px 13px 12px;border-radius:var(--nm-r-lg);background:color-mix(in srgb,var(--nm-text) 5%,var(--nm-card));box-shadow:var(--nm-ring)}
+.nm-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted);text-transform:uppercase}
+.nm-world-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-world-grid{display:grid;grid-template-columns:repeat(var(--nm-world-cols,12),1fr);gap:2px}
+.nm-world-grid i{display:block;aspect-ratio:1;border-radius:1px;background:#000;box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 8%,transparent);transition:background-color 420ms var(--nm-ease-std)}
+/* 三种状态用三种明度层次。已完成的格子按资产类型取不同地形色，
+   让整片图看起来像真的长出了不同地形，而不是一色刷到底。 */
+.nm-world-grid i[data-state=done]{background:var(--nm-block-tint,#21C600)}
+/* 未生成的两档要和背景区分得开：早先 #3a3a2a / #2a2a2a 在近黑底上糊成一片，
+   九成格子看着像压根没画出来。参照官方色表 empty=#545454，取更亮一档并降低
+   不透明度，保留「暗但可见」的层次。 */
+.nm-world-grid i[data-state=empty]{background:color-mix(in srgb,#999999 42%,transparent)}
+.nm-world-grid i[data-state=missing]{background:color-mix(in srgb,#848484 26%,transparent)}
+.nm-world-grid i[data-pad="1"]{background:transparent;box-shadow:none}
+.nm-world-bar{height:4px;border-radius:0;background:color-mix(in srgb,#000 45%,transparent);overflow:hidden}
+.nm-world-bar-fill{height:100%;border-radius:0;background:linear-gradient(90deg,#21C600,#7ef07e);transition:width 420ms var(--nm-ease-std)}
+/* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-world-grid i,.nm-world-bar-fill{transition:none}}
+</style><div class="nm-atlas-head"><span class="nm-atlas-title-icon"><svg class="nm-progress-title-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" opacity="0.35"/><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" stroke-width="2.2"/><path d="M12 7.5V12l3 1.8"/></svg>长夜将至</span><div class="nm-prog-actions"><label class="nm-prog-auto"><input type="checkbox" checked="true" aria-label="自动刷新进度"/><span >自动刷新</span></label><button class="nm-atlas-refresh" type="button" aria-label="刷新进度"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.9-4.2"/><path d="M13.5 2v3.2h-3.2"/></svg></button></div></div><div class="nm-world" data-complete="0"><div class="nm-world-head"><span class="nm-world-title">正在生成世界</span><span class="nm-world-pct">63%</span></div><div class="nm-world-grid" style="--nm-world-cols:12" role="img" aria-label="资产生成进度 63%，八项中已完成 6 项"><i style="--nm-block-tint:#80B252" data-state="done" data-pad="0" title="世界观"></i><i style="--nm-block-tint:#80B252" data-state="done" data-pad="0" title="世界观"></i><i style="--nm-block-tint:#80B252" data-state="done" data-pad="0" title="世界观"></i><i style="--nm-block-tint:#80B252" data-state="done" data-pad="0" title="世界观"></i><i style="--nm-block-tint:#D1D1D1" data-state="done" data-pad="0" title="人设"></i><i style="--nm-block-tint:#D1D1D1" data-state="done" data-pad="0" title="人设"></i><i style="--nm-block-tint:#D1D1D1" data-state="done" data-pad="0" title="人设"></i><i style="--nm-block-tint:#D1D1D1" data-state="done" data-pad="0" title="人设"></i><i style="--nm-block-tint:#D1D1D1" data-state="done" data-pad="0" title="人设"></i><i style="--nm-block-tint:#D1D1D1" data-state="done" data-pad="0" title="人设"></i><i style="--nm-block-tint:#5F6191" data-state="missing" data-pad="0" title="大纲"></i><i style="--nm-block-tint:#303572" data-state="missing" data-pad="0" title="世界状态"></i><i style="--nm-block-tint:#726809" data-state="done" data-pad="0" title="伏笔"></i><i style="--nm-block-tint:#21C600" data-state="done" data-pad="0" title="剧情树"></i><i style="--nm-block-tint:#21C600" data-state="done" data-pad="0" title="剧情树"></i><i style="--nm-block-tint:#21C600" data-state="done" data-pad="0" title="剧情树"></i><i style="--nm-block-tint:#FFE0A0" data-state="done" data-pad="0" title="写作规范"></i><i style="--nm-block-tint:#FFE0A0" data-state="done" data-pad="0" title="写作规范"></i><i style="--nm-block-tint:#FFFFFF" data-state="done" data-pad="0" title="正文"></i><i style="--nm-block-tint:#FFFFFF" data-state="done" data-pad="0" title="正文"></i><i style="--nm-block-tint:#FFFFFF" data-state="done" data-pad="0" title="正文"></i><i style="--nm-block-tint:#FFFFFF" data-state="done" data-pad="0" title="正文"></i><i style="--nm-block-tint:#FFFFFF" data-state="done" data-pad="0" title="正文"></i><i data-state="unknown" data-pad="1"></i></div><div class="nm-world-bar" role="progressbar" aria-valuenow="63" aria-valuemin="0" aria-valuemax="100"><div class="nm-world-bar-fill" style="width:63%"></div></div></div><div class="nm-prog-hero"><div class="nm-prog-ring" style="--pct:63" role="img" aria-label="基础资产完成 63%"><svg viewBox="0 0 48 48" width="60" height="60"><circle class="nm-prog-ring-track" cx="24" cy="24" r="19" stroke-width="5"/><circle class="nm-prog-ring-arc" cx="24" cy="24" r="19" stroke-width="5" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="44.178" transform="rotate(-90 24 24)"/></svg><span class="nm-prog-ring-num">63%</span></div><div class="nm-prog-hero-text"><div class="nm-prog-hero-title">基础资产<b >5/8</b></div><div class="nm-prog-next"><span >下一步：生成大纲</span><code class="nm-inlinecode">/novel-outline</code></div></div></div><div class="nm-prog-sections"><div class="nm-prog-section"><div class="nm-prog-section-head">资产清单</div><ul class="nm-prog-list"><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">世界观</span><span class="nm-prog-meta">4 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">人设</span><span class="nm-prog-meta">6 节</span></li><li class="nm-prog-item" data-state="missing"><span class="nm-prog-mark" data-state="missing" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6" stroke-width="1.4" stroke-dasharray="2.5 3" opacity="0.55"/></svg></span><span class="nm-prog-label">大纲</span><span class="nm-prog-meta">未创建</span></li><li class="nm-prog-item" data-state="missing"><span class="nm-prog-mark" data-state="missing" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6" stroke-width="1.4" stroke-dasharray="2.5 3" opacity="0.55"/></svg></span><span class="nm-prog-label">世界状态</span><span class="nm-prog-meta">未创建</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">伏笔</span><span class="nm-prog-meta">0 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">剧情树</span><span class="nm-prog-meta">3 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">写作规范</span><span class="nm-prog-meta">2 节</span></li><li class="nm-prog-item" data-state="done"><span class="nm-prog-mark" data-state="done" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 12 13 4.5"/></svg></span><span class="nm-prog-label">正文</span><span class="nm-prog-meta">5 章</span></li></ul></div><div class="nm-prog-section"><div class="nm-prog-section-head">批量写作<span class="nm-prog-phase" data-phase="running">正在写</span></div><div class="nm-prog-bar" role="progressbar" aria-valuenow="42" aria-valuemin="0" aria-valuemax="100"><div class="nm-prog-bar-fill" style="width:42%" data-phase="running"></div></div><div class="nm-prog-batch-meta">5 / 12 章</div></div></div><div class="nm-prog-foot">正文 5 / 12 章 · 23400 字</div></div></div></body></html>

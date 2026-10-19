@@ -61,8 +61,16 @@ window.__ModuleLoader__.load({
 @keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
 /* 帮助按钮原来 absolute 在 hero 右上角，正好压住「刷新设置与状态」按钮，
    文字被遮掉一半。改成跟着文档流排在右侧，靠 margin-left:auto 顶到最右。 */
-.nm-help-btn{flex:none;margin-left:auto;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:34px;height:34px;font-size:16px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 32%,transparent);transition:transform .2s ease,box-shadow .2s ease}
-.nm-help-btn:hover{transform:scale(1.08) rotate(5deg);box-shadow:0 8px 24px rgba(0,0,0,0.28),0 0 0 4px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+/* 帮助按钮。
+   两个坑叠在一起：
+   1) 「.nm-settings button」优先级 0,1,1，会盖掉「.nm-help-btn」的 0,1,0，
+      于是 border-radius 被改成 12px、padding 被改成 9px 16px —— 圆形变圆角
+      方形，问号被 padding 挤得偏右上。选择器必须带上 .nm-settings。
+   2) 问号不垂直居中：按钮继承了父级 line-height:1.65，字框比 34px 高，
+      grid 居中居的是那个更高的字框。显式 line-height:1 后用 padding 微调
+      字形自身的光学重心。 */
+.nm-settings .nm-help-btn{flex:none;margin:6px 0 0 auto;width:34px;height:34px;padding:0 0 1px;line-height:1;font-size:15px;font-weight:600;color:var(--nm-muted);background:var(--nm-card);border:1px solid var(--nm-border);border-radius:50%;cursor:pointer;display:grid;place-items:center;transition:color var(--nm-t-fast) var(--nm-ease-out),border-color var(--nm-t-fast) var(--nm-ease-out),background-color var(--nm-t-fast) var(--nm-ease-out)}
+.nm-settings .nm-help-btn:hover{color:var(--nm-text);border-color:var(--nm-hairline);background:var(--nm-raised);transform:none;box-shadow:none}
 .nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
 .nm-guide-box{background:var(--nm-card);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
 .nm-guide-header{padding:32px 32px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),var(--nm-card));border-bottom:1px solid color-mix(in srgb,var(--nm-accent) 15%,var(--nm-border));display:flex;align-items:center;gap:16px;position:relative}
@@ -303,8 +311,29 @@ window.__ModuleLoader__.load({
 /* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
    渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
 .nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
+   每个格子代表一块正在生成的地形，靠颜色而非数字表达进度。
+   格子用 2px 间距 + 1px 内描边做出方块感，不用圆角 —— 圆角会立刻失去
+   「像素方块」的语感，变成普通的进度点阵。 */
+.nm-world{display:flex;flex-direction:column;gap:9px;padding:13px 13px 12px;border-radius:var(--nm-r-lg);background:color-mix(in srgb,var(--nm-text) 5%,var(--nm-card));box-shadow:var(--nm-ring)}
+.nm-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted);text-transform:uppercase}
+.nm-world-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-world-grid{display:grid;grid-template-columns:repeat(var(--nm-world-cols,12),1fr);gap:2px}
+.nm-world-grid i{display:block;aspect-ratio:1;border-radius:1px;background:#000;box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 8%,transparent);transition:background-color 420ms var(--nm-ease-std)}
+/* 三种状态用三种明度层次。已完成的格子按资产类型取不同地形色，
+   让整片图看起来像真的长出了不同地形，而不是一色刷到底。 */
+.nm-world-grid i[data-state=done]{background:var(--nm-block-tint,#21C600)}
+/* 未生成的两档要和背景区分得开：早先 #3a3a2a / #2a2a2a 在近黑底上糊成一片，
+   九成格子看着像压根没画出来。参照官方色表 empty=#545454，取更亮一档并降低
+   不透明度，保留「暗但可见」的层次。 */
+.nm-world-grid i[data-state=empty]{background:color-mix(in srgb,#999999 42%,transparent)}
+.nm-world-grid i[data-state=missing]{background:color-mix(in srgb,#848484 26%,transparent)}
+.nm-world-grid i[data-pad="1"]{background:transparent;box-shadow:none}
+.nm-world-bar{height:4px;border-radius:0;background:color-mix(in srgb,#000 45%,transparent);overflow:hidden}
+.nm-world-bar-fill{height:100%;border-radius:0;background:linear-gradient(90deg,#21C600,#7ef07e);transition:width 420ms var(--nm-ease-std)}
 /* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
-@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill{transition:none}}
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-world-grid i,.nm-world-bar-fill{transition:none}}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
@@ -2290,9 +2319,89 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M12 7.5V12l3 1.8' }))
     }
 
+    /**
+     * 世界生成区块图 —— 仿 Minecraft Java 版的世界加载屏幕。
+     *
+     * Java 版的加载屏不是一根进度条，而是一张「颜色图」：每个像素是一个区块，
+     * 像素颜色代表该区块的生成阶段（未生成 #545454 → 结构 → 生物群系 #80B252
+     * → 地形 #D1D1D1 → 光照 #FFE0A0 → 完毕 #FFFFFF）。区块加载时像素逐片变色
+     * 并向外扩展，进度条只是辅助。这种做法的好处是把「抽象百分比」变成
+     * 「一片正在长出来的世界」，用户不用读数字也知道快好了。
+     *
+     * 这里把八项基础资产映射成一片方格：每项按自己的体量占若干格
+     * （世界观 4 节就占 4 格，正文 40 章占更多），已写好的格子用地形色点亮，
+     * 未完成的是暗灰「未生成」。格子从左上向右下推进，顺序与实际生成顺序一致。
+     */
+    const BLOCK_TINTS = {
+      // 取自 Minecraft 区块状态的官方色值，按「完成度」由浅到深
+      full: '#FFFFFF',
+      light: '#FFE0A0',
+      features: '#21C600',
+      biomes: '#80B252',
+      surface: '#726809',
+      carvers: '#303572',
+      noise: '#D1D1D1',
+      empty: '#545454',
+      unknown: '#000000',
+    }
+
+    function WorldBlocks({ items, percent }) {
+      // 每项占几格：用标题数（节/章）当体量，但夹到 1–6 格，
+      // 否则「正文 40 章」会把整张图占满，其余资产挤成一条。
+      //
+      // 配色按资产类型分配，取自 Minecraft 官方区块状态色表：世界观偏生物群系
+      // 绿、人设偏亮地形灰、大纲偏结构紫、伏笔偏暗掘色、正文偏满亮度白。
+      // 同一色刷到底会退化成普通进度点阵，失去「一片地形」的语感。
+      const TINT = {
+        setting: '#80B252',   // biomes 生物群系
+        cast: '#D1D1D1',      // noise 初始地形
+        outline: '#5F6191',   // structure_references 结构引用
+        worldstate: '#303572',// carvers 地形雕刻
+        foreshadow: '#726809',// surface 表面规则
+        plot: '#21C600',      // features 地物
+        rules: '#FFE0A0',     // light 初始光照
+        chapters: '#FFFFFF',  // full 生成完毕
+      }
+      const cells = []
+      for (const item of items ?? []) {
+        const weight = Math.max(1, Math.min(6, item.headings || 1))
+        for (let i = 0; i < weight; i++) {
+          cells.push({
+            key: `${item.key}-${i}`,
+            label: item.label,
+            // 已写好的项整行点亮；未写好的整行保持暗色。按格子细分会让
+            // 「同一项里有的格亮有的暗」显得随机，反而不如整块一致好读。
+            state: item.exists ? 'done' : item.created ? 'empty' : 'missing',
+            tint: TINT[item.key] ?? '#21C600',
+          })
+        }
+      }
+      // 补齐成完整矩形，避免最后一行缺角看着像渲染失败
+      const cols = 12
+      while (cells.length % cols !== 0) cells.push({ key: `pad-${cells.length}`, pad: true, state: 'unknown' })
+
+      const doneCount = (items ?? []).filter((i) => i.exists).length
+      const total = (items ?? []).length
+      // 全部就位时不能还写「正在生成」—— 那是完成态，标题要跟着变。
+      const complete = total > 0 && doneCount >= total
+      return h('div', { className: 'nm-world', 'data-complete': complete ? '1' : '0' },
+        h('div', { className: 'nm-world-head' },
+          h('span', { className: 'nm-world-title' }, complete ? '世界已生成' : '正在生成世界'),
+          h('span', { className: 'nm-world-pct' }, `${percent ?? 0}%`)),
+        h('div', {
+          className: 'nm-world-grid', style: { '--nm-world-cols': cols },
+          role: 'img', 'aria-label': `资产生成进度 ${percent ?? 0}%，八项中已完成 ${doneCount} 项`,
+        }, cells.map((cell) => h('i', {
+          key: cell.key, 'data-state': cell.state, 'data-pad': cell.pad ? '1' : '0',
+          title: cell.pad ? undefined : cell.label,
+          style: cell.tint ? { '--nm-block-tint': cell.tint } : undefined,
+        }))),
+        h('div', { className: 'nm-world-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
+          h('div', { className: 'nm-world-bar-fill', style: { width: `${percent ?? 0}%` } })))
+    }
+
     /** 资产清单里每一项的图标：已写好打勾，空文件是空心点，没建过是虚线圈。 */
-    function ReadinessMark({ item }) {
-      const state = item.exists ? 'done' : item.created ? 'empty' : 'missing'
+    function ReadinessMark({ item }) {      const state = item.exists ? 'done' : item.created ? 'empty' : 'missing'
       return h('span', { className: 'nm-prog-mark', 'data-state': state, 'aria-hidden': true },
         h('svg', { viewBox: '0 0 16 16', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
           state === 'done' ? h('path', { d: 'M3 8.5 6.2 12 13 4.5' }) : null,
@@ -2356,19 +2465,23 @@ window.__ModuleLoader__.load({
       const projects = data?.projects ?? []
       const project = projects.find((p) => p.name === selected) ?? null
 
+      // 样式必须随面板自己挂载。设置页不是总开着，图谱/进度独立渲染时
+      // 整张样式表都不存在 —— 表现就是裸的圆点列表、环形图消失、全黑。
+      // 统一包一层，所有分支（含出错与空态）都不会漏掉。
+      const frame = (...children) => h('div', { className: 'nm-atlas nm-prog' },
+        h('style', null, CSS), ...children)
+
       if (error) {
-        return h('div', { className: 'nm-atlas nm-prog' },
+        return frame(
           h('div', { className: 'nm-atlas-message' }, '读取进度失败：', error),
           h('button', { type: 'button', className: 'nm-atlas-refresh', onClick: () => load() }, '重试'))
       }
-      if (!data) return h('div', { className: 'nm-atlas nm-prog' }, h('div', { className: 'nm-atlas-message' }, busy ? '正在读取进度…' : '暂无进度'))
+      if (!data) return frame(h('div', { className: 'nm-atlas-message' }, busy ? '正在读取进度…' : '暂无进度'))
       if (data.error === 'no-cwd') {
-        return h('div', { className: 'nm-atlas nm-prog' },
-          h('div', { className: 'nm-atlas-message' }, data.message ?? '无法定位项目目录'))
+        return frame(h('div', { className: 'nm-atlas-message' }, data.message ?? '无法定位项目目录'))
       }
       if (projects.length === 0) {
-        return h('div', { className: 'nm-atlas nm-prog' },
-          h('div', { className: 'nm-atlas-message' }, '还没有小说项目。先用 /novel 起一部，这里就会显示进度。'))
+        return frame(h('div', { className: 'nm-atlas-message' }, '还没有小说项目。先用 /novel 起一部，这里就会显示进度。'))
       }
 
       const readiness = project?.readiness
@@ -2377,7 +2490,7 @@ window.__ModuleLoader__.load({
       const goal = project?.progress?.goal ?? 0
       const next = readiness?.next ? NEXT_HINT[readiness.next] : null
 
-      return h('div', { className: 'nm-atlas nm-prog' },
+      return frame(
         h('div', { className: 'nm-atlas-head' },
           projects.length > 1
             ? h('select', {
@@ -2394,6 +2507,10 @@ window.__ModuleLoader__.load({
                 h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.9-4.2' }), h('path', { d: 'M13.5 2v3.2h-3.2' }))))),
 
         // 总览：一个环形进度 + 两个关键数字
+        // 世界生成区块图：把「8 项里完成了几项」变成一片正在长出来的方块。
+        // 环形图保留在上方给一个精确数字，两者互补 —— 图给直觉，环给刻度。
+        h(WorldBlocks, { items: readiness?.items, percent: readiness?.percent ?? 0 }),
+
         h('div', { className: 'nm-prog-hero' },
           h('div', { className: 'nm-prog-ring', style: { '--pct': readiness?.percent ?? 0 }, role: 'img', 'aria-label': `基础资产完成 ${readiness?.percent ?? 0}%` },
             h('svg', { viewBox: '0 0 48 48', width: 60, height: 60 },
@@ -2449,7 +2566,6 @@ window.__ModuleLoader__.load({
           `正文 ${chapters}${goal > 0 ? ` / ${goal}` : ''} 章`,
           project?.progress?.chars ? ` · ${project.progress.chars} 字` : null))
     }
-
     function ProgressTitle(props) {
       const useTabInfoHook = typeof props?.useTabInfo === 'function' ? props.useTabInfo : () => null
       const info = useTabInfoHook()
