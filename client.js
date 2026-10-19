@@ -312,26 +312,25 @@ window.__ModuleLoader__.load({
    渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
 .nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
 /* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
-   每个格子代表一块正在生成的地形，靠颜色而非数字表达进度。
-   格子用 2px 间距 + 1px 内描边做出方块感，不用圆角 —— 圆角会立刻失去
-   「像素方块」的语感，变成普通的进度点阵。 */
-.nm-world{display:flex;flex-direction:column;gap:9px;padding:13px 13px 12px;border-radius:var(--nm-r-lg);background:color-mix(in srgb,var(--nm-text) 5%,var(--nm-card));box-shadow:var(--nm-ring)}
+   重点是小而密的方块地图 —— 28×28 格，缝隙 1px，肉眼数不清单格，
+   整体才读成「一片地形」。做成十来个大色块只会像图例表格。 */
+.nm-world{display:flex;flex-direction:column;gap:9px;padding:12px 12px 11px;border-radius:var(--nm-r-lg);background:var(--nm-raised);box-shadow:var(--nm-ring)}
 .nm-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted);text-transform:uppercase}
+.nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted)}
 .nm-world-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
-.nm-world-grid{display:grid;grid-template-columns:repeat(var(--nm-world-cols,12),1fr);gap:2px}
-.nm-world-grid i{display:block;aspect-ratio:1;border-radius:1px;background:#000;box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 8%,transparent);transition:background-color 420ms var(--nm-ease-std)}
-/* 三种状态用三种明度层次。已完成的格子按资产类型取不同地形色，
-   让整片图看起来像真的长出了不同地形，而不是一色刷到底。 */
-.nm-world-grid i[data-state=done]{background:var(--nm-block-tint,#21C600)}
-/* 未生成的两档要和背景区分得开：早先 #3a3a2a / #2a2a2a 在近黑底上糊成一片，
-   九成格子看着像压根没画出来。参照官方色表 empty=#545454，取更亮一档并降低
-   不透明度，保留「暗但可见」的层次。 */
-.nm-world-grid i[data-state=empty]{background:color-mix(in srgb,#999999 42%,transparent)}
-.nm-world-grid i[data-state=missing]{background:color-mix(in srgb,#848484 26%,transparent)}
-.nm-world-grid i[data-pad="1"]{background:transparent;box-shadow:none}
-.nm-world-bar{height:4px;border-radius:0;background:color-mix(in srgb,#000 45%,transparent);overflow:hidden}
-.nm-world-bar-fill{height:100%;border-radius:0;background:linear-gradient(90deg,#21C600,#7ef07e);transition:width 420ms var(--nm-ease-std)}
+/* 地图本体。用 grid 而不是 canvas：格数固定为 28×28=784 个元素，
+   比 canvas 更好做无障碍标注，也不需要额外的重绘逻辑。
+   底色用固定的深色而不是主题色 —— 未生成区域在浅色主题下也必须是暗的，
+   否则「还没长出来」和「已经长好」的明度关系会反过来，读着像倒放。 */
+.nm-world-map{display:grid;grid-template-columns:repeat(var(--nm-world-size,28),1fr);gap:1px;width:100%;aspect-ratio:1;background:#0b0d10;padding:1px}
+.nm-world-map i{display:block;border-radius:0;background:var(--nm-block-tint,#21C600)}
+/* 未点亮的格子分两档：贴着已生成区的一圈是「正在生成」，再往外更暗。
+   两档之间差一点点亮度就够了，差太多会让边界看起来像一道刻意画的线。 */
+.nm-world-map i[data-shade="-1"]{background:#3a3d42}
+.nm-world-map i[data-shade="-2"]{background:#1c1f23}
+/* 底部那条进度条保留，但压得很薄 —— 主视觉是地图，条只是刻度。 */
+.nm-world-bar{height:3px;background:color-mix(in srgb,#000 50%,transparent);overflow:hidden}
+.nm-world-bar-fill{height:100%;background:#21C600;transition:width 420ms var(--nm-ease-std)}
 /* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
 @media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-world-grid i,.nm-world-bar-fill{transition:none}}
 `
@@ -2345,56 +2344,88 @@ window.__ModuleLoader__.load({
       unknown: '#000000',
     }
 
+    /**
+     * 世界生成区块图 —— 仿 Minecraft Java 版的世界加载屏幕。
+     *
+     * 关键是「像素」而不是「色卡」：Java 版加载屏是一张密集的方块地图，
+     * 每格 = 一个区块，颜色 = 该区块的生成阶段（未生成 → 结构 → 生物群系 →
+     * 地形 → 光照 → 完毕）。区块从玩家出生点向外逐圈加载，像素就一圈圈
+     * 变色铺开。
+     *
+     * 我第一版做成了 12 列大色块、按资产逐行上色，那读起来是「表格」不是
+     * 「地图」—— 每项一行的横条只会让人以为在看图例。真正的观感来自：
+     *   1) 格子够小够密（32×32，眼看不数得清）；
+     *   2) 由内向外扩散，而不是逐行填；
+     *   3) 相邻格子轻微色差，像地形纹理而不是纯色块。
+     *
+     * 把八项资产当成八个「生成阶段」：完成度决定有多少圈像素被点亮到哪一级
+     * 配色。未完成的资产会在地图边缘留下一圈尚未生成的地带。
+     */
     function WorldBlocks({ items, percent }) {
-      // 每项占几格：用标题数（节/章）当体量，但夹到 1–6 格，
-      // 否则「正文 40 章」会把整张图占满，其余资产挤成一条。
-      //
-      // 配色按资产类型分配，取自 Minecraft 官方区块状态色表：世界观偏生物群系
-      // 绿、人设偏亮地形灰、大纲偏结构紫、伏笔偏暗掘色、正文偏满亮度白。
-      // 同一色刷到底会退化成普通进度点阵，失去「一片地形」的语感。
-      const TINT = {
-        setting: '#80B252',   // biomes 生物群系
-        cast: '#D1D1D1',      // noise 初始地形
-        outline: '#5F6191',   // structure_references 结构引用
-        worldstate: '#303572',// carvers 地形雕刻
-        foreshadow: '#726809',// surface 表面规则
-        plot: '#21C600',      // features 地物
-        rules: '#FFE0A0',     // light 初始光照
-        chapters: '#FFFFFF',  // full 生成完毕
+      // 官方区块状态色表。整张画以地形色为主，八项资产只是决定「点亮到哪一级」。
+      const STAGE = ['#545454', '#999999', '#5F6191', '#80B252', '#D1D1D1', '#726809', '#303572', '#21C600', '#FFE0A0', '#F26060', '#FFFFFF']
+      const SIZE = 28
+      const list = items ?? []
+      const total = list.length
+      const done = list.filter((i) => i.exists).length
+      // 推进比例：用「已完成资产数 + 整体百分比」一起决定已生成范围，
+      // 这样中途刷新时地图也会跟着长，而不是等整项完成才跳一下。
+      const ratio = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
+
+      // 确定性哈希 → 值噪声。必须确定性：同一格重渲染要给同一颜色，
+      // 否则每次 4 秒轮询刷新整张图都在抖，像故障而不是在生成。
+      const hash = (x, y) => {
+        const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+        return s - Math.floor(s)
       }
+      const smooth = (t) => t * t * (3 - 2 * t)
+      const valueNoise = (x, y) => {
+        const xi = Math.floor(x); const yi = Math.floor(y)
+        const u = smooth(x - xi); const v = smooth(y - yi)
+        const a = hash(xi, yi); const b = hash(xi + 1, yi)
+        const c = hash(xi, yi + 1); const d = hash(xi + 1, yi + 1)
+        return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
+      }
+      // 两个八度叠起来：大尺度决定「哪片已经长好」，小尺度提供毛边。
+      // 只用单层时色块边界过于方正；只用哈希白噪声又会变成椒盐噪点，
+      // 都不像地形。值噪声才有成片而不规整的形状。
+      const fieldAt = (x, y) => valueNoise(x / 6.5, y / 6.5) * 0.62 + valueNoise(x / 2.7, y / 2.7) * 0.38
+
       const cells = []
-      for (const item of items ?? []) {
-        const weight = Math.max(1, Math.min(6, item.headings || 1))
-        for (let i = 0; i < weight; i++) {
+      const half = SIZE / 2
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          // 切比雪夫距离：方块地图是方形扩散，用欧氏距离四角会明显缺一块。
+          const dist = Math.max(Math.abs(x + 0.5 - half) / half, Math.abs(y + 0.5 - half) / half)
+          // 把「离中心多远」和「噪声」混成一个场：中心必然先长好，但边界
+          // 是参差的。噪声权重给到 0.42 才会打散成斑块；给 0.15 只是让
+          // 同心方框边缘毛糙一点，整体仍然是靶心。
+          const field = dist * 0.58 + fieldAt(x, y) * 0.42
+          const lit = field < ratio
+          // 已生成的格按场的值取阶段色：越靠内越接近「完成」的亮色，
+          // 外围停在早期阶段的深蓝/暗绿。即使 100% 也保有地形层次。
+          const stageIdx = Math.min(STAGE.length - 1, Math.floor((1 - field) * (STAGE.length - 1)))
           cells.push({
-            key: `${item.key}-${i}`,
-            label: item.label,
-            // 已写好的项整行点亮；未写好的整行保持暗色。按格子细分会让
-            // 「同一项里有的格亮有的暗」显得随机，反而不如整块一致好读。
-            state: item.exists ? 'done' : item.created ? 'empty' : 'missing',
-            tint: TINT[item.key] ?? '#21C600',
+            key: `${x}-${y}`,
+            lit,
+            // 未点亮也分两档：贴着已生成区的一圈是「正在生成」，再往外更暗。
+            shade: lit ? stageIdx : (field < ratio + 0.16 ? -1 : -2),
           })
         }
       }
-      // 补齐成完整矩形，避免最后一行缺角看着像渲染失败
-      const cols = 12
-      while (cells.length % cols !== 0) cells.push({ key: `pad-${cells.length}`, pad: true, state: 'unknown' })
 
-      const doneCount = (items ?? []).filter((i) => i.exists).length
-      const total = (items ?? []).length
-      // 全部就位时不能还写「正在生成」—— 那是完成态，标题要跟着变。
-      const complete = total > 0 && doneCount >= total
+      const complete = total > 0 && done >= total
       return h('div', { className: 'nm-world', 'data-complete': complete ? '1' : '0' },
         h('div', { className: 'nm-world-head' },
           h('span', { className: 'nm-world-title' }, complete ? '世界已生成' : '正在生成世界'),
           h('span', { className: 'nm-world-pct' }, `${percent ?? 0}%`)),
         h('div', {
-          className: 'nm-world-grid', style: { '--nm-world-cols': cols },
-          role: 'img', 'aria-label': `资产生成进度 ${percent ?? 0}%，八项中已完成 ${doneCount} 项`,
+          className: 'nm-world-map', style: { '--nm-world-size': SIZE },
+          role: 'img', 'aria-label': `资产生成进度 ${percent ?? 0}%，八项中已完成 ${done} 项`,
         }, cells.map((cell) => h('i', {
-          key: cell.key, 'data-state': cell.state, 'data-pad': cell.pad ? '1' : '0',
-          title: cell.pad ? undefined : cell.label,
-          style: cell.tint ? { '--nm-block-tint': cell.tint } : undefined,
+          key: cell.key,
+          'data-shade': cell.shade,
+          style: cell.lit ? { '--nm-block-tint': STAGE[cell.shade] ?? '#21C600' } : undefined,
         }))),
         h('div', { className: 'nm-world-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
           h('div', { className: 'nm-world-bar-fill', style: { width: `${percent ?? 0}%` } })))

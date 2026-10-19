@@ -58,25 +58,46 @@ test('世界生成区块图使用官方区块状态色', () => {
 })
 
 test('未生成格子要与背景区分得开', () => {
-  const empty = CSS.match(/\.nm-world-grid i\[data-state=empty\]\{([^}]*)\}/)
-  const missing = CSS.match(/\.nm-world-grid i\[data-state=missing\]\{([^}]*)\}/)
-  assert.ok(empty && missing, '未生成的两档都要有样式')
+  const dim = CSS.match(/\.nm-world-map i\[data-shade="-1"\]\{([^}]*)\}/)
+  const dark = CSS.match(/\.nm-world-map i\[data-shade="-2"\]\{([^}]*)\}/)
+  assert.ok(dim && dark, '未生成的两档都要有样式')
   // 早先用 #3a3a2a / #2a2a2a，在近黑底上糊成一片，看着像没画出来
-  for (const [name, decl] of [['empty', empty[1]], ['missing', missing[1]]]) {
-    assert.doesNotMatch(decl, /#3a3a2a|#2a2a2a|background:#000/, `${name} 不能是近黑色`)
+  for (const [name, decl] of [['shade-1', dim[1]], ['shade-2', dark[1]]]) {
+    assert.doesNotMatch(decl, /#3a3a2a|#2a2a2a/i, `${name} 不能是近黑色`)
     assert.match(decl, /color-mix|#[0-9a-f]{6}/i, `${name} 要有可见的亮度`)
   }
 })
 
 test('区块格子不用圆角，保住方块语感', () => {
-  const m = CSS.match(/\.nm-world-grid i\{([^}]*)\}/)
+  const m = CSS.match(/\.nm-world-map i\{([^}]*)\}/)
   assert.ok(m, '必须存在格子规则')
-  const radius = m[1].match(/border-radius:([^;]+)/)
-  assert.ok(radius, '应显式声明圆角')
   // 允许 0–2px：1px 是为了消除方块边缘的抗锯齿毛边，视觉上仍是直角。
   // 一旦上到常见的 6/8/12px，格子就变成圆点阵，方块语感整个丢掉。
-  const px = Number(radius[1].replace(/[^\d.]/g, ''))
-  assert.ok(px <= 2, `圆角必须是 2px 以内，当前 ${radius[1]}`)
+  const radius = m[1].match(/border-radius:([^;]+)/)
+  if (radius) {
+    const px = Number(radius[1].replace(/[^\d.]/g, ''))
+    assert.ok(px <= 2, `圆角必须是 2px 以内，当前 ${radius[1]}`)
+  }
+})
+
+test('地图必须是密集小格，不能缩成十来个大色块', () => {
+  // 上一版按资产逐行上色、12 列，读起来是「图例表格」不是「地图」。
+  // 观感差异全在密度上，所以直接锁死格数与缝隙。
+  assert.match(SOURCE, /const SIZE = (?:2[4-9]|3\d)/, '地图边长至少 24 格，太粗就变成色卡')
+  const gap = CSS.match(/\.nm-world-map\{([^}]*)\}/)[1].match(/gap:(\d+)px/)
+  assert.ok(gap && Number(gap[1]) <= 2, '缝隙必须 ≤2px，否则格子之间断开成散点')
+})
+
+test('地形用噪声塑形，不能是按距离分层的同心方框', () => {
+  // 只按「离中心多远」上色会渲成靶心：一圈套一圈的规整方框，
+  // 完全不像地形。必须有噪声参与且权重足够大才能打散成斑块。
+  assert.match(SOURCE, /valueNoise/, '需要值噪声')
+  // 注意要抓含 dist 的那一行：文件里还有一个同名的表单辅助函数 field，
+  // 用 /const field = / 会先命中它，取出来的权重是 NaN。
+  const field = SOURCE.match(/const field = dist \* ([\d.]+) \+ fieldAt\([^)]*\) \* ([\d.]+)/)
+  assert.ok(field, '必须用 dist 与噪声场混合出 field')
+  const noiseWeight = Number(field[2])
+  assert.ok(noiseWeight >= 0.3, `噪声权重需 ≥0.3 才能打散同心感，当前 ${noiseWeight}`)
 })
 
 test('进度面板自己注入样式，不依赖设置页', () => {
