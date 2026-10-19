@@ -296,6 +296,21 @@ test('作者人格页签：两档模型独立保存，留空表示回退', async
   assert.deepEqual(patch.personaIntent, { provider: 'pb', model: 'mb', reasoningEffort: '' })
 })
 
+test('作者人格页签：保存成功后输入框回填服务端值，草稿标记清掉', async () => {
+  const h = harness()
+  await h.click('作者人格')
+  h.edit('拆书提供方', 'pa')
+  h.edit('拆书模型 ID', 'ma')
+  // 保存前应显示「有未保存的修改」
+  assert.match(h.text(h.render()), /有未保存的修改/u)
+  await h.submit('作者人格配置')
+  // 服务端确认后，草稿必须被服务端值覆盖：否则界面说「已保存」，
+  // 输入框里却还是那份没同步的临时值，下次改别的设置就会带着旧状态提交。
+  assert.equal(h.find('input', '拆书提供方').props.value, 'pa')
+  assert.equal(h.find('input', '拆书模型 ID').props.value, 'ma')
+  assert.match(h.text(h.render()), /配置已同步/u)
+})
+
 test('作者人格页签：只填提供方会被拦下，不会保存成半套路由', async () => {
   const h = harness()
   await h.click('作者人格')

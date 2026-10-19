@@ -644,31 +644,62 @@ export function mergePersonaDimensions(base, patch, keys) {
     signature: [...(base.signature ?? [])],
     avoid: [...(base.avoid ?? [])],
   }
+  // 记下哪些维度真的搬来了东西。模型偶尔会返回「选了对话维度但 traits 里
+  // 只有别的维度」，此时 mergedFrom 若照样写成参考作品名，提示词和回执都会
+  // 声称「此维度取自《X》」，可分数还是 base 原来的 —— 用户以为学到了，
+  // 其实什么都没变。所以出处只对真正变动的维度记账。
+  const moved = new Set()
   for (const key of wanted) {
     const source = patch.traits?.[key]
     if (source === undefined) continue
     merged.traits[key] = { ...source }
+    const before = base.traits?.[key]
+    if (before === undefined || Number(before.score) !== Number(source.score) || before.label !== source.label) {
+      moved.add(key)
+    }
   }
   // 只留与本次拼接维度相关的签名：参考人格的签名未必句句都在讲对话，
   // 全盘接收会让「学对话」变成「连节奏规则一起搬过来」。
   const patches = patch.dimensionNotes ?? {}
   const added = []
+  const keysWithNotes = new Set()
   for (const key of wanted) {
     for (const item of patches[key]?.signature ?? []) {
       if (!merged.signature.includes(item) && !added.includes(item)) added.push(item)
     }
+    if ((patches[key]?.signature ?? []).length > 0) keysWithNotes.add(key)
   }
-  if (added.length > 0) merged.signature = [...added, ...merged.signature].slice(0, 8)
+  // 新签名追加到末尾，而不是插到最前面再截断：原来的写法是
+  // [...added, ...merged.signature].slice(0, 8)，base 已经有 8 条时，
+  // 每拼一次就把用户原有的签名从尾部挤掉几条，而且一声不响。用户不会知道
+  // 自己的风格是这么一点点变少的。改成「原有签名一条不动，只把还有空位的
+  // 新签名放进去」，溢出的部分在回执里说明。
+  const SIG_CAP = 8
+  const room = Math.max(0, SIG_CAP - merged.signature.length)
+  const kept = added.slice(0, room)
+  if (kept.length > 0) {
+    merged.signature = [...merged.signature, ...kept]
+    // 签名真搬进去了，也算这个维度动过。只在确实写入了新条目时记，
+    // 否则「有 notes 但被容量挡下」会谎报成功。
+    for (const key of keysWithNotes) moved.add(key)
+  }
+  const overflow = added.length - kept.length
   // analyzed 记的是「这份人格里哪些维度是真正算出来的」，而不是「这次拼了
   // 哪几个」。写成后者会让 savePersona 之后的 normalizePersona 只校验一个
   // 维度、把 base 的其余维度全丢掉 —— 拼接功能等于把用户原来的风格清空了。
   const present = DIMENSION_KEYS.filter(key => merged.traits[key] !== undefined)
   merged.analyzed = present
+  // 没有实际搬动内容的维度不写出处，避免提示词谎报来源。
+  const provenance = wanted.filter(key => moved.has(key) && (merged.traits[key] !== undefined))
   merged.mergedFrom = {
     ...(merged.mergedFrom ?? {}),
-    ...Object.fromEntries(wanted.map(key => [key, patch.name ?? '参考作品'])),
+    ...Object.fromEntries(provenance.map(key => [key, patch.name ?? '参考作品'])),
   }
-  if (patch.model !== undefined) merged.mergedModels = { ...(merged.mergedModels ?? {}), ...Object.fromEntries(wanted.map(key => [key, patch.model])) }
+  if (patch.model !== undefined && provenance.length > 0) {
+    merged.mergedModels = { ...(merged.mergedModels ?? {}), ...Object.fromEntries(provenance.map(key => [key, patch.model])) }
+  }
+  // 被容量上限挡下的签名要能说清楚，而不是悄悄丢掉。
+  merged.signatureOverflow = overflow > 0 ? overflow : undefined
   return merged
 }
 

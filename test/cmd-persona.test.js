@@ -217,6 +217,27 @@ test('/novel-persona-study 宿主没有该 provider 时给出可操作的错误'
   }
 })
 
+test('模型漏掉指定维度时，用中文维度名说明并保证不改动原有设定', async () => {
+  const cwd = makeWorkspace()
+  // 点名要对话维度，但模型只回了节奏：内部会报「人格维度 dialogueStyle 缺少分数」，
+  // 直接把 key 抛给用户等于没解释，应该翻成中文并说明没有改动。
+  const h = host({ reply: { traits: { narrativePacing: { score: 9, label: 'x' } }, signature: [], avoid: [], confidence: 0.9 } })
+  try {
+    run(personaCommand(), {}, '测试书 wangyu-classic', cwd)
+    const before = loadPersona(cwd, '测试书')
+    const result = await run(personaStudyCommand(h.ctx, {}), h.ctx, '参考.txt --只取 对话 --to 测试书 --provider p --model m', cwd)
+    assert.equal(result.kind, 'error')
+    assert.match(result.text, /没有给出「对话风格」/u)
+    assert.doesNotMatch(result.text, /dialogueStyle/u, '不该把内部 key 抛给用户')
+    assert.match(result.text, /已保留你原来的设定/u)
+    const after = loadPersona(cwd, '测试书')
+    assert.equal(after.traits.dialogueStyle.score, before.traits.dialogueStyle.score)
+    assert.equal(after.traits.narrativePacing.score, before.traits.narrativePacing.score)
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true })
+  }
+})
+
 test('/novel-persona-study 不带 --to 时只报告不落盘', async () => {
   const cwd = makeWorkspace()
   const h = host()

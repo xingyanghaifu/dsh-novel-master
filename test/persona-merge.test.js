@@ -81,6 +81,33 @@ const run = (command, ctx, rawInput, cwd) => command.handler({
   signal: new AbortController().signal,
 })
 
+test('完整重算会清掉旧的拼接出处', async () => {
+  // mergedFrom 只在拼接时累加、自己不会消失。整份重算之后若不清理，
+  // 提示词会继续说某维度「取自《旧参考》」，而它其实已被重新定过。
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'nm-merge-'))
+  try {
+    const dir = path.join(cwd, 'novel_projects', '我的书')
+    fs.mkdirSync(path.join(dir, '正文'), { recursive: true })
+    fs.writeFileSync(path.join(dir, '写作规范.md'), '# 规范\n', 'utf8')
+    fs.writeFileSync(path.join(cwd, '参考.txt'), SAMPLE, 'utf8')
+    run(personaCommand(), {}, '我的书 wangyu-classic', cwd)
+
+    // 先做一次「只取对话」的拼接，制造 mergedFrom。
+    const mergeHost = host(partialJson(['dialogueStyle']))
+    await run(personaStudyCommand(mergeHost.ctx, {}), {}, '参考.txt --只取 对话 --to 我的书 --provider p --model m', cwd)
+    assert.ok(loadPersona(cwd, '我的书').mergedFrom?.dialogueStyle, '拼接后应记下出处')
+
+    // 再做一次完整重算（不带 --只取）。
+    const all = Object.fromEntries(PERSONA_DIMENSIONS.map((d, i) => [d.key, { score: i, label: 'x' }]))
+    const fullHost = host({ traits: all, signature: [], avoid: [], confidence: 0.9 })
+    await run(personaStudyCommand(fullHost.ctx, {}), {}, '参考.txt --to 我的书 --provider p --model m', cwd)
+    const after = loadPersona(cwd, '我的书')
+    assert.equal(after.mergedFrom?.dialogueStyle, undefined, '完整重算后不该再有旧拼接出处')
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true })
+  }
+})
+
 test('parseFocusDimensions 认 key、中文标签和口语词', () => {
   assert.deepEqual(parseFocusDimensions('dialogueStyle').keys, ['dialogueStyle'])
   assert.deepEqual(parseFocusDimensions('对话风格').keys, ['dialogueStyle'])
@@ -151,6 +178,36 @@ test('mergePersonaDimensions 只搬与该维度相关的签名', () => {
   const merged = mergePersonaDimensions(base, patch, ['dialogueStyle'])
   assert.ok(merged.signature.includes('对话短促有力'), '应带进该维度的签名')
   assert.ok(!merged.signature.includes('全局签名不该被搬过来'), '整份签名不该搬')
+})
+
+test('维度没真的搬动时不写出处，避免提示词谎报来源', () => {
+  // 模型可能「选了对话维度但 traits 里没有它」。此时记下出处会让提示词
+  // 说「此维度取自《参考》」，而分数其实还是 base 原来的 —— 用户以为学到了。
+  const base = builtinPersona('wangyu-classic')
+  const merged = mergePersonaDimensions(base, { name: '某参考', traits: {} }, ['dialogueStyle'])
+  assert.equal(merged.mergedFrom?.dialogueStyle, undefined, '没搬动就不该写出处')
+  assert.equal(merged.traits.dialogueStyle.score, base.traits.dialogueStyle.score)
+})
+
+test('签名取满时不动用户原有签名，并把溢出的条数记下来', () => {
+  // 原实现把新签名插到最前面再截断，base 已满 8 条时每拼一次就从尾部
+  // 挤掉用户原有几条，且一声不响 —— 用户的风格会这么一点点变少。
+  const base = {
+    ...builtinPersona('wangyu-classic'),
+    signature: Array.from({ length: 8 }, (_, i) => `原有签名${i}`),
+  }
+  const patch = {
+    name: '参考',
+    traits: { dialogueStyle: { score: 9, label: 'x' } },
+    dimensionNotes: { dialogueStyle: { signature: ['新签名A', '新签名B'], avoid: [] } },
+  }
+  const merged = mergePersonaDimensions(base, patch, ['dialogueStyle'])
+  // 原有 8 条一条都不能少。
+  for (const line of base.signature) {
+    assert.ok(merged.signature.includes(line), `原有签名「${line}」不该被挤掉`)
+  }
+  assert.equal(merged.signature.length, 8)
+  assert.equal(merged.signatureOverflow, 2, '被容量挡下的条数要能说出来')
 })
 
 test('mergePersonaDimensions 拒绝空维度列表', () => {

@@ -405,6 +405,10 @@ window.__ModuleLoader__.load({
         if (!dirty.current.decision) setDecision({ ...DECISION, ...next.value?.decision })
         if (!dirty.current.research) setResearch({ ...RESEARCH, ...next.value?.research })
         if (!dirty.current.batch) setBatchWrite({ ...BATCH, ...next.value?.batch })
+        // 漏掉这两行时，保存作者人格后输入框仍显示旧草稿，而 dirty 标记永远
+        // 清不掉 —— 界面说「已保存」，用户看到的却是没保存的那份。
+        if (!dirty.current.persona) setPersona({ ...PERSONA, ...next.value?.persona })
+        if (!dirty.current.personaIntent) setPersonaIntent({ ...PERSONA_INTENT, ...next.value?.personaIntent })
       }
       const changed = (draft, original) => Object.keys(draft).some(key => String(draft[key]) !== String(original[key]))
       const editGuidance = (key, next) => setGuidance(current => { const draft = { ...current, [key]: next }; dirty.current.guidance = changed(draft, { ...GUIDANCE, ...form?.value?.guidance }); return draft })
@@ -2153,7 +2157,7 @@ window.__ModuleLoader__.load({
         h('style', null, CSS),
         h('div', { className: 'nm-atlas-head' },
           h('select', {
-            value: selected, 'aria-label': '选择小说项目',
+            value: selected, 'aria-label': '选择小说项目（设定地图）',
             onChange: (event) => { setSelected(event.target.value); setExpanded({}) },
           }, projects.length === 0
             ? h('option', { value: '' }, '暂无项目')
@@ -2409,7 +2413,7 @@ window.__ModuleLoader__.load({
         h('style', null, CSS),
         h('div', { className: 'nm-art-head' },
           h('select', {
-            value: project, 'aria-label': '选择小说项目',
+            value: project, 'aria-label': '选择小说项目（AI 生图）',
             onChange: (event) => setProject(event.target.value),
           }, projects.length === 0
             ? h('option', { value: '' }, '暂无项目')

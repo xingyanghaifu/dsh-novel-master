@@ -103,7 +103,37 @@ test('parseNaturalIntent 对没有意图的话保持沉默，不瞎猜', () => {
   assert.equal(plain.consumed, false)
 })
 
-test('parseNaturalIntent 不会把普通叙述当成维度', () => {
+test('parseNaturalIntent 不会把抱怨当成「要学这个维度」', () => {
+  // 拼接会覆盖已有风格，所以「节奏太慢了」这种吐槽必须停住，不能顺势拼接。
+  for (const sentence of ['节奏太慢了', '对话写得一般', '人物不够立体', '冲突太平淡了', '描写太多', '对白太啰嗦']) {
+    const intent = parseNaturalIntent(sentence)
+    assert.equal(intent.only, undefined, `${sentence} 不该被当成学习意图`)
+    assert.ok(intent.complains !== undefined, `${sentence} 应被识别为抱怨`)
+  }
+  // 正面评价仍然要能认出维度。
+  assert.equal(parseNaturalIntent('对话写得好').only, '对话')
+  assert.equal(parseNaturalIntent('我要学节奏和对白').only, '节奏,对白')
+})
+
+test('抱怨句只反问、不调用模型、不改动已有风格', async () => {
+  const cwd = makeWorkspace()
+  try {
+    run(personaCommand(), {}, '网管修仙 wangyu-classic', cwd)
+    const before = loadPersona(cwd, '网管修仙')
+    const h = host(partial)
+    const result = await run(personaStudyCommand(h.ctx, {}), {}, '参考.txt 节奏太慢了', cwd)
+    assert.equal(result.kind, 'error')
+    assert.match(result.text, /不像在说/u)
+    // 关键：一次请求都不该发出，风格也不该动。
+    assert.equal(h.calls.length, 0)
+    const after = loadPersona(cwd, '网管修仙')
+    assert.equal(after.traits.narrativePacing.score, before.traits.narrativePacing.score)
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true })
+  }
+})
+
+test('普通叙述不会被当成维度', () => {
   // 「写得不错」「很好看」这种泛泛评价不该触发任何维度。
   const vague = parseNaturalIntent('这本书写得不错，很好看')
   assert.equal(vague.only, undefined)

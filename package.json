@@ -1,6 +1,6 @@
 {
   "name": "dsh-novel-master",
-  "version": "2.9.4",
+  "version": "2.9.5",
   "description": "灏忚鍒涗綔鎻掍欢 for DeepSeek Harness - 32 涓姛鑳藉懡浠ゅ強鏇存柊鍏ュ彛锛屼綔鑰呬汉鏍硷紙鎷嗕功鎻愬彇 + 鍐呯疆椋庢牸锛夈€佽祫鏂欏彲淇″害璇勪及銆佺儹鐐归鏉愬垎鏋愩€佸鍦烘櫙鎺ㄧ悊寮哄害閰嶇疆锛屽彸渚ф爮璁惧畾鏍戯紙涓栫晫瑙?浜鸿/澶х翰/杩涘害鍙鍖栵級",
   "type": "module",
   "main": "src/index.js",

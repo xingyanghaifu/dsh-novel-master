@@ -28,6 +28,16 @@ import {
 } from './author-persona.js'
 
 /**
+ * 抱怨/否定语气。命中就不自动拼接。
+ *
+ * 只收「明显是在吐槽」的说法：「太慢了」「写得一般」「不够」。
+ * 刻意不收「不好」这类同时也是正常词的表述（「不好说」），也不收单独一个
+ * 「差」—— 误判成吐槽只是少一次自动操作，用户补一句 --只取 就行；反过来
+ * 误判成拼接会覆盖掉用户已有的风格，代价不对等。
+ */
+const DIMENSION_COMPLAINT = /太[慢快长短多少密稀高低重复啰嗦拖沓平淡]|(?:写|做)得?(?:一般|不好|不行|不够|很差|太差)|不够|欠佳|不到位|有问题|没写好|没意思|没感觉|很烂|很差|太差|糟糕|平淡|平庸/u
+
+/**
  * 从自然语言里认出用户要什么。
  *
  * 命令参数要求 `--只取 对话 --to 某书`，但人说话不是这么说的：「这本小说
@@ -74,7 +84,13 @@ export function parseNaturalIntent(raw) {
     }
   }
   if (dimensionWords.length > 0) {
-    result.only = dimensionWords.join(',')
+    // 出现维度词不等于「要学这个维度」：用户可能是在抱怨。
+    // 「节奏太慢了」「对话写得一般」里同样有维度词，照搬会让一次吐槽
+    // 变成一次风格覆盖 —— 而拼接是破坏性操作，代价不对等。
+    // 所以这里再判一次褒贬，抱怨就只记下来、不自动动手。
+    const complains = DIMENSION_COMPLAINT.test(text)
+    if (complains) result.complains = dimensionWords.join(',')
+    else result.only = dimensionWords.join(',')
     result.consumed = true
   }
   return result
@@ -335,20 +351,34 @@ export function personaStudyCommand(ctx, config) {
           return fail(formatError('宿主没有可发现的模型', [
             ...failures.map(item => `${item.source}：${item.message}`),
             '直接在命令里指定：--provider X --model Y',
-            '或在插件设置 → 作者人格提取 里填写',
+            '或在插件设置 → 作者人格（拆书分析模型）里填写',
           ]))
         }
         const lines = models.map(item => `  ${item.provider}  ${item.model}${item.tag ? `  [${item.tag}]` : ''}`)
         return ok(formatSuccess('可用于拆书的模型', {
           '🤖 可用列表': `\n${lines.join('\n')}`,
           '💡 临时指定': `/novel-persona-study 参考.txt --provider <上面第一个> --model <第二个>`,
-          '⚙️ 长期配置': '插件设置 → 作者人格提取（拆书）/ 自然语言意图解析（只用来听懂人话）',
+          '⚙️ 长期配置': '插件设置 → 作者人格页签：拆书分析模型 / 自然语言意图解析模型',
         }))
       }
 
       // 自然语言兜底：显式参数优先，缺的部分才从整句话里认。
       // 「这本小说对话写得好，帮我拼到《网管修仙》上」不该要求用户改写。
       const intent = parseNaturalIntent(options.rest)
+      // 认出维度词但语气是抱怨时，不能顺势做拼接：拼接会覆盖用户已有风格，
+      // 而「节奏太慢了」本身不是在要求学什么。只停下来问一句，把选择权
+      // 交回去 —— 用户补一个 --只取 就能继续，成本远低于悄悄改掉风格。
+      if (intent.complains !== undefined && options.only === undefined) {
+        const { parseFocusDimensions } = await import('./author-persona.js')
+        const labels = parseFocusDimensions(intent.complains).keys
+          .map(key => PERSONA_DIMENSIONS.find(item => item.key === key)?.label ?? key)
+        return fail(formatError('这句话像是在说问题，不像在说「要学哪个维度」', [
+          `识别到的维度：${labels.join('、')}`,
+          '想把这几个维度从参考作品拼过来，请明说：',
+          `/novel-persona-study 参考.txt --只取 ${labels.join(',')}${intent.to === undefined ? ' --to 项目名' : ` --to ${intent.to}`}`,
+          '如果你是想分析自己这本书的问题，用 /novel-review 或 /novel-pace 更合适',
+        ]))
+      }
       let only = options.only ?? intent.only
       let to = options.to ?? intent.to
 
@@ -448,7 +478,7 @@ export function personaStudyCommand(ctx, config) {
       if (resolved.route === undefined) {
         return fail(formatError('不知道该用哪个模型分析', [
           '方法 1：命令行指定 —— /novel-persona-study 参考.txt --provider deepseek --model deepseek-chat',
-          '方法 2：插件设置 → 作者人格提取 → 填 Provider 和 Model',
+          '方法 2：插件设置 → 作者人格 → 拆书分析模型，填 Provider 和 Model',
           '方法 3：先在会话里正常发一条消息，让插件读到实际路由',
           '本命令不会猜测模型，避免把整本参考作品发到别的模型上计费',
         ]))
@@ -503,10 +533,22 @@ export function personaStudyCommand(ctx, config) {
           return fail(formatError(`宿主没有可用模型「${resolved.route.provider}/${resolved.route.model}」`, [
             `原始错误：${message}`,
             '检查 Provider / Model 拼写是否与宿主的模型配置一致',
-            '插件设置 → 作者人格提取，或命令行 --provider / --model',
+            '插件设置 → 作者人格 → 拆书分析模型，或命令行 --provider / --model',
           ]))
         }
         if (/不认识的维度|unknown-dimension/u.test(message)) return fail(formatError(message))
+        // 「人格维度 dialogueStyle 缺少分数」直接抛给用户等于没解释：
+        // dialogueStyle 是内部 key，用户看到的应该是中文维度名 + 下一步。
+        const missing = message.match(/人格维度\s+(\w+)\s+缺少分数/u)
+        if (missing !== null) {
+          const label = PERSONA_DIMENSIONS.find(item => item.key === missing[1])?.label ?? missing[1]
+          return fail(formatError(`模型这次没有给出「${label}」这个维度`, [
+            '参考作品可能在这一维上特征不明显，或者模型的回复被截断了',
+            '已保留你原来的设定，没有任何维度被改动',
+            '可以重试一次，或换一个更擅长这类分析的模型',
+            `也可以只拼它确实看出来的维度，例如：/novel-persona-study ${reference.label} --只取 人物 --to ${to}`,
+          ]))
+        }
         return fail(`提取作者人格失败：${message}`)
       }
 
@@ -534,7 +576,14 @@ export function personaStudyCommand(ctx, config) {
       }
 
       const final = merged ?? persona
-      const file = savePersona(cwd, to, { ...final, source: `study:${reference.label}` })
+      // 完整重算时清掉旧出处：mergedFrom 只在拼接时累加，自己不会消失，
+      // 于是「重新完整分析过这本书」之后，提示词仍会说某维度「取自《旧参考》」，
+      // 而它其实已经被整体重算覆盖了。整份重算等于把每个维度都重新定过，
+      // 旧的拼接出处就都不成立了。
+      const toSave = merged === undefined
+        ? { ...final, mergedFrom: undefined, mergedModels: undefined, source: `study:${reference.label}` }
+        : { ...final, source: `study:${reference.label}` }
+      const file = savePersona(cwd, to, toSave)
       // 拆完要立刻能用：只在 作者人格.json 里还不够，写作命令每轮读的是
       // 写作规范.md，不写进去就要等下一次 /novel-* 才生效。
       writePersonaToRules(cwd, to, final)
@@ -542,11 +591,28 @@ export function personaStudyCommand(ctx, config) {
       const pickedLine = pickedKeys.length === 0
         ? undefined
         : pickedKeys.map(key => PERSONA_DIMENSIONS.find(item => item.key === key)?.label ?? key).join('、')
+      // 点名要拼、但模型没给这个维度：别静默当成功，否则用户以为拼上了，
+      // 下次写作才发现风格没变。
+      const missedKeys = merged === undefined
+        ? []
+        : mergeBase.keys.filter(key => merged.traits[key] === undefined
+          || (mergeBase.base.traits[key]?.score === merged.traits[key].score
+            && mergeBase.base.traits[key]?.label === merged.traits[key].label
+            && merged.mergedFrom?.[key] === undefined))
+      const missedLine = missedKeys.length === 0
+        ? undefined
+        : missedKeys.map(key => PERSONA_DIMENSIONS.find(item => item.key === key)?.label ?? key).join('、')
       return ok(formatSuccess(`作者人格已保存到《${to}》`, {
         '🎨 风格特征': `\n${personaReport(final)}`,
         ...(pickedLine === undefined
           ? {}
           : { '🧩 拼接维度': `${pickedLine}　取自《${reference.label}》，其余维度保持原样` }),
+        ...(missedLine === undefined
+          ? {}
+          : { '⚠️ 没拼上': `${missedLine}　模型这次没给出这几个维度，已保留原来的设定。可以重试，或换更擅长这类分析的模型。` }),
+        ...(merged?.signatureOverflow
+          ? { '📎 签名已满': `${merged.signature.length} 条写法规则已到上限，本次有 ${merged.signatureOverflow} 条没放下。原有条目一条未动。` }
+          : {}),
         '🤖 使用模型': `${persona.model}（来源：${routeSourceLabel(resolved.source)}）`,
         '📏 分析样本': sampleLine,
         '📁 人格文件': `${projectRelativeDir(to)}/${PERSONA_FILE}`,
