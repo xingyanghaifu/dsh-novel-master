@@ -24,6 +24,13 @@ fs.mkdirSync(OUT, { recursive: true })
 // ── 用真实组件渲染出 HTML ────────────────────────────────────────
 const states = []
 let si = 0
+// 重新渲染一个组件前要把下标归零，否则 hook 槽位会往后错。
+// 但**不能清空 states** —— 进度面板的数据正是靠 effect 里的 setState 灌进来的，
+// 清掉就退回到首帧的空状态，截图只剩一个空壳。
+const rewindHooks = () => { si = 0 }
+// 第二轮重画时把 useEffect 关掉：组件的 effect 返回清理函数会置
+// alive.current=false，重跑会让上一轮请求的回调自我否决，数据永远落不了地。
+let silentHooks = false
 let loaded = null
 const React = {
   createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }),
@@ -33,7 +40,7 @@ const React = {
     return [states[i], next => { states[i] = typeof next === 'function' ? next(states[i]) : next }]
   },
   useRef(initial) { return { current: initial } },
-  useEffect(fn) { try { return fn() } catch { return undefined } },
+  useEffect(fn) { if (silentHooks) return; try { return fn() } catch { return undefined } },
   Fragment: 'fragment',
 }
 
@@ -59,12 +66,43 @@ const ATLAS_PAYLOAD = {
   }],
 }
 
+/**
+ * 设置接口的响应形状：`{ value, revision }`。字段名要跟 client.js 里读的一致，
+ * 否则缺哪个字段界面就少一块 —— 预览看不出是「设计如此」还是「数据没给」。
+ */
+const SETTINGS_PAYLOAD = {
+  revision: 7,
+  value: {
+    enabled: true,
+    projectsDir: 'novel_projects',
+    updateProxy: '',
+    commands: {},
+    guidance: { enabled: false },
+    learning: { enabled: false },
+    decision: { enabled: false },
+    research: { enabled: false },
+    batch: { enabled: false },
+    persona: { enabled: false, draft: '' },
+    image: { enabled: false },
+  },
+}
+
 vm.runInNewContext(src, {
   window: { __ModuleLoader__: { load: bundle => { loaded = bundle } } },
   location: { reload() {} },
   document: { baseURI: 'http://localhost/', visibilityState: 'visible', hidden: false },
   URL, AbortController, setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {},
-  fetch: async () => ({ ok: true, status: 200, json: async () => ATLAS_PAYLOAD }),
+  // 按路径分发。早先一律返回 ATLAS_PAYLOAD，设置页请求 settings/status 时
+  // 拿到的是项目数据，字段全对不上，渲染出一条空的成功提示 —— 看着像产品
+  // 有 bug，其实是 mock 在乱喂数据。
+  fetch: async (url) => {
+    const u = String(url)
+    const pick = u.includes('atlas') ? ATLAS_PAYLOAD
+      : u.includes('status') ? { version: '2.10.0', enabled: true, application: 'idle' }
+      : u.includes('settings') ? SETTINGS_PAYLOAD
+      : {}
+    return { ok: true, status: 200, json: async () => pick }
+  },
 })
 
 const plugin = loaded.factory(() => React)
@@ -132,35 +170,92 @@ function toHtml(node) {
 }
 
 const useSessions = () => undefined
-si = 0
 const progressBody = slots['sidebar.right.pane.tab']['dsh-novel-master/progress']
+// 两趟渲染：第一趟跑 effect 把请求发出去，等数据回来；第二趟带着已落地的
+// 状态重新画一遍。这里只归位下标，不清状态槽 —— 进度面板的内容就存在里面。
+rewindHooks()
 progressBody({ sessionId: 's1', useSessions })
-await new Promise(r => setTimeout(r, 60))
-si = 0
+await new Promise(r => setTimeout(r, 80))
+rewindHooks()
 const progressHtml = toHtml(progressBody({ sessionId: 's1', useSessions }))
 
-// 设置页：拿真实的 tab 与卡片结构
-si = 0
+// 设置页：拿真实的 tab 与卡片结构。
+// 状态槽必须清空（否则会读到进度面板存下的 payload），但清空后要重新跑一遍
+// effect 把数据灌回来 —— 只清不跑，页面就是一屏空卡片。
+// 注意第二轮不能再跑 effect：组件里的 effect 会 alive.current=false 清理，
+// 重跑会让第一轮已发出的请求在回调里自我否决，数据永远落不了地。
+states.length = 0
+rewindHooks()
 const page = slots['settings.section']['novel-master']
-const settingsHtml = toHtml(page({}))
+// 注册进来的是 `props => h(SettingsPage, {...props, ctx})`。toHtml 第 149 行
+// 遇到函数型 type 会自己调一次，所以这里直接把元素交给它，不要再手工展开。
+//
+// 首轮必须真的走一遍 toHtml —— 只调 page({}) 拿到的是「待渲染元素」，
+// 组件函数压根没执行，effect 不会触发，等多久都等不到数据。渲染产物丢掉即可，
+// 目的是让请求发出去、setState 落进状态槽；第二轮重画才能读到。
+const mountSettings = () => {
+  rewindHooks()
+  return page({})
+}
+toHtml(mountSettings())         // 第一趟：真正渲染一次，触发 effect 与请求
+await new Promise(r => setTimeout(r, 200))
+const settingsHtml = toHtml(mountSettings())
+
+/**
+ * 宿主主题令牌 —— 必须从 app.asar 里读真值，不能手打。
+ *
+ * 早先这里写的是一组手挑的占位色，其中 `--dsw-alias-brand-primary:#6b8ff0`
+ * 恰好是蓝色，而宿主真实值是中性色（浅色 #0f1115 / 深色 #f9fafb）。于是
+ * 「插件强调色在真机上全部退化成黑白」这个 bug 被预览完整地掩盖了整整一轮。
+ * 预览环境不忠实，看图越满意，离真机越远。
+ */
+const tokens = JSON.parse(fs.readFileSync(path.join(OUT, 'tokens.json'), 'utf8'))
+
+const hostVars = (dark) => {
+  const t = tokens[dark ? 'dark' : 'light']
+  const map = {
+    'bg-base': 'bg-base',
+    'bg-layer-1': 'bg-layer-1',
+    'bg-layer-2': 'bg-layer-2',
+    'bg-layer-3': 'bg-layer-3',
+    'bg-overlay': 'bg-overlay',
+    'label-primary': 'label-primary',
+    'label-secondary': 'label-secondary',
+    'label-tertiary': 'label-tertiary',
+    'label-caption': 'label-caption',
+    'border-l1': 'border-l1',
+    'border-l2': 'border-l2',
+    'border-l3': 'border-l3',
+    'border-l4': 'border-l4',
+    'state-business-primary': 'state-business-primary',
+    'state-success-primary': 'state-success-primary',
+    'state-error-primary': 'state-error-primary',
+    'link': 'link',
+    'brand-primary': 'brand-primary',
+  }
+  return Object.entries(map)
+    .filter(([, key]) => t[key])
+    .map(([css, key]) => `--dsw-alias-${css}:${t[key]}`)
+    .join(';')
+}
 
 const shell = (title, body, extra = '', dark = true) => `<!doctype html>
 <html lang="zh-CN" data-theme="${dark ? 'dark' : 'light'}"><head>
 <meta charset="utf-8"><title>${title}</title>
 <style>
-/* 模拟宿主的主题变量。真实环境里这些由 DSH 提供，这里按官方深色/浅色各给一套。 */
-:root{color-scheme:${dark ? 'dark' : 'light'};--dsw-alias-bg-layer-1:${dark ? '#0f1115' : '#ffffff'};--dsw-alias-bg-layer-2:${dark ? '#161a21' : '#f7f8fa'};--dsw-alias-bg-layer-3:${dark ? '#1c222b' : '#eef0f4'};--dsw-alias-bg-overlay:${dark ? '#1c222b' : '#ffffff'};--dsw-alias-label-primary:${dark ? '#e8ebf0' : '#16181d'};--dsw-alias-label-secondary:${dark ? '#939bab' : '#5f6674'};--dsw-alias-border-l2:${dark ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.10)'};--dsw-alias-brand-primary:#6b8ff0;--dsw-alias-state-business-primary:#6b8ff0;--dsw-alias-state-success-primary:${dark ? '#3fbf8f' : '#1f8f66'};--dsw-alias-state-error-primary:${dark ? '#f0717a' : '#c84d55'}}
+/* 宿主主题变量：全部来自 app.asar 实测值（preview/tokens.json）。 */
+:root{color-scheme:${dark ? 'dark' : 'light'};${hostVars(dark)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
 ${CSS}
 ${extra}
 </style></head><body>${body}</body></html>`
 
 // 侧边栏宽度按真实值（约 330px）来，才能判断排版是否挤
 fs.writeFileSync(path.join(OUT, 'progress-dark.html'),
-  shell('生成进度 · 深色', `<div style="width:330px;height:720px;background:var(--dsw-alias-bg-layer-1)">${progressHtml}</div>`), 'utf8')
+  shell('生成进度 · 深色', `<div style="width:330px;height:720px;background:var(--dsw-alias-bg-base)">${progressHtml}</div>`), 'utf8')
 fs.writeFileSync(path.join(OUT, 'progress-light.html'),
-  shell('生成进度 · 浅色', `<div style="width:330px;height:720px;background:var(--dsw-alias-bg-layer-1)">${progressHtml}</div>`, '', false), 'utf8')
+  shell('生成进度 · 浅色', `<div style="width:330px;height:720px;background:var(--dsw-alias-bg-base)">${progressHtml}</div>`, '', false), 'utf8')
 fs.writeFileSync(path.join(OUT, 'settings-dark.html'), shell('设置页 · 深色', settingsHtml), 'utf8')
 fs.writeFileSync(path.join(OUT, 'settings-light.html'), shell('设置页 · 浅色', settingsHtml, '', false), 'utf8')
 

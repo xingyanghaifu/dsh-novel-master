@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.10.1
+
+### 修复：强调色在真机上全部退化成黑白
+
+`--nm-accent` 一直取的是 `--dsw-alias-brand-primary`。从宿主 `app.asar` 里反查出来的真实值是：
+
+| 令牌 | 浅色 | 深色 |
+|---|---|---|
+| `brand-primary` | `#0f1115`（近黑） | `#f9fafb`（近白） |
+| `state-business-primary` | `#4176e6` | `#7aaaff` |
+
+`brand-primary` 是中性色，不是品牌色。于是 137 处 `var(--nm-accent)` 在真机上全部变成黑白：徽章灰底黑字、进度条黑白渐变、主按钮黑底黑边还带一圈黑色光晕。这类错误不报错、不崩溃，只是「看着说不出哪里不对」。
+
+改成 `state-business-primary`，两个作用域（`.nm-settings` 和 `.nm-atlas`）都要改 —— 侧边栏是独立定义的，只改一个侧栏照样是灰的。
+
+同一个bug还带出两处：`--nm-raised` 取 `bg-overlay`，而它浅色是 `#e9ecf2`，比卡片 `#fff` 更暗，Hero 在浅色下看着是凹的；现在改成相对卡片做 `color-mix` 提亮。
+
+### 视觉收敛
+
+- 圆角 24 处手调值（7/9/11/13/15/18/22/24px）收进 4/6/10/14/20 五档
+- `transition: all` 22 处全部换成显式属性列表 —— `all` 会连 `font-weight`、`border-width` 一起插值，中文 hover 时能看到轻微重排
+- 卡片从「1px 实色边框」改成「0.5px 边环 + 双层阴影 + 1px 顶高光」；深色下阴影几乎不可见，靠明度和边环分层
+- Hero 去掉 18% 彩色径向光晕和 145° 对角渐变 —— 深色下前者就是一块蓝斑，后者在近黑底上会显出「幕布折痕」
+- 静态卡片的 hover 上浮去掉，卡片不是可点元素
+- 动效时长与曲线收敛成 `--nm-t-fast:120ms` / `--nm-t-base:200ms` / `--nm-ease-out` 三条令牌
+
+### 工具：预览必须用真值
+
+`tools/preview.mjs` 之前手打了一套占位色，其中 `--dsw-alias-brand-primary:#6b8ff0` 恰好是蓝色 —— 把上面那个 bug 完整地掩盖了整整一轮。现在改为从 `app.asar` 抽出真实令牌存成 `preview/tokens.json`（`node tools/extract-tokens.mjs` 可重跑）。
+
+同一个工具还修了三处会伪造问题的缺陷：状态槽在两个组件间串味（凭空多一条空提示条）、`fetch` 对所有路径返同一份 payload、首轮只建元素不渲染导致 effect 从不触发（页面渲成四个空卡片）。**预览环境不忠实，看图越满意，离真机越远。**
+
+### 测试
+
+395 项全部通过。新增 7 项令牌约束测试，锁死「强调色不能取 brand-primary」「raised 不能取 bg-overlay」「不留手调圆角」「不用 transition:all」。
+
 ## 2.10.0
 
 ### 新增：生成进度（右侧栏第三个页签）
