@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { buildAtlas, cleanLabel, eventsOf, extractChapter, headingTree, parseTable, regionsOf, worldClockLines } from '../src/atlas.js'
+import { assetReadiness, buildAtlas, cleanLabel, eventsOf, extractChapter, headingTree, parseTable, readBatchStatus, regionsOf, worldClockLines } from '../src/atlas.js'
 
 test('headingTree nests headings by level and keeps stable ids', () => {
   const { nodes, total, truncated } = headingTree('# 书\n## 世界\n### 规则A\n## 角色\n')
@@ -68,6 +68,86 @@ test('buildAtlas returns project tree, progress and missing chapters', () => {
   assert.equal(rules.exists, false)
   assert.equal(project.chapterList.count, 2)
   assert.match(project.chapterList.nodes[0].label, /第1章/u)
+  fs.rmSync(cwd, { recursive: true, force: true })
+})
+
+test('atlas exposes readiness so the progress panel does not re-derive it', () => {
+  const cwd = fixture()
+  const atlas = buildAtlas({ cwd, projectsDirectory: 'novel_projects' })
+  const { readiness } = atlas.projects[0]
+  assert.ok(readiness, '项目应当带 readiness')
+  // fixture 有 设定/角色/伏笔/剧情树 和 2 章正文，缺 大纲/世界状态/写作规范
+  const byKey = Object.fromEntries(readiness.items.map((item) => [item.key, item]))
+  assert.equal(byKey.setting.exists, true)
+  assert.equal(byKey.outline.exists, false)
+  assert.equal(byKey.rules.exists, false)
+  assert.equal(byKey.chapters.exists, true, '有正文就算完成')
+  assert.equal(byKey.chapters.headings, 2)
+  // 伏笔.md 是纯表格、没有标题，但它确实写好了 —— 这正是不能按 headings
+  // 判断的原因。
+  assert.equal(byKey.foreshadow.exists, true)
+  assert.equal(byKey.foreshadow.headings, 0)
+  assert.equal(byKey.foreshadow.chars > 0, true)
+  assert.equal(readiness.total, 8, '七个扇区 + 正文')
+  assert.equal(readiness.done, 5)
+  assert.equal(readiness.percent, 63)
+  // next 必须是按扇区顺序的第一个缺失项，前端靠它给出下一步建议
+  assert.equal(readiness.next, 'outline')
+  fs.rmSync(cwd, { recursive: true, force: true })
+})
+
+test('assetReadiness treats an empty document as not ready', () => {
+  // 文件存在但一个字都没有：手工建了个空文件不算写好。
+  const readiness = assetReadiness([
+    { key: 'setting', label: '世界观', exists: true, headings: 0, chars: 0, truncated: false },
+    { key: 'cast', label: '人设', exists: true, headings: 2, chars: 120, truncated: false },
+  ], 0)
+  assert.equal(readiness.items[0].exists, false, '空文档不算完成')
+  assert.equal(readiness.items[0].created, true, '但确实创建过，UI 要能区分')
+  assert.equal(readiness.items[1].exists, true)
+  assert.equal(readiness.next, 'setting')
+})
+
+test('assetReadiness counts headingless table documents as written', () => {
+  // 伏笔.md 是纯表格：有内容但没有任何标题。只按 headings 判断会误报未完成。
+  const readiness = assetReadiness([
+    { key: 'foreshadow', label: '伏笔', exists: true, headings: 0, chars: 86, truncated: false },
+  ], 0)
+  assert.equal(readiness.items[0].exists, true)
+  assert.equal(readiness.items[0].chars, 86)
+})
+
+test('readBatchStatus reports progress and tolerates a missing or broken file', () => {
+  const cwd = fixture()
+  const project = path.join(cwd, 'novel_projects', '测试书')
+  assert.equal(readBatchStatus(cwd, '测试书'), null, '没跑过批量写作时是 null')
+
+  fs.writeFileSync(path.join(project, '批量写作状态.json'),
+    JSON.stringify({ phase: 'running', done: 3, target: 12, requestSize: 2, lastError: '', updatedAt: '2026-10-19T03:00:00.000Z' }), 'utf8')
+  const status = readBatchStatus(cwd, '测试书', Date.parse('2026-10-19T03:00:30.000Z'))
+  assert.equal(status.phase, 'running')
+  assert.equal(status.phaseLabel, '正在写')
+  assert.equal(status.done, 3)
+  assert.equal(status.percent, 25)
+  assert.equal(status.staleMs, 30000)
+
+  fs.writeFileSync(path.join(project, '批量写作状态.json'), '{ 这不是 json', 'utf8')
+  assert.equal(readBatchStatus(cwd, '测试书'), null, '坏文件当没跑过，不能拖垮面板')
+
+  fs.writeFileSync(path.join(project, '批量写作状态.json'), '[]', 'utf8')
+  assert.equal(readBatchStatus(cwd, '测试书'), null, '数组不是合法状态')
+  fs.rmSync(cwd, { recursive: true, force: true })
+})
+
+test('readBatchStatus keeps an unknown phase readable instead of leaking the raw code', () => {
+  const cwd = fixture()
+  fs.writeFileSync(path.join(cwd, 'novel_projects', '测试书', '批量写作状态.json'),
+    JSON.stringify({ phase: 'paused-by-user', done: 1, target: 5 }), 'utf8')
+  const status = readBatchStatus(cwd, '测试书')
+  assert.equal(status.phase, 'paused-by-user', '原始值保留，便于排查')
+  assert.equal(status.phaseLabel, '状态未知', '展示层永远是中文')
+  assert.equal(status.percent, 20)
+  assert.equal(status.staleMs, null, '没有 updatedAt 就没有陈旧判断')
   fs.rmSync(cwd, { recursive: true, force: true })
 })
 

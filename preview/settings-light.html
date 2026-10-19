@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light"><head>
+<meta charset="utf-8"><title>设置页 · 浅色</title>
+<style>
+/* 模拟宿主的主题变量。真实环境里这些由 DSH 提供，这里按官方深色/浅色各给一套。 */
+:root{color-scheme:light;--dsw-alias-bg-layer-1:#ffffff;--dsw-alias-bg-layer-2:#f7f8fa;--dsw-alias-bg-layer-3:#eef0f4;--dsw-alias-bg-overlay:#ffffff;--dsw-alias-label-primary:#16181d;--dsw-alias-label-secondary:#5f6674;--dsw-alias-border-l2:rgba(0,0,0,.10);--dsw-alias-brand-primary:#6b8ff0;--dsw-alias-state-business-primary:#6b8ff0;--dsw-alias-state-success-primary:#1f8f66;--dsw-alias-state-error-primary:#c84d55}
+*{box-sizing:border-box}
+body{margin:0;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+
+.nm-settings{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-raised:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-3,Canvas));--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-border-glow:color-mix(in srgb,var(--nm-accent) 26%,var(--nm-border));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);--nm-error:var(--dsw-alias-state-error-primary,#c84d55);max-width:1200px;margin:0 auto;padding:32px 28px;color:var(--nm-text);font-size:13px;line-height:1.65;display:flex;flex-direction:column;gap:28px}
+.nm-settings *{box-sizing:border-box}.nm-settings [hidden]{display:none!important}.nm-settings h2,.nm-settings h3,.nm-settings h4,.nm-settings p{margin:0}.nm-settings h2{font-size:28px;font-weight:750;letter-spacing:-.8px}.nm-settings h3{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px}.nm-settings h4{font-size:15px;font-weight:650}.nm-settings .nm-muted{color:var(--nm-muted);font-size:12px}.nm-settings .nm-hero{padding:32px;border-radius:24px;border:1px solid var(--nm-border-glow);background:radial-gradient(ellipse at 95% 0%,color-mix(in srgb,var(--nm-accent) 18%,transparent),transparent 70%),linear-gradient(145deg,color-mix(in srgb,var(--nm-raised) 92%,var(--nm-accent) 6%),var(--nm-card));box-shadow:0 8px 32px -8px color-mix(in srgb,CanvasText 9%,transparent);display:flex;flex-direction:column;gap:24px}
+.nm-settings .nm-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.nm-settings .nm-between{justify-content:space-between}.nm-settings .nm-brand{display:flex;align-items:center;gap:18px}.nm-settings .nm-logo{width:58px;height:58px;display:grid;place-items:center;border-radius:20px;color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 16%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card)));border:1px solid color-mix(in srgb,var(--nm-accent) 35%,transparent);box-shadow:0 6px 18px -4px color-mix(in srgb,var(--nm-accent) 30%,transparent);transition:all .3s ease}.nm-settings .nm-logo:hover{transform:translateY(-2px);box-shadow:0 8px 24px -4px color-mix(in srgb,var(--nm-accent) 40%,transparent)}.nm-settings .nm-logo svg{width:32px;height:32px}
+.nm-settings .nm-badge,.nm-settings .nm-chip{font-size:11px;border:1px solid var(--nm-border);border-radius:999px;padding:5px 13px;display:inline-flex;align-items:center;gap:8px;background:var(--nm-card);color:var(--nm-muted);transition:all .2s ease}.nm-settings .nm-badge{color:var(--nm-accent);font-weight:650;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 30%,transparent);box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 15%,transparent)}.nm-settings .nm-chip{backdrop-filter:blur(8px)}.nm-settings .nm-chip i{width:7px;height:7px;border-radius:50%;background:var(--nm-muted);transition:background .2s ease;box-shadow:0 0 0 0 transparent}.nm-settings .nm-chip[data-on=true]{color:var(--nm-text);border-color:color-mix(in srgb,var(--nm-good) 35%,var(--nm-border));background:color-mix(in srgb,var(--nm-good) 8%,var(--nm-card))}.nm-settings .nm-chip[data-on=true] i{background:var(--nm-good);box-shadow:0 0 8px var(--nm-good),0 0 0 2px color-mix(in srgb,var(--nm-good) 20%,transparent)}
+.nm-settings .nm-tabs{display:flex;gap:8px;padding:8px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:16px;overflow:auto;box-shadow:0 2px 8px rgba(0,0,0,0.04)}.nm-settings .nm-tabs button{flex:1;white-space:nowrap;border:0;background:transparent;border-radius:12px;color:var(--nm-muted);padding:11px 20px;font-weight:550;transition:all .2s ease;position:relative}.nm-settings .nm-tabs button:hover:not([aria-selected=true]){color:var(--nm-text);background:color-mix(in srgb,CanvasText 5%,transparent)}.nm-settings .nm-tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-raised)));color:var(--nm-accent);box-shadow:0 3px 12px color-mix(in srgb,CanvasText 10%,transparent),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);font-weight:700}
+.nm-settings button{font:inherit;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-raised);padding:9px 16px;transition:all .2s ease;font-weight:550}.nm-settings button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised));transform:translateY(-2px);box-shadow:0 4px 12px color-mix(in srgb,var(--nm-accent) 20%,transparent)}.nm-settings button:active:not(:disabled){transform:translateY(0)}.nm-settings button:focus-visible,.nm-settings input:focus-visible,.nm-settings summary:focus-visible,.nm-settings select:focus-visible{outline:2px solid var(--nm-accent);outline-offset:3px}.nm-settings button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.nm-settings .nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 18%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:650;box-shadow:0 3px 10px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}.nm-settings .nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 25%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 18%,var(--nm-card)));border-color:var(--nm-accent);box-shadow:0 6px 16px -2px color-mix(in srgb,var(--nm-accent) 45%,transparent)}.nm-settings .nm-quiet{background:transparent;border-color:transparent;color:var(--nm-muted);font-size:12px}.nm-settings .nm-stack{display:flex;flex-direction:column;gap:24px}
+.nm-settings .nm-card{padding:28px;border:1px solid var(--nm-border);border-radius:20px;background:linear-gradient(180deg,color-mix(in srgb,var(--nm-card) 98%,white 1%),var(--nm-card));box-shadow:0 4px 20px -6px color-mix(in srgb,CanvasText 6%,transparent);display:flex;flex-direction:column;gap:20px;min-width:0;transition:all .25s ease}.nm-settings .nm-card:hover{box-shadow:0 8px 28px -6px color-mix(in srgb,CanvasText 9%,transparent);border-color:color-mix(in srgb,var(--nm-accent) 20%,var(--nm-border))}.nm-settings .nm-cardhead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.nm-settings .nm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.nm-settings .nm-wide{grid-column:1/-1}.nm-settings .nm-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.nm-settings .nm-search{flex:1;min-width:220px;box-shadow:0 2px 6px color-mix(in srgb,CanvasText 5%,transparent);border-radius:12px}
+.nm-settings input:not([type=checkbox]),.nm-settings select.nm-select{font:inherit;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-bg);padding:11px 16px;transition:all .2s ease}.nm-settings select.nm-select{cursor:pointer}.nm-settings select.nm-select option{background:var(--nm-card);color:var(--nm-text)}.nm-settings input:not([type=checkbox]):hover,.nm-settings select.nm-select:hover{border-color:color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border))}.nm-settings input:not([type=checkbox]):focus,.nm-settings select.nm-select:focus{border-color:var(--nm-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--nm-accent) 18%,transparent)}.nm-settings input:disabled,.nm-settings select:disabled{opacity:.55}
+.nm-settings .nm-field{display:flex;flex-direction:column;gap:8px;min-width:0}.nm-settings .nm-field>span{font-weight:600;font-size:13px;color:var(--nm-text)}
+.nm-settings .nm-switch{display:flex;align-items:center;justify-content:space-between;gap:18px;position:relative;cursor:pointer;min-height:48px;padding:4px 0}.nm-settings .nm-switch input{position:absolute;right:0;top:50%;transform:translateY(-50%);width:46px;height:26px;opacity:0;margin:0;cursor:pointer}.nm-settings .nm-switch input:focus-visible + .nm-track{outline:2px solid var(--nm-accent);outline-offset:5px}.nm-settings .nm-track{width:46px;height:26px;border-radius:99px;border:1px solid var(--nm-border);background:var(--nm-bg);position:relative;flex:none;pointer-events:none;transition:all .25s cubic-bezier(.4,0,.2,1);box-shadow:inset 0 2px 4px rgba(0,0,0,0.06)}.nm-settings .nm-track:after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--nm-muted);transition:all .25s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.nm-settings .nm-switch input:checked + .nm-track{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 22%,var(--nm-bg)));border-color:var(--nm-accent);box-shadow:inset 0 2px 4px color-mix(in srgb,var(--nm-accent) 30%,transparent)}.nm-settings .nm-switch input:checked + .nm-track:after{transform:translateX(20px);background:white;box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 60%,transparent),0 0 12px color-mix(in srgb,var(--nm-accent) 40%,transparent)}.nm-settings .nm-switch:has(input:disabled){opacity:.55;cursor:not-allowed}
+.nm-settings .nm-switchcopy{display:flex;flex-direction:column;gap:4px;min-width:0}.nm-settings .nm-switchcopy strong{font-size:14px;font-weight:650;color:var(--nm-text)}.nm-settings .nm-switchcopy small{font-size:12px;color:var(--nm-muted);line-height:1.6}.nm-settings .nm-group{padding:0;border:0;min-width:0;margin:0}.nm-settings .nm-group legend{font-weight:700;font-size:16px;margin-bottom:14px;width:100%;color:var(--nm-text)}.nm-settings .nm-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.nm-settings .nm-feature{padding:16px 18px;border:1px solid var(--nm-border);border-radius:14px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 95%,var(--nm-bg)));transition:all .25s ease;display:flex;flex-direction:column;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.03)}.nm-settings .nm-feature:hover{border-color:color-mix(in srgb,var(--nm-accent) 65%,var(--nm-border));transform:translateY(-3px);box-shadow:0 6px 18px -4px color-mix(in srgb,var(--nm-accent) 25%,transparent),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent)}
+.nm-settings .nm-feature code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 7%,var(--nm-card)));padding:4px 9px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 22%,transparent);cursor:pointer;overflow-wrap:anywhere;display:inline-flex;align-items:center;gap:6px;width:fit-content;transition:all .2s ease;font-weight:600}.nm-settings .nm-feature code:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 22%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 16%,var(--nm-card)));border-color:var(--nm-accent);transform:scale(1.03);box-shadow:0 3px 10px color-mix(in srgb,var(--nm-accent) 25%,transparent)}
+.nm-settings .nm-savebar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:18px;border-top:1px solid var(--nm-border);flex-wrap:wrap}.nm-settings .nm-dirty{color:var(--nm-accent);font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px}.nm-settings .nm-callout{padding:16px 20px;border-radius:14px;border:1px solid color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));color:var(--nm-text);font-size:13px;line-height:1.7;box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 12%,transparent)}.nm-settings .nm-alert{padding:18px 20px;border-radius:15px;border:1px solid color-mix(in srgb,var(--nm-error) 45%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-error) 9%,var(--nm-card)),color-mix(in srgb,var(--nm-error) 6%,var(--nm-card)));display:flex;align-items:center;justify-content:space-between;gap:14px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 3px 12px color-mix(in srgb,var(--nm-error) 15%,transparent)}.nm-settings .nm-success{border-color:color-mix(in srgb,var(--nm-good) 45%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-good) 9%,var(--nm-card)),color-mix(in srgb,var(--nm-good) 6%,var(--nm-card)));box-shadow:0 3px 12px color-mix(in srgb,var(--nm-good) 15%,transparent)}
+.nm-settings details{border:1px solid var(--nm-border);border-radius:14px;padding:16px 18px;background:color-mix(in srgb,var(--nm-bg) 65%,var(--nm-card));transition:all .2s ease}.nm-settings details:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border))}.nm-settings summary{cursor:pointer;color:var(--nm-muted);font-weight:650;font-size:13px}.nm-settings details[open]>summary{margin-bottom:18px;color:var(--nm-text)}.nm-settings .nm-metric{padding:20px;border:1px solid var(--nm-border);background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border-radius:15px;min-width:0;box-shadow:0 3px 10px color-mix(in srgb,CanvasText 4%,transparent);transition:all .2s ease}.nm-settings .nm-metric:hover{box-shadow:0 5px 16px color-mix(in srgb,CanvasText 7%,transparent);border-color:color-mix(in srgb,var(--nm-accent) 25%,var(--nm-border))}.nm-settings .nm-metric span{font-size:11px;color:var(--nm-muted);display:block;font-weight:600}.nm-settings .nm-metric strong{display:block;font-size:24px;font-weight:750;margin:8px 0;color:var(--nm-text);letter-spacing:-.5px}.nm-settings .nm-metric code{display:block;font-size:11px;color:var(--nm-accent);overflow-wrap:anywhere;font-weight:600}
+.nm-settings .nm-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.nm-settings .nm-skeleton{height:110px;border-radius:16px;background:linear-gradient(100deg,var(--nm-card),var(--nm-raised),var(--nm-card));background-size:200% 100%;animation:nm-settings-load 1.6s ease infinite}.nm-settings .nm-empty{text-align:center;padding:40px;color:var(--nm-muted);font-size:14px}.nm-settings .nm-footer{font-size:12px;color:var(--nm-muted);text-align:center;padding:16px 0}
+.nm-settings .nm-inlinecode{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:4px 10px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 25%,transparent);overflow-wrap:anywhere;font-weight:600}
+.nm-settings .nm-workbench-pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;padding:18px;background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:16px}
+.nm-settings .nm-pipeline-step{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:13px;background:linear-gradient(135deg,var(--nm-card),color-mix(in srgb,var(--nm-bg) 98%,var(--nm-card)));border:1px solid var(--nm-border);transition:all .2s ease;box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-pipeline-step:hover{transform:translateY(-3px);border-color:var(--nm-accent);box-shadow:0 6px 16px -3px color-mix(in srgb,var(--nm-accent) 25%,transparent)}
+.nm-settings .nm-pipeline-badge{font-size:11px;font-weight:700;color:var(--nm-accent);display:inline-flex;align-items:center;gap:7px}
+.nm-settings .nm-pipeline-title{font-size:14px;font-weight:650;color:var(--nm-text)}
+.nm-settings .nm-pipeline-desc{font-size:11px;color:var(--nm-muted);line-height:1.5}
+/* 模型选择：带搜索的浮层，模型多时按关键词过滤 */
+.nm-settings .nm-modelpick{flex:none;white-space:nowrap;font-size:12px;padding:9px 14px}
+.nm-settings .nm-modelpop{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);box-shadow:0 8px 24px -8px color-mix(in srgb,CanvasText 22%,transparent);margin-top:8px}
+.nm-settings .nm-modelsearch{width:100%}
+.nm-settings .nm-modelhint{font-size:11px;color:var(--nm-muted);padding:0 2px}
+.nm-settings .nm-modellist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.nm-settings .nm-modelitem{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;background:transparent;padding:7px 9px;cursor:pointer;font:inherit;font-size:12px;color:var(--nm-text)}
+.nm-settings .nm-modelitem:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-settings .nm-modelitem[aria-selected=true]{background:color-mix(in srgb,var(--nm-accent) 16%,transparent);color:var(--nm-accent);font-weight:650}
+.nm-settings .nm-modelprov{flex:none;font-size:10.5px;color:var(--nm-muted);min-width:64px}
+.nm-settings .nm-modelname{font-family:var(--nm-mono,ui-monospace,monospace);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-settings .nm-modelempty{font-size:11.5px;color:var(--nm-muted);padding:12px 10px;text-align:center;line-height:1.6}
+.nm-settings .nm-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.nm-settings .nm-quick-card{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border:1px solid var(--nm-border);border-radius:13px;cursor:pointer;gap:14px;transition:all .2s ease;box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-quick-card:hover{border-color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));transform:translateY(-2px);box-shadow:0 5px 14px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-settings .nm-toast{position:fixed;bottom:32px;right:32px;z-index:9999;padding:12px 24px;border-radius:999px;background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-card) 95%,var(--nm-raised)));border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));color:var(--nm-text);font-size:13px;font-weight:650;box-shadow:0 10px 32px -6px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);display:flex;align-items:center;gap:10px;animation:nm-toast-in .3s cubic-bezier(0.34,1.56,0.64,1);backdrop-filter:blur(12px)}
+.nm-settings .nm-topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
+/* 输入框吃掉剩余宽度，按钮保持自身宽度不换行 —— 否则窄一点就把
+   「📁 浏览…」挤成两行，按钮高度跟着变，整行错位。 */
+.nm-path-box>input{flex:1;min-width:0}
+.nm-path-box>button{flex:none;white-space:nowrap}
+@keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
+/* 帮助按钮原来 absolute 在 hero 右上角，正好压住「刷新设置与状态」按钮，
+   文字被遮掉一半。改成跟着文档流排在右侧，靠 margin-left:auto 顶到最右。 */
+.nm-help-btn{flex:none;margin-left:auto;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:34px;height:34px;font-size:16px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 32%,transparent);transition:transform .2s ease,box-shadow .2s ease}
+.nm-help-btn:hover{transform:scale(1.08) rotate(5deg);box-shadow:0 8px 24px rgba(0,0,0,0.28),0 0 0 4px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
+.nm-guide-box{background:var(--nm-card);border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
+.nm-guide-header{padding:32px 32px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),var(--nm-card));border-bottom:1px solid color-mix(in srgb,var(--nm-accent) 15%,var(--nm-border));display:flex;align-items:center;gap:16px;position:relative}
+.nm-guide-icon{font-size:48px;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.12))}
+.nm-guide-title{font-size:24px;font-weight:750;margin:0;flex:1;color:var(--nm-text);letter-spacing:-.5px}
+.nm-guide-close{position:absolute;top:24px;right:24px;background:color-mix(in srgb,var(--nm-bg) 80%,transparent);border:0;color:var(--nm-muted);font-size:20px;cursor:pointer;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;transition:all .2s ease;backdrop-filter:blur(8px)}
+.nm-guide-close:hover{background:var(--nm-bg);color:var(--nm-text);transform:rotate(90deg)}
+.nm-guide-content{padding:32px;overflow-y:auto;flex:1;line-height:1.7}
+.nm-guide-intro{font-size:15px;color:var(--nm-text);margin:0 0 28px;padding:18px 20px;background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-bg));border-left:3px solid var(--nm-accent);border-radius:10px}
+.nm-guide-section{margin:20px 0;padding:20px;background:var(--nm-bg);border-radius:14px;border:1px solid var(--nm-border);transition:all .2s ease}
+.nm-guide-section:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+.nm-guide-section-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.nm-guide-section-icon{font-size:28px;line-height:1}
+.nm-guide-section-title{font-size:16px;font-weight:700;color:var(--nm-text);margin:0}
+.nm-guide-section-content{color:var(--nm-text);font-size:13px;line-height:1.7}
+.nm-guide-section-content p{margin:8px 0}
+.nm-guide-section-content ul{margin:10px 0;padding-left:0;list-style:none}
+.nm-guide-section-content li{margin:8px 0;padding-left:24px;position:relative}
+.nm-guide-section-content li:before{content:'→';position:absolute;left:0;color:var(--nm-accent);font-weight:700}
+.nm-guide-commands{display:grid;gap:10px;margin-top:12px}
+.nm-guide-cmd{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--nm-card);border:1px solid var(--nm-border);border-radius:10px;transition:all .2s ease}
+.nm-guide-cmd:hover{border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card))}
+.nm-guide-cmd code{font-family:ui-monospace,monospace;font-size:12px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:5px 12px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 20%,transparent);flex:1;font-weight:600}
+.nm-guide-cmd-desc{font-size:11px;color:var(--nm-muted);white-space:nowrap}
+.nm-guide-footer{padding:24px 32px;background:linear-gradient(to top,color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card)),transparent);border-top:1px solid color-mix(in srgb,var(--nm-accent) 12%,var(--nm-border));display:flex;align-items:center;justify-content:space-between;gap:16px}
+.nm-guide-footer-tip{font-size:12px;color:var(--nm-muted);display:flex;align-items:center;gap:8px}
+.nm-guide-footer button{background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 90%,#6366f1));border:0;color:white;cursor:pointer;font-size:14px;font-weight:650;padding:13px 32px;border-radius:12px;transition:all .2s ease;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 30%,transparent)}
+.nm-guide-footer button:hover{transform:translateY(-2px);box-shadow:0 6px 20px color-mix(in srgb,var(--nm-accent) 40%,transparent)}
+.nm-guide-wide{max-width:860px}
+.nm-guide-note{margin:10px 0;padding:10px 14px;background:color-mix(in srgb,var(--nm-accent) 7%,var(--nm-bg));border-radius:9px;border-left:3px solid var(--nm-accent);font-size:12px;line-height:1.65}
+.nm-guide-section-content code{font-family:ui-monospace,monospace;font-size:11.5px;background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-bg));padding:2px 7px;border-radius:5px;color:var(--nm-accent);white-space:nowrap}
+.nm-guide-section-content strong{color:var(--nm-text);font-weight:650}
+@keyframes nm-fade-in{from{opacity:0}}
+@keyframes nm-slide-up{from{transform:translateY(40px) scale(0.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.nm-atlas{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);height:100%;min-height:0;display:flex;flex-direction:column;color:var(--nm-text);font-size:13px;line-height:1.5}
+.nm-atlas *{box-sizing:border-box}.nm-atlas button{font:inherit;color:inherit}
+.nm-atlas-head{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--nm-border);flex-wrap:wrap}
+.nm-atlas-head select{flex:1;min-width:0;font:inherit;color:var(--nm-text);background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:8px;padding:5px 8px}
+.nm-atlas-refresh{flex:none;border:1px solid var(--nm-border);background:var(--nm-card);border-radius:8px;padding:5px 10px;cursor:pointer}
+.nm-atlas-refresh:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-atlas-refresh:disabled{opacity:.55;cursor:default}
+.nm-atlas-scroll{flex:1;min-height:0;overflow:auto;padding:10px 10px 16px}
+.nm-atlas-progress{padding:12px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.nm-atlas-progress-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-bar{height:8px;border-radius:99px;background:var(--nm-bg);border:1px solid var(--nm-border);overflow:hidden}
+.nm-atlas-bar-fill{height:100%;background:linear-gradient(90deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 55%,var(--nm-good)));transition:width .3s ease}
+.nm-atlas-stats{display:flex;flex-wrap:wrap;gap:6px}
+.nm-atlas-chip{font-size:11px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.nm-atlas-chip[data-warn=true]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 45%,var(--nm-border))}
+.nm-atlas-level{list-style:none;margin:0;padding:0}
+.nm-atlas-level .nm-atlas-level{border-left:1px solid var(--nm-border);margin-left:15px}
+.nm-atlas-item{margin:0;padding:0}
+.nm-atlas-row{width:100%;display:flex;align-items:center;gap:6px;text-align:left;border:0;background:transparent;border-radius:8px;padding:4px 8px;cursor:pointer;min-width:0}
+.nm-atlas-row:hover:not([data-leaf=true]){background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,CanvasText 6%,transparent))}
+.nm-atlas-row[data-leaf=true]{cursor:default}
+.nm-atlas-row:focus-visible{outline:2px solid var(--nm-accent);outline-offset:-2px}
+.nm-atlas-chevron{flex:none;width:12px;color:var(--nm-muted);font-size:10px;text-align:center}
+.nm-atlas-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-meta{flex:none;font-size:11px;color:var(--nm-muted)}
+.nm-atlas-row[data-missing=true] .nm-atlas-label,.nm-atlas-row[data-missing=true] .nm-atlas-chevron{color:var(--nm-muted);opacity:.75}
+.nm-atlas-message{padding:16px 10px;font-size:12px;color:var(--nm-muted);line-height:1.7}
+.nm-atlas-title-icon{flex:none}
+.nm-atlas-seg{flex:none;display:flex;gap:2px;padding:2px;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-bg)}
+.nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px}
+.nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
+.nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+.nm-atlas-svg{display:block}
+.nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
+.nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-text-root{font-size:13px;font-weight:650}
+.nm-atlas-more{fill:var(--nm-muted);font-size:10px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-gnode{cursor:pointer}
+.nm-atlas-gnode:hover .nm-atlas-text{text-decoration:underline}
+.nm-atlas-gnode:focus-visible{outline:2px solid var(--nm-accent)}
+.nm-atlas-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.nm-atlas-world{border:1px solid var(--nm-border);border-radius:12px;overflow:hidden;background:var(--nm-map-sea,#24333f);line-height:0}
+/* 地图底图切换条 */
+.nm-atlas-artbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 11px;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-card);margin-top:8px;line-height:1.5}
+.nm-atlas-artbar .nm-muted{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-arttoggle{font:inherit;font-size:11px;cursor:pointer;color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));border-radius:7px;background:transparent;padding:4px 11px;flex:none;transition:all .15s}
+.nm-atlas-arttoggle:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-atlas-world-wrap{display:flex;flex-direction:column;gap:8px}
+.nm-atlas-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-world-title{font-size:12px;font-weight:600;color:var(--nm-text)}
+.nm-atlas-world-sub{font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend{display:flex;flex-wrap:wrap;gap:8px;padding:0 2px}
+.nm-atlas-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend-swatch{width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,0.35)}
+.nm-atlas-region{border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-atlas-terrain{border-radius:8px;overflow:hidden;line-height:0;border:1px solid var(--nm-border)}
+.nm-atlas-region-meta{font-size:10.5px;color:var(--nm-muted);display:flex;gap:4px;flex-wrap:wrap}
+.nm-atlas-region-head{display:flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;min-width:0;width:100%}
+.nm-atlas-swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.nm-atlas-region-title-text{font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-count{margin-left:auto;flex:none;font-size:10.5px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:1px 7px}
+.nm-atlas-region-desc{font-size:11px;color:var(--nm-muted);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* ── 生图工作台 ── */
+/* 面板贴边时每个框的边框都会顶到滚动条，留出左右呼吸空间 */
+.nm-art{padding-left:14px;padding-right:14px}
+/* 面板不在 .nm-settings 作用域内，必须自带控件样式，否则按钮会退化成纯文本 */
+.nm-art button{font:inherit;font-size:12px;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-raised);padding:8px 14px;transition:all .18s ease;font-weight:550}
+.nm-art button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised))}
+.nm-art button:disabled{opacity:.45;cursor:not-allowed}
+.nm-art button.nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 13%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:700;box-shadow:0 2px 8px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}
+.nm-art button.nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)));border-color:var(--nm-accent)}
+.nm-art select,.nm-art input[type=text],.nm-art input[type=password]{font:inherit;font-size:12px;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-bg);padding:8px 11px}
+.nm-art select{cursor:pointer}
+.nm-art select option{background:var(--nm-card);color:var(--nm-text)}
+.nm-art select:focus,.nm-art input:focus,.nm-art textarea:focus{outline:none;border-color:var(--nm-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--nm-accent) 16%,transparent)}
+.nm-art .nm-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-art .nm-field>span{font-weight:600;font-size:11.5px;color:var(--nm-text)}
+.nm-art .nm-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.nm-art .nm-muted{font-size:11px;color:var(--nm-muted)}
+.nm-art .nm-alert{font-size:11.5px;color:#e06c75;background:color-mix(in srgb,#e06c75 10%,transparent);border:1px solid color-mix(in srgb,#e06c75 30%,transparent);border-radius:8px;padding:8px 10px;line-height:1.6}
+.nm-art-form{display:flex;flex-direction:column;gap:9px;padding:12px 0 4px;min-width:0}
+.nm-art-toolbar{display:flex;align-items:center;gap:8px;margin-top:10px}
+.nm-art-toolbar select{flex:1;min-width:0}
+.nm-art-textarea{width:100%;resize:vertical;font:inherit;font-size:12px;line-height:1.6;padding:8px 10px;border-radius:9px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text)}
+.nm-art-textarea:focus{outline:none;border-color:var(--nm-accent)}
+.nm-art-preview{position:relative;display:flex;align-items:center;justify-content:center;min-height:260px;max-height:440px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);overflow:hidden;margin-top:10px}
+/* 空状态收矮，避免把下方的生成按钮推出可视区 */
+.nm-art-preview[data-empty=true]{min-height:130px;max-height:170px}
+.nm-art-preview img{max-width:100%;max-height:440px;display:block;object-fit:contain}
+/* 主按钮全宽显示，明确告诉用户「点这里」 */
+.nm-art-form>.nm-row>button.nm-primary{width:100%;padding:11px 16px;font-size:12.5px;letter-spacing:.02em}
+.nm-art-placeholder{font-size:11px;color:var(--nm-muted);padding:24px;text-align:center;line-height:1.7}
+.nm-art-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.nm-art-step{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted);padding:3px 9px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card)}
+.nm-art-step[data-on=run]{border-color:var(--nm-accent);color:var(--nm-accent)}
+.nm-art-step[data-on=done]{border-color:color-mix(in srgb,var(--nm-accent) 45%,transparent);color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card))}
+.nm-art-stepnum{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:color-mix(in srgb,CanvasText 8%,transparent);font-size:9.5px;font-weight:700}
+/* 垫图区 */
+.nm-art-ref{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px dashed var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-reflabel{font-size:10.5px;color:var(--nm-muted);font-weight:600}
+.nm-art-refpick{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:8px;border:1px dashed var(--nm-border);cursor:pointer;font-size:11.5px;color:var(--nm-accent);background:var(--nm-card);transition:border-color .15s}
+.nm-art-refpick:hover{border-color:var(--nm-accent)}
+.nm-art-refbox{display:flex;align-items:center;gap:10px}
+.nm-art-refbox img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--nm-border);flex:none}
+.nm-art-refinfo{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.nm-art-refinfo .nm-muted{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-art-refclear{align-self:flex-start;font-size:10.5px;padding:2px 9px}
+.nm-art-strength{gap:4px}
+.nm-art-strength input[type=range]{width:100%;accent-color:var(--nm-accent)}
+/* 构图控制：宽高比 / 分辨率 / 张数 / 透明背景 */
+.nm-art-compose{display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--nm-border);border-radius:11px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-compose-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.nm-compose-label{flex:none;font-size:10.5px;font-weight:600;color:var(--nm-muted);min-width:56px;white-space:nowrap}
+.nm-compose-group{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
+.nm-compose-chip{flex:none;font-size:10.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s;line-height:1.5}
+.nm-compose-chip:hover:not(:disabled){border-color:var(--nm-accent);color:var(--nm-accent)}
+/* 选中态用「正文色填充 + 背景色文字」的反色方案。
+   不用品牌色是因为 --nm-accent 在某些主题下解析出接近底色，
+   会导致「浅底 + 浅字」整块看不见（实测截图就是这个现象）。
+   反色方案的对比度恒等于正文对比度，任何主题都不会失效。 */
+.nm-compose-chip[data-active=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700;box-shadow:none}
+.nm-compose-chip[data-active=true]:hover:not(:disabled){background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg)}
+.nm-compose-chip:disabled{opacity:.5;cursor:not-allowed}
+.nm-compose-hint{flex:none;font-size:10px;color:var(--nm-muted);white-space:nowrap}
+.nm-compose-switch{flex:none;font-size:10.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s}
+/* 开关开启态同样用反色，避免依赖 --nm-good 的实际亮度 */
+.nm-compose-switch[data-on=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700}
+.nm-compose-switch:disabled{opacity:.5;cursor:not-allowed}
+/* 多图缩略图条 */
+.nm-art-thumbs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-thumb{padding:0;border:2px solid transparent;border-radius:7px;background:none;cursor:pointer;line-height:0;overflow:hidden;flex:none;transition:border-color .14s}
+.nm-art-thumb img{width:52px;height:52px;object-fit:cover;display:block}
+.nm-art-thumb[data-active=true]{border-color:var(--nm-accent)}
+.nm-art-thumb:hover{border-color:color-mix(in srgb,var(--nm-accent) 55%,transparent)}
+.nm-subhead{margin:14px 0 6px;font-size:12px;font-weight:700;color:var(--nm-text)}.nm-atlas-spoke{margin-top:6px;border-top:1px dashed var(--nm-border);padding-top:8px}
+.nm-atlas-timeline{position:relative;padding-left:20px;display:flex;flex-direction:column}
+.nm-atlas-trail{position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--nm-border)}
+.nm-atlas-tgroup{margin:12px 0 6px;font-size:11px;font-weight:650;color:var(--nm-muted)}
+.nm-atlas-trow{position:relative;padding:5px 0}
+.nm-atlas-tdot{position:absolute;left:-18px;top:11px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px var(--nm-bg)}
+.nm-atlas-tline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nm-atlas-tline strong{font-size:11px;color:var(--nm-accent);flex:none}
+.nm-atlas-ttitle{font-size:12px;line-height:1.5}
+.nm-atlas-tmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+/* ── 生成进度面板 ──────────────────────────────────────────────
+   侧边栏宽度通常只有 300–360px，所以全部按单列竖排设计：环形总览在上，
+   清单在中，批量写作在下。字号比设置页再小一号，因为这里离眼睛更远，
+   而且旁边就是正文。 */
+.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+.nm-prog-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.nm-prog-auto{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--nm-muted);cursor:pointer;user-select:none;white-space:nowrap}
+.nm-prog-auto input{width:12px;height:12px;accent-color:var(--nm-accent);cursor:pointer;margin:0}
+.nm-prog-select{flex:1;min-width:0}
+/* 总览卡：环形进度 + 文字。用 1px 半透明描边 + 极淡渐变做出层次，
+   不靠重阴影——深色主题下重阴影会显脏。左上角那道 accent 微光让卡片
+   和背景分离，又不至于抢走正文的注意力。 */
+.nm-prog-hero{position:relative;display:flex;align-items:center;gap:14px;padding:14px 15px;border-radius:14px;border:1px solid var(--nm-border);background:radial-gradient(120% 130% at 0% 0%,color-mix(in srgb,var(--nm-accent) 11%,transparent),transparent 62%),var(--nm-card);overflow:hidden}
+.nm-prog-ring{position:relative;flex:none;width:60px;height:60px;display:grid;place-items:center}
+/* 只给 inset 不给宽高，SVG 会在 grid 里塌成 0×0 —— 预览时就是这里让
+   进度弧整条不可见，只剩外圈的圆环背景。明确写出 60×60。 */
+.nm-prog-ring svg{position:absolute;inset:0;width:60px;height:60px;overflow:visible}
+/* 颜色一律走 CSS 规则，不写 stroke="var(--nm-accent)" 这种表现属性 ——
+   表现属性里的 var() 不保证被解析，变量取不到时整条弧直接变成不可见，
+   而且不报错，最难查。 */
+.nm-prog-ring-track{stroke:var(--nm-border);fill:none}
+.nm-prog-ring-arc{stroke:var(--nm-accent);fill:none;transition:stroke-dashoffset .6s cubic-bezier(.22,.61,.36,1);filter:drop-shadow(0 0 3px color-mix(in srgb,var(--nm-accent) 45%,transparent))}
+.nm-prog-ring-num{position:relative;font-size:14px;font-weight:700;letter-spacing:-.4px;color:var(--nm-text);font-variant-numeric:tabular-nums;line-height:1}
+.nm-prog-hero-text{min-width:0;flex:1;display:flex;flex-direction:column;gap:7px}
+.nm-prog-hero-title{font-size:12px;color:var(--nm-muted);display:flex;align-items:baseline;gap:6px}
+.nm-prog-hero-title b{font-size:15px;color:var(--nm-text);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-prog-next{font-size:11px;color:var(--nm-muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.5}
+.nm-prog-next code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10.5px;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--nm-accent) 13%,var(--nm-bg));color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 26%,transparent);font-weight:600}
+.nm-prog-allset{color:var(--nm-good)}
+.nm-prog-section{display:flex;flex-direction:column;gap:7px}
+.nm-prog-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--nm-muted);letter-spacing:.4px;text-transform:uppercase}
+.nm-prog-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+/* 行高压到 30px：八项资产用两行间距会吃掉侧边栏一半高度，而这里每项
+   只需要「名字 + 状态」两段信息，不需要呼吸感。 */
+.nm-prog-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:12px;transition:background .16s ease}
+.nm-prog-item:hover{background:color-mix(in srgb,CanvasText 4%,transparent)}
+.nm-prog-item[data-state=missing] .nm-prog-label{color:var(--nm-muted)}
+.nm-prog-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-prog-meta{flex:none;font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+.nm-prog-item[data-state=done] .nm-prog-meta{color:color-mix(in srgb,var(--nm-good) 80%,var(--nm-muted))}
+.nm-prog-item[data-state=empty] .nm-prog-meta{color:color-mix(in srgb,var(--nm-accent) 70%,var(--nm-muted))}
+/* 状态点：已写好是实心绿勾，空文件是空心环，没建过是虚线圈。
+   三种状态的形状本身不同，不依赖颜色区分——灰度下也读得出来。 */
+.nm-prog-mark{flex:none;width:14px;height:14px;display:grid;place-items:center;color:var(--nm-muted)}
+.nm-prog-mark[data-state=done]{color:var(--nm-good)}
+.nm-prog-mark[data-state=empty]{color:var(--nm-accent)}
+.nm-prog-mark[data-state=missing]{color:color-mix(in srgb,var(--nm-muted) 65%,transparent)}
+.nm-prog-phase{flex:none;font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);font-weight:600;letter-spacing:0;text-transform:none}
+.nm-prog-phase[data-phase=running]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 40%,transparent);background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=complete]{color:var(--nm-good);border-color:color-mix(in srgb,var(--nm-good) 40%,transparent);background:color-mix(in srgb,var(--nm-good) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=error]{color:var(--nm-error);border-color:color-mix(in srgb,var(--nm-error) 40%,transparent);background:color-mix(in srgb,var(--nm-error) 12%,var(--nm-card))}
+.nm-prog-bar{height:5px;border-radius:999px;background:color-mix(in srgb,CanvasText 9%,transparent);overflow:hidden}
+.nm-prog-bar-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--nm-accent) 75%,transparent),var(--nm-accent));transition:width .5s cubic-bezier(.22,.61,.36,1)}
+.nm-prog-bar-fill[data-phase=complete]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-good) 75%,transparent),var(--nm-good))}
+.nm-prog-bar-fill[data-phase=error],.nm-prog-bar-fill[data-phase=aborted]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-error) 70%,transparent),var(--nm-error))}
+.nm-prog-batch-meta{font-size:11px;color:var(--nm-muted);display:flex;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.nm-prog-stale{color:color-mix(in srgb,var(--nm-error) 80%,var(--nm-muted))}
+.nm-prog-error{font-size:11px;color:var(--nm-error);line-height:1.55;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 9%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent);overflow-wrap:anywhere}
+.nm-prog-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+/* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
+   渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
+.nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill{transition:none}}
+
+</style></head><body><div class="nm-settings"><style >
+.nm-settings{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-raised:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-3,Canvas));--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-border-glow:color-mix(in srgb,var(--nm-accent) 26%,var(--nm-border));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);--nm-error:var(--dsw-alias-state-error-primary,#c84d55);max-width:1200px;margin:0 auto;padding:32px 28px;color:var(--nm-text);font-size:13px;line-height:1.65;display:flex;flex-direction:column;gap:28px}
+.nm-settings *{box-sizing:border-box}.nm-settings [hidden]{display:none!important}.nm-settings h2,.nm-settings h3,.nm-settings h4,.nm-settings p{margin:0}.nm-settings h2{font-size:28px;font-weight:750;letter-spacing:-.8px}.nm-settings h3{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px}.nm-settings h4{font-size:15px;font-weight:650}.nm-settings .nm-muted{color:var(--nm-muted);font-size:12px}.nm-settings .nm-hero{padding:32px;border-radius:24px;border:1px solid var(--nm-border-glow);background:radial-gradient(ellipse at 95% 0%,color-mix(in srgb,var(--nm-accent) 18%,transparent),transparent 70%),linear-gradient(145deg,color-mix(in srgb,var(--nm-raised) 92%,var(--nm-accent) 6%),var(--nm-card));box-shadow:0 8px 32px -8px color-mix(in srgb,CanvasText 9%,transparent);display:flex;flex-direction:column;gap:24px}
+.nm-settings .nm-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.nm-settings .nm-between{justify-content:space-between}.nm-settings .nm-brand{display:flex;align-items:center;gap:18px}.nm-settings .nm-logo{width:58px;height:58px;display:grid;place-items:center;border-radius:20px;color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 16%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card)));border:1px solid color-mix(in srgb,var(--nm-accent) 35%,transparent);box-shadow:0 6px 18px -4px color-mix(in srgb,var(--nm-accent) 30%,transparent);transition:all .3s ease}.nm-settings .nm-logo:hover{transform:translateY(-2px);box-shadow:0 8px 24px -4px color-mix(in srgb,var(--nm-accent) 40%,transparent)}.nm-settings .nm-logo svg{width:32px;height:32px}
+.nm-settings .nm-badge,.nm-settings .nm-chip{font-size:11px;border:1px solid var(--nm-border);border-radius:999px;padding:5px 13px;display:inline-flex;align-items:center;gap:8px;background:var(--nm-card);color:var(--nm-muted);transition:all .2s ease}.nm-settings .nm-badge{color:var(--nm-accent);font-weight:650;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 30%,transparent);box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 15%,transparent)}.nm-settings .nm-chip{backdrop-filter:blur(8px)}.nm-settings .nm-chip i{width:7px;height:7px;border-radius:50%;background:var(--nm-muted);transition:background .2s ease;box-shadow:0 0 0 0 transparent}.nm-settings .nm-chip[data-on=true]{color:var(--nm-text);border-color:color-mix(in srgb,var(--nm-good) 35%,var(--nm-border));background:color-mix(in srgb,var(--nm-good) 8%,var(--nm-card))}.nm-settings .nm-chip[data-on=true] i{background:var(--nm-good);box-shadow:0 0 8px var(--nm-good),0 0 0 2px color-mix(in srgb,var(--nm-good) 20%,transparent)}
+.nm-settings .nm-tabs{display:flex;gap:8px;padding:8px;border:1px solid var(--nm-border);background:var(--nm-bg);border-radius:16px;overflow:auto;box-shadow:0 2px 8px rgba(0,0,0,0.04)}.nm-settings .nm-tabs button{flex:1;white-space:nowrap;border:0;background:transparent;border-radius:12px;color:var(--nm-muted);padding:11px 20px;font-weight:550;transition:all .2s ease;position:relative}.nm-settings .nm-tabs button:hover:not([aria-selected=true]){color:var(--nm-text);background:color-mix(in srgb,CanvasText 5%,transparent)}.nm-settings .nm-tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-raised)));color:var(--nm-accent);box-shadow:0 3px 12px color-mix(in srgb,CanvasText 10%,transparent),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);font-weight:700}
+.nm-settings button{font:inherit;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-raised);padding:9px 16px;transition:all .2s ease;font-weight:550}.nm-settings button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised));transform:translateY(-2px);box-shadow:0 4px 12px color-mix(in srgb,var(--nm-accent) 20%,transparent)}.nm-settings button:active:not(:disabled){transform:translateY(0)}.nm-settings button:focus-visible,.nm-settings input:focus-visible,.nm-settings summary:focus-visible,.nm-settings select:focus-visible{outline:2px solid var(--nm-accent);outline-offset:3px}.nm-settings button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.nm-settings .nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 18%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:650;box-shadow:0 3px 10px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}.nm-settings .nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 25%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 18%,var(--nm-card)));border-color:var(--nm-accent);box-shadow:0 6px 16px -2px color-mix(in srgb,var(--nm-accent) 45%,transparent)}.nm-settings .nm-quiet{background:transparent;border-color:transparent;color:var(--nm-muted);font-size:12px}.nm-settings .nm-stack{display:flex;flex-direction:column;gap:24px}
+.nm-settings .nm-card{padding:28px;border:1px solid var(--nm-border);border-radius:20px;background:linear-gradient(180deg,color-mix(in srgb,var(--nm-card) 98%,white 1%),var(--nm-card));box-shadow:0 4px 20px -6px color-mix(in srgb,CanvasText 6%,transparent);display:flex;flex-direction:column;gap:20px;min-width:0;transition:all .25s ease}.nm-settings .nm-card:hover{box-shadow:0 8px 28px -6px color-mix(in srgb,CanvasText 9%,transparent);border-color:color-mix(in srgb,var(--nm-accent) 20%,var(--nm-border))}.nm-settings .nm-cardhead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.nm-settings .nm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.nm-settings .nm-wide{grid-column:1/-1}.nm-settings .nm-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.nm-settings .nm-search{flex:1;min-width:220px;box-shadow:0 2px 6px color-mix(in srgb,CanvasText 5%,transparent);border-radius:12px}
+.nm-settings input:not([type=checkbox]),.nm-settings select.nm-select{font:inherit;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-bg);padding:11px 16px;transition:all .2s ease}.nm-settings select.nm-select{cursor:pointer}.nm-settings select.nm-select option{background:var(--nm-card);color:var(--nm-text)}.nm-settings input:not([type=checkbox]):hover,.nm-settings select.nm-select:hover{border-color:color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border))}.nm-settings input:not([type=checkbox]):focus,.nm-settings select.nm-select:focus{border-color:var(--nm-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--nm-accent) 18%,transparent)}.nm-settings input:disabled,.nm-settings select:disabled{opacity:.55}
+.nm-settings .nm-field{display:flex;flex-direction:column;gap:8px;min-width:0}.nm-settings .nm-field&gt;span{font-weight:600;font-size:13px;color:var(--nm-text)}
+.nm-settings .nm-switch{display:flex;align-items:center;justify-content:space-between;gap:18px;position:relative;cursor:pointer;min-height:48px;padding:4px 0}.nm-settings .nm-switch input{position:absolute;right:0;top:50%;transform:translateY(-50%);width:46px;height:26px;opacity:0;margin:0;cursor:pointer}.nm-settings .nm-switch input:focus-visible + .nm-track{outline:2px solid var(--nm-accent);outline-offset:5px}.nm-settings .nm-track{width:46px;height:26px;border-radius:99px;border:1px solid var(--nm-border);background:var(--nm-bg);position:relative;flex:none;pointer-events:none;transition:all .25s cubic-bezier(.4,0,.2,1);box-shadow:inset 0 2px 4px rgba(0,0,0,0.06)}.nm-settings .nm-track:after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--nm-muted);transition:all .25s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.nm-settings .nm-switch input:checked + .nm-track{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 22%,var(--nm-bg)));border-color:var(--nm-accent);box-shadow:inset 0 2px 4px color-mix(in srgb,var(--nm-accent) 30%,transparent)}.nm-settings .nm-switch input:checked + .nm-track:after{transform:translateX(20px);background:white;box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 60%,transparent),0 0 12px color-mix(in srgb,var(--nm-accent) 40%,transparent)}.nm-settings .nm-switch:has(input:disabled){opacity:.55;cursor:not-allowed}
+.nm-settings .nm-switchcopy{display:flex;flex-direction:column;gap:4px;min-width:0}.nm-settings .nm-switchcopy strong{font-size:14px;font-weight:650;color:var(--nm-text)}.nm-settings .nm-switchcopy small{font-size:12px;color:var(--nm-muted);line-height:1.6}.nm-settings .nm-group{padding:0;border:0;min-width:0;margin:0}.nm-settings .nm-group legend{font-weight:700;font-size:16px;margin-bottom:14px;width:100%;color:var(--nm-text)}.nm-settings .nm-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.nm-settings .nm-feature{padding:16px 18px;border:1px solid var(--nm-border);border-radius:14px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 95%,var(--nm-bg)));transition:all .25s ease;display:flex;flex-direction:column;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.03)}.nm-settings .nm-feature:hover{border-color:color-mix(in srgb,var(--nm-accent) 65%,var(--nm-border));transform:translateY(-3px);box-shadow:0 6px 18px -4px color-mix(in srgb,var(--nm-accent) 25%,transparent),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent)}
+.nm-settings .nm-feature code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 10%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 7%,var(--nm-card)));padding:4px 9px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 22%,transparent);cursor:pointer;overflow-wrap:anywhere;display:inline-flex;align-items:center;gap:6px;width:fit-content;transition:all .2s ease;font-weight:600}.nm-settings .nm-feature code:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 22%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 16%,var(--nm-card)));border-color:var(--nm-accent);transform:scale(1.03);box-shadow:0 3px 10px color-mix(in srgb,var(--nm-accent) 25%,transparent)}
+.nm-settings .nm-savebar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:18px;border-top:1px solid var(--nm-border);flex-wrap:wrap}.nm-settings .nm-dirty{color:var(--nm-accent);font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px}.nm-settings .nm-callout{padding:16px 20px;border-radius:14px;border:1px solid color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));color:var(--nm-text);font-size:13px;line-height:1.7;box-shadow:0 2px 8px color-mix(in srgb,var(--nm-accent) 12%,transparent)}.nm-settings .nm-alert{padding:18px 20px;border-radius:15px;border:1px solid color-mix(in srgb,var(--nm-error) 45%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-error) 9%,var(--nm-card)),color-mix(in srgb,var(--nm-error) 6%,var(--nm-card)));display:flex;align-items:center;justify-content:space-between;gap:14px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 3px 12px color-mix(in srgb,var(--nm-error) 15%,transparent)}.nm-settings .nm-success{border-color:color-mix(in srgb,var(--nm-good) 45%,var(--nm-border));background:linear-gradient(135deg,color-mix(in srgb,var(--nm-good) 9%,var(--nm-card)),color-mix(in srgb,var(--nm-good) 6%,var(--nm-card)));box-shadow:0 3px 12px color-mix(in srgb,var(--nm-good) 15%,transparent)}
+.nm-settings details{border:1px solid var(--nm-border);border-radius:14px;padding:16px 18px;background:color-mix(in srgb,var(--nm-bg) 65%,var(--nm-card));transition:all .2s ease}.nm-settings details:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border))}.nm-settings summary{cursor:pointer;color:var(--nm-muted);font-weight:650;font-size:13px}.nm-settings details[open]&gt;summary{margin-bottom:18px;color:var(--nm-text)}.nm-settings .nm-metric{padding:20px;border:1px solid var(--nm-border);background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border-radius:15px;min-width:0;box-shadow:0 3px 10px color-mix(in srgb,CanvasText 4%,transparent);transition:all .2s ease}.nm-settings .nm-metric:hover{box-shadow:0 5px 16px color-mix(in srgb,CanvasText 7%,transparent);border-color:color-mix(in srgb,var(--nm-accent) 25%,var(--nm-border))}.nm-settings .nm-metric span{font-size:11px;color:var(--nm-muted);display:block;font-weight:600}.nm-settings .nm-metric strong{display:block;font-size:24px;font-weight:750;margin:8px 0;color:var(--nm-text);letter-spacing:-.5px}.nm-settings .nm-metric code{display:block;font-size:11px;color:var(--nm-accent);overflow-wrap:anywhere;font-weight:600}
+.nm-settings .nm-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.nm-settings .nm-skeleton{height:110px;border-radius:16px;background:linear-gradient(100deg,var(--nm-card),var(--nm-raised),var(--nm-card));background-size:200% 100%;animation:nm-settings-load 1.6s ease infinite}.nm-settings .nm-empty{text-align:center;padding:40px;color:var(--nm-muted);font-size:14px}.nm-settings .nm-footer{font-size:12px;color:var(--nm-muted);text-align:center;padding:16px 0}
+.nm-settings .nm-inlinecode{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:4px 10px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 25%,transparent);overflow-wrap:anywhere;font-weight:600}
+.nm-settings .nm-workbench-pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;padding:18px;background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:16px}
+.nm-settings .nm-pipeline-step{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:13px;background:linear-gradient(135deg,var(--nm-card),color-mix(in srgb,var(--nm-bg) 98%,var(--nm-card)));border:1px solid var(--nm-border);transition:all .2s ease;box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-pipeline-step:hover{transform:translateY(-3px);border-color:var(--nm-accent);box-shadow:0 6px 16px -3px color-mix(in srgb,var(--nm-accent) 25%,transparent)}
+.nm-settings .nm-pipeline-badge{font-size:11px;font-weight:700;color:var(--nm-accent);display:inline-flex;align-items:center;gap:7px}
+.nm-settings .nm-pipeline-title{font-size:14px;font-weight:650;color:var(--nm-text)}
+.nm-settings .nm-pipeline-desc{font-size:11px;color:var(--nm-muted);line-height:1.5}
+/* 模型选择：带搜索的浮层，模型多时按关键词过滤 */
+.nm-settings .nm-modelpick{flex:none;white-space:nowrap;font-size:12px;padding:9px 14px}
+.nm-settings .nm-modelpop{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);box-shadow:0 8px 24px -8px color-mix(in srgb,CanvasText 22%,transparent);margin-top:8px}
+.nm-settings .nm-modelsearch{width:100%}
+.nm-settings .nm-modelhint{font-size:11px;color:var(--nm-muted);padding:0 2px}
+.nm-settings .nm-modellist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.nm-settings .nm-modelitem{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;background:transparent;padding:7px 9px;cursor:pointer;font:inherit;font-size:12px;color:var(--nm-text)}
+.nm-settings .nm-modelitem:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-settings .nm-modelitem[aria-selected=true]{background:color-mix(in srgb,var(--nm-accent) 16%,transparent);color:var(--nm-accent);font-weight:650}
+.nm-settings .nm-modelprov{flex:none;font-size:10.5px;color:var(--nm-muted);min-width:64px}
+.nm-settings .nm-modelname{font-family:var(--nm-mono,ui-monospace,monospace);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-settings .nm-modelempty{font-size:11.5px;color:var(--nm-muted);padding:12px 10px;text-align:center;line-height:1.6}
+.nm-settings .nm-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.nm-settings .nm-quick-card{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,var(--nm-bg),color-mix(in srgb,var(--nm-card) 97%,var(--nm-bg)));border:1px solid var(--nm-border);border-radius:13px;cursor:pointer;gap:14px;transition:all .2s ease;box-shadow:0 2px 6px rgba(0,0,0,0.03)}.nm-settings .nm-quick-card:hover{border-color:var(--nm-accent);background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-bg)),color-mix(in srgb,var(--nm-accent) 5%,var(--nm-card)));transform:translateY(-2px);box-shadow:0 5px 14px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-settings .nm-toast{position:fixed;bottom:32px;right:32px;z-index:9999;padding:12px 24px;border-radius:999px;background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-card) 95%,var(--nm-raised)));border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));color:var(--nm-text);font-size:13px;font-weight:650;box-shadow:0 10px 32px -6px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);display:flex;align-items:center;gap:10px;animation:nm-toast-in .3s cubic-bezier(0.34,1.56,0.64,1);backdrop-filter:blur(12px)}
+.nm-settings .nm-topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
+/* 输入框吃掉剩余宽度，按钮保持自身宽度不换行 —— 否则窄一点就把
+   「📁 浏览…」挤成两行，按钮高度跟着变，整行错位。 */
+.nm-path-box&gt;input{flex:1;min-width:0}
+.nm-path-box&gt;button{flex:none;white-space:nowrap}
+@keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
+/* 帮助按钮原来 absolute 在 hero 右上角，正好压住「刷新设置与状态」按钮，
+   文字被遮掉一半。改成跟着文档流排在右侧，靠 margin-left:auto 顶到最右。 */
+.nm-help-btn{flex:none;margin-left:auto;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:34px;height:34px;font-size:16px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 32%,transparent);transition:transform .2s ease,box-shadow .2s ease}
+.nm-help-btn:hover{transform:scale(1.08) rotate(5deg);box-shadow:0 8px 24px rgba(0,0,0,0.28),0 0 0 4px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
+.nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
+.nm-guide-box{background:var(--nm-card);border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
+.nm-guide-header{padding:32px 32px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card)),var(--nm-card));border-bottom:1px solid color-mix(in srgb,var(--nm-accent) 15%,var(--nm-border));display:flex;align-items:center;gap:16px;position:relative}
+.nm-guide-icon{font-size:48px;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.12))}
+.nm-guide-title{font-size:24px;font-weight:750;margin:0;flex:1;color:var(--nm-text);letter-spacing:-.5px}
+.nm-guide-close{position:absolute;top:24px;right:24px;background:color-mix(in srgb,var(--nm-bg) 80%,transparent);border:0;color:var(--nm-muted);font-size:20px;cursor:pointer;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;transition:all .2s ease;backdrop-filter:blur(8px)}
+.nm-guide-close:hover{background:var(--nm-bg);color:var(--nm-text);transform:rotate(90deg)}
+.nm-guide-content{padding:32px;overflow-y:auto;flex:1;line-height:1.7}
+.nm-guide-intro{font-size:15px;color:var(--nm-text);margin:0 0 28px;padding:18px 20px;background:color-mix(in srgb,var(--nm-accent) 6%,var(--nm-bg));border-left:3px solid var(--nm-accent);border-radius:10px}
+.nm-guide-section{margin:20px 0;padding:20px;background:var(--nm-bg);border-radius:14px;border:1px solid var(--nm-border);transition:all .2s ease}
+.nm-guide-section:hover{border-color:color-mix(in srgb,var(--nm-accent) 30%,var(--nm-border));box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+.nm-guide-section-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.nm-guide-section-icon{font-size:28px;line-height:1}
+.nm-guide-section-title{font-size:16px;font-weight:700;color:var(--nm-text);margin:0}
+.nm-guide-section-content{color:var(--nm-text);font-size:13px;line-height:1.7}
+.nm-guide-section-content p{margin:8px 0}
+.nm-guide-section-content ul{margin:10px 0;padding-left:0;list-style:none}
+.nm-guide-section-content li{margin:8px 0;padding-left:24px;position:relative}
+.nm-guide-section-content li:before{content:'→';position:absolute;left:0;color:var(--nm-accent);font-weight:700}
+.nm-guide-commands{display:grid;gap:10px;margin-top:12px}
+.nm-guide-cmd{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--nm-card);border:1px solid var(--nm-border);border-radius:10px;transition:all .2s ease}
+.nm-guide-cmd:hover{border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card))}
+.nm-guide-cmd code{font-family:ui-monospace,monospace;font-size:12px;background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-bg));color:var(--nm-accent);padding:5px 12px;border-radius:7px;border:1px solid color-mix(in srgb,var(--nm-accent) 20%,transparent);flex:1;font-weight:600}
+.nm-guide-cmd-desc{font-size:11px;color:var(--nm-muted);white-space:nowrap}
+.nm-guide-footer{padding:24px 32px;background:linear-gradient(to top,color-mix(in srgb,var(--nm-accent) 4%,var(--nm-card)),transparent);border-top:1px solid color-mix(in srgb,var(--nm-accent) 12%,var(--nm-border));display:flex;align-items:center;justify-content:space-between;gap:16px}
+.nm-guide-footer-tip{font-size:12px;color:var(--nm-muted);display:flex;align-items:center;gap:8px}
+.nm-guide-footer button{background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 90%,#6366f1));border:0;color:white;cursor:pointer;font-size:14px;font-weight:650;padding:13px 32px;border-radius:12px;transition:all .2s ease;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 30%,transparent)}
+.nm-guide-footer button:hover{transform:translateY(-2px);box-shadow:0 6px 20px color-mix(in srgb,var(--nm-accent) 40%,transparent)}
+.nm-guide-wide{max-width:860px}
+.nm-guide-note{margin:10px 0;padding:10px 14px;background:color-mix(in srgb,var(--nm-accent) 7%,var(--nm-bg));border-radius:9px;border-left:3px solid var(--nm-accent);font-size:12px;line-height:1.65}
+.nm-guide-section-content code{font-family:ui-monospace,monospace;font-size:11.5px;background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-bg));padding:2px 7px;border-radius:5px;color:var(--nm-accent);white-space:nowrap}
+.nm-guide-section-content strong{color:var(--nm-text);font-weight:650}
+@keyframes nm-fade-in{from{opacity:0}}
+@keyframes nm-slide-up{from{transform:translateY(40px) scale(0.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.nm-atlas{--nm-bg:var(--dsw-alias-bg-layer-1,Canvas);--nm-card:var(--dsw-alias-bg-layer-2,Canvas);--nm-text:var(--dsw-alias-label-primary,CanvasText);--nm-muted:var(--dsw-alias-label-secondary,GrayText);--nm-border:var(--dsw-alias-border-l2,color-mix(in srgb,CanvasText 14%,transparent));--nm-accent:var(--dsw-alias-brand-primary,var(--dsw-alias-state-business-primary,#5275d8));--nm-good:var(--dsw-alias-state-success-primary,#25836b);height:100%;min-height:0;display:flex;flex-direction:column;color:var(--nm-text);font-size:13px;line-height:1.5}
+.nm-atlas *{box-sizing:border-box}.nm-atlas button{font:inherit;color:inherit}
+.nm-atlas-head{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--nm-border);flex-wrap:wrap}
+.nm-atlas-head select{flex:1;min-width:0;font:inherit;color:var(--nm-text);background:var(--nm-bg);border:1px solid var(--nm-border);border-radius:8px;padding:5px 8px}
+.nm-atlas-refresh{flex:none;border:1px solid var(--nm-border);background:var(--nm-card);border-radius:8px;padding:5px 10px;cursor:pointer}
+.nm-atlas-refresh:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-atlas-refresh:disabled{opacity:.55;cursor:default}
+.nm-atlas-scroll{flex:1;min-height:0;overflow:auto;padding:10px 10px 16px}
+.nm-atlas-progress{padding:12px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.nm-atlas-progress-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-bar{height:8px;border-radius:99px;background:var(--nm-bg);border:1px solid var(--nm-border);overflow:hidden}
+.nm-atlas-bar-fill{height:100%;background:linear-gradient(90deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 55%,var(--nm-good)));transition:width .3s ease}
+.nm-atlas-stats{display:flex;flex-wrap:wrap;gap:6px}
+.nm-atlas-chip{font-size:11px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.nm-atlas-chip[data-warn=true]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 45%,var(--nm-border))}
+.nm-atlas-level{list-style:none;margin:0;padding:0}
+.nm-atlas-level .nm-atlas-level{border-left:1px solid var(--nm-border);margin-left:15px}
+.nm-atlas-item{margin:0;padding:0}
+.nm-atlas-row{width:100%;display:flex;align-items:center;gap:6px;text-align:left;border:0;background:transparent;border-radius:8px;padding:4px 8px;cursor:pointer;min-width:0}
+.nm-atlas-row:hover:not([data-leaf=true]){background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,CanvasText 6%,transparent))}
+.nm-atlas-row[data-leaf=true]{cursor:default}
+.nm-atlas-row:focus-visible{outline:2px solid var(--nm-accent);outline-offset:-2px}
+.nm-atlas-chevron{flex:none;width:12px;color:var(--nm-muted);font-size:10px;text-align:center}
+.nm-atlas-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-meta{flex:none;font-size:11px;color:var(--nm-muted)}
+.nm-atlas-row[data-missing=true] .nm-atlas-label,.nm-atlas-row[data-missing=true] .nm-atlas-chevron{color:var(--nm-muted);opacity:.75}
+.nm-atlas-message{padding:16px 10px;font-size:12px;color:var(--nm-muted);line-height:1.7}
+.nm-atlas-title-icon{flex:none}
+.nm-atlas-seg{flex:none;display:flex;gap:2px;padding:2px;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-bg)}
+.nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px}
+.nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
+.nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+.nm-atlas-svg{display:block}
+.nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
+.nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-text-root{font-size:13px;font-weight:650}
+.nm-atlas-more{fill:var(--nm-muted);font-size:10px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
+.nm-atlas-gnode{cursor:pointer}
+.nm-atlas-gnode:hover .nm-atlas-text{text-decoration:underline}
+.nm-atlas-gnode:focus-visible{outline:2px solid var(--nm-accent)}
+.nm-atlas-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.nm-atlas-world{border:1px solid var(--nm-border);border-radius:12px;overflow:hidden;background:var(--nm-map-sea,#24333f);line-height:0}
+/* 地图底图切换条 */
+.nm-atlas-artbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 11px;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-card);margin-top:8px;line-height:1.5}
+.nm-atlas-artbar .nm-muted{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-arttoggle{font:inherit;font-size:11px;cursor:pointer;color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));border-radius:7px;background:transparent;padding:4px 11px;flex:none;transition:all .15s}
+.nm-atlas-arttoggle:hover{background:color-mix(in srgb,var(--nm-accent) 12%,transparent)}
+.nm-atlas-world-wrap{display:flex;flex-direction:column;gap:8px}
+.nm-atlas-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.nm-atlas-world-title{font-size:12px;font-weight:600;color:var(--nm-text)}
+.nm-atlas-world-sub{font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend{display:flex;flex-wrap:wrap;gap:8px;padding:0 2px}
+.nm-atlas-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted)}
+.nm-atlas-legend-swatch{width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,0.35)}
+.nm-atlas-region{border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-atlas-terrain{border-radius:8px;overflow:hidden;line-height:0;border:1px solid var(--nm-border)}
+.nm-atlas-region-meta{font-size:10.5px;color:var(--nm-muted);display:flex;gap:4px;flex-wrap:wrap}
+.nm-atlas-region-head{display:flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;min-width:0;width:100%}
+.nm-atlas-swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.nm-atlas-region-title-text{font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-atlas-count{margin-left:auto;flex:none;font-size:10.5px;color:var(--nm-muted);border:1px solid var(--nm-border);border-radius:999px;padding:1px 7px}
+.nm-atlas-region-desc{font-size:11px;color:var(--nm-muted);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* ── 生图工作台 ── */
+/* 面板贴边时每个框的边框都会顶到滚动条，留出左右呼吸空间 */
+.nm-art{padding-left:14px;padding-right:14px}
+/* 面板不在 .nm-settings 作用域内，必须自带控件样式，否则按钮会退化成纯文本 */
+.nm-art button{font:inherit;font-size:12px;cursor:pointer;color:var(--nm-text);border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-raised);padding:8px 14px;transition:all .18s ease;font-weight:550}
+.nm-art button:hover:not(:disabled){border-color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 10%,var(--nm-raised))}
+.nm-art button:disabled{opacity:.45;cursor:not-allowed}
+.nm-art button.nm-primary{background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 13%,var(--nm-card)));border-color:color-mix(in srgb,var(--nm-accent) 60%,var(--nm-border));color:var(--nm-accent);font-weight:700;box-shadow:0 2px 8px -2px color-mix(in srgb,var(--nm-accent) 35%,transparent)}
+.nm-art button.nm-primary:hover:not(:disabled){background:linear-gradient(135deg,color-mix(in srgb,var(--nm-accent) 28%,var(--nm-card)),color-mix(in srgb,var(--nm-accent) 20%,var(--nm-card)));border-color:var(--nm-accent)}
+.nm-art select,.nm-art input[type=text],.nm-art input[type=password]{font:inherit;font-size:12px;color:var(--nm-text);width:100%;min-width:0;border:1px solid var(--nm-border);border-radius:9px;background:var(--nm-bg);padding:8px 11px}
+.nm-art select{cursor:pointer}
+.nm-art select option{background:var(--nm-card);color:var(--nm-text)}
+.nm-art select:focus,.nm-art input:focus,.nm-art textarea:focus{outline:none;border-color:var(--nm-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--nm-accent) 16%,transparent)}
+.nm-art .nm-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.nm-art .nm-field&gt;span{font-weight:600;font-size:11.5px;color:var(--nm-text)}
+.nm-art .nm-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.nm-art .nm-muted{font-size:11px;color:var(--nm-muted)}
+.nm-art .nm-alert{font-size:11.5px;color:#e06c75;background:color-mix(in srgb,#e06c75 10%,transparent);border:1px solid color-mix(in srgb,#e06c75 30%,transparent);border-radius:8px;padding:8px 10px;line-height:1.6}
+.nm-art-form{display:flex;flex-direction:column;gap:9px;padding:12px 0 4px;min-width:0}
+.nm-art-toolbar{display:flex;align-items:center;gap:8px;margin-top:10px}
+.nm-art-toolbar select{flex:1;min-width:0}
+.nm-art-textarea{width:100%;resize:vertical;font:inherit;font-size:12px;line-height:1.6;padding:8px 10px;border-radius:9px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text)}
+.nm-art-textarea:focus{outline:none;border-color:var(--nm-accent)}
+.nm-art-preview{position:relative;display:flex;align-items:center;justify-content:center;min-height:260px;max-height:440px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);overflow:hidden;margin-top:10px}
+/* 空状态收矮，避免把下方的生成按钮推出可视区 */
+.nm-art-preview[data-empty=true]{min-height:130px;max-height:170px}
+.nm-art-preview img{max-width:100%;max-height:440px;display:block;object-fit:contain}
+/* 主按钮全宽显示，明确告诉用户「点这里」 */
+.nm-art-form&gt;.nm-row&gt;button.nm-primary{width:100%;padding:11px 16px;font-size:12.5px;letter-spacing:.02em}
+.nm-art-placeholder{font-size:11px;color:var(--nm-muted);padding:24px;text-align:center;line-height:1.7}
+.nm-art-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.nm-art-step{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--nm-muted);padding:3px 9px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card)}
+.nm-art-step[data-on=run]{border-color:var(--nm-accent);color:var(--nm-accent)}
+.nm-art-step[data-on=done]{border-color:color-mix(in srgb,var(--nm-accent) 45%,transparent);color:var(--nm-accent);background:color-mix(in srgb,var(--nm-accent) 8%,var(--nm-card))}
+.nm-art-stepnum{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:color-mix(in srgb,CanvasText 8%,transparent);font-size:9.5px;font-weight:700}
+/* 垫图区 */
+.nm-art-ref{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px dashed var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-reflabel{font-size:10.5px;color:var(--nm-muted);font-weight:600}
+.nm-art-refpick{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:8px;border:1px dashed var(--nm-border);cursor:pointer;font-size:11.5px;color:var(--nm-accent);background:var(--nm-card);transition:border-color .15s}
+.nm-art-refpick:hover{border-color:var(--nm-accent)}
+.nm-art-refbox{display:flex;align-items:center;gap:10px}
+.nm-art-refbox img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--nm-border);flex:none}
+.nm-art-refinfo{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.nm-art-refinfo .nm-muted{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-art-refclear{align-self:flex-start;font-size:10.5px;padding:2px 9px}
+.nm-art-strength{gap:4px}
+.nm-art-strength input[type=range]{width:100%;accent-color:var(--nm-accent)}
+/* 构图控制：宽高比 / 分辨率 / 张数 / 透明背景 */
+.nm-art-compose{display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--nm-border);border-radius:11px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-compose-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.nm-compose-label{flex:none;font-size:10.5px;font-weight:600;color:var(--nm-muted);min-width:56px;white-space:nowrap}
+.nm-compose-group{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
+.nm-compose-chip{flex:none;font-size:10.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s;line-height:1.5}
+.nm-compose-chip:hover:not(:disabled){border-color:var(--nm-accent);color:var(--nm-accent)}
+/* 选中态用「正文色填充 + 背景色文字」的反色方案。
+   不用品牌色是因为 --nm-accent 在某些主题下解析出接近底色，
+   会导致「浅底 + 浅字」整块看不见（实测截图就是这个现象）。
+   反色方案的对比度恒等于正文对比度，任何主题都不会失效。 */
+.nm-compose-chip[data-active=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700;box-shadow:none}
+.nm-compose-chip[data-active=true]:hover:not(:disabled){background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg)}
+.nm-compose-chip:disabled{opacity:.5;cursor:not-allowed}
+.nm-compose-hint{flex:none;font-size:10px;color:var(--nm-muted);white-space:nowrap}
+.nm-compose-switch{flex:none;font-size:10.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);cursor:pointer;font-family:inherit;transition:all .14s}
+/* 开关开启态同样用反色，避免依赖 --nm-good 的实际亮度 */
+.nm-compose-switch[data-on=true]{background:var(--nm-text);border-color:var(--nm-text);color:var(--nm-bg);font-weight:700}
+.nm-compose-switch:disabled{opacity:.5;cursor:not-allowed}
+/* 多图缩略图条 */
+.nm-art-thumbs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:10px;background:color-mix(in srgb,CanvasText 2%,transparent)}
+.nm-art-thumb{padding:0;border:2px solid transparent;border-radius:7px;background:none;cursor:pointer;line-height:0;overflow:hidden;flex:none;transition:border-color .14s}
+.nm-art-thumb img{width:52px;height:52px;object-fit:cover;display:block}
+.nm-art-thumb[data-active=true]{border-color:var(--nm-accent)}
+.nm-art-thumb:hover{border-color:color-mix(in srgb,var(--nm-accent) 55%,transparent)}
+.nm-subhead{margin:14px 0 6px;font-size:12px;font-weight:700;color:var(--nm-text)}.nm-atlas-spoke{margin-top:6px;border-top:1px dashed var(--nm-border);padding-top:8px}
+.nm-atlas-timeline{position:relative;padding-left:20px;display:flex;flex-direction:column}
+.nm-atlas-trail{position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--nm-border)}
+.nm-atlas-tgroup{margin:12px 0 6px;font-size:11px;font-weight:650;color:var(--nm-muted)}
+.nm-atlas-trow{position:relative;padding:5px 0}
+.nm-atlas-tdot{position:absolute;left:-18px;top:11px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px var(--nm-bg)}
+.nm-atlas-tline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nm-atlas-tline strong{font-size:11px;color:var(--nm-accent);flex:none}
+.nm-atlas-ttitle{font-size:12px;line-height:1.5}
+.nm-atlas-tmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+/* ── 生成进度面板 ──────────────────────────────────────────────
+   侧边栏宽度通常只有 300–360px，所以全部按单列竖排设计：环形总览在上，
+   清单在中，批量写作在下。字号比设置页再小一号，因为这里离眼睛更远，
+   而且旁边就是正文。 */
+.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+.nm-prog-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.nm-prog-auto{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--nm-muted);cursor:pointer;user-select:none;white-space:nowrap}
+.nm-prog-auto input{width:12px;height:12px;accent-color:var(--nm-accent);cursor:pointer;margin:0}
+.nm-prog-select{flex:1;min-width:0}
+/* 总览卡：环形进度 + 文字。用 1px 半透明描边 + 极淡渐变做出层次，
+   不靠重阴影——深色主题下重阴影会显脏。左上角那道 accent 微光让卡片
+   和背景分离，又不至于抢走正文的注意力。 */
+.nm-prog-hero{position:relative;display:flex;align-items:center;gap:14px;padding:14px 15px;border-radius:14px;border:1px solid var(--nm-border);background:radial-gradient(120% 130% at 0% 0%,color-mix(in srgb,var(--nm-accent) 11%,transparent),transparent 62%),var(--nm-card);overflow:hidden}
+.nm-prog-ring{position:relative;flex:none;width:60px;height:60px;display:grid;place-items:center}
+/* 只给 inset 不给宽高，SVG 会在 grid 里塌成 0×0 —— 预览时就是这里让
+   进度弧整条不可见，只剩外圈的圆环背景。明确写出 60×60。 */
+.nm-prog-ring svg{position:absolute;inset:0;width:60px;height:60px;overflow:visible}
+/* 颜色一律走 CSS 规则，不写 stroke="var(--nm-accent)" 这种表现属性 ——
+   表现属性里的 var() 不保证被解析，变量取不到时整条弧直接变成不可见，
+   而且不报错，最难查。 */
+.nm-prog-ring-track{stroke:var(--nm-border);fill:none}
+.nm-prog-ring-arc{stroke:var(--nm-accent);fill:none;transition:stroke-dashoffset .6s cubic-bezier(.22,.61,.36,1);filter:drop-shadow(0 0 3px color-mix(in srgb,var(--nm-accent) 45%,transparent))}
+.nm-prog-ring-num{position:relative;font-size:14px;font-weight:700;letter-spacing:-.4px;color:var(--nm-text);font-variant-numeric:tabular-nums;line-height:1}
+.nm-prog-hero-text{min-width:0;flex:1;display:flex;flex-direction:column;gap:7px}
+.nm-prog-hero-title{font-size:12px;color:var(--nm-muted);display:flex;align-items:baseline;gap:6px}
+.nm-prog-hero-title b{font-size:15px;color:var(--nm-text);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-prog-next{font-size:11px;color:var(--nm-muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.5}
+.nm-prog-next code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10.5px;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--nm-accent) 13%,var(--nm-bg));color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 26%,transparent);font-weight:600}
+.nm-prog-allset{color:var(--nm-good)}
+.nm-prog-section{display:flex;flex-direction:column;gap:7px}
+.nm-prog-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--nm-muted);letter-spacing:.4px;text-transform:uppercase}
+.nm-prog-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+/* 行高压到 30px：八项资产用两行间距会吃掉侧边栏一半高度，而这里每项
+   只需要「名字 + 状态」两段信息，不需要呼吸感。 */
+.nm-prog-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:12px;transition:background .16s ease}
+.nm-prog-item:hover{background:color-mix(in srgb,CanvasText 4%,transparent)}
+.nm-prog-item[data-state=missing] .nm-prog-label{color:var(--nm-muted)}
+.nm-prog-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-prog-meta{flex:none;font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+.nm-prog-item[data-state=done] .nm-prog-meta{color:color-mix(in srgb,var(--nm-good) 80%,var(--nm-muted))}
+.nm-prog-item[data-state=empty] .nm-prog-meta{color:color-mix(in srgb,var(--nm-accent) 70%,var(--nm-muted))}
+/* 状态点：已写好是实心绿勾，空文件是空心环，没建过是虚线圈。
+   三种状态的形状本身不同，不依赖颜色区分——灰度下也读得出来。 */
+.nm-prog-mark{flex:none;width:14px;height:14px;display:grid;place-items:center;color:var(--nm-muted)}
+.nm-prog-mark[data-state=done]{color:var(--nm-good)}
+.nm-prog-mark[data-state=empty]{color:var(--nm-accent)}
+.nm-prog-mark[data-state=missing]{color:color-mix(in srgb,var(--nm-muted) 65%,transparent)}
+.nm-prog-phase{flex:none;font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);font-weight:600;letter-spacing:0;text-transform:none}
+.nm-prog-phase[data-phase=running]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 40%,transparent);background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=complete]{color:var(--nm-good);border-color:color-mix(in srgb,var(--nm-good) 40%,transparent);background:color-mix(in srgb,var(--nm-good) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=error]{color:var(--nm-error);border-color:color-mix(in srgb,var(--nm-error) 40%,transparent);background:color-mix(in srgb,var(--nm-error) 12%,var(--nm-card))}
+.nm-prog-bar{height:5px;border-radius:999px;background:color-mix(in srgb,CanvasText 9%,transparent);overflow:hidden}
+.nm-prog-bar-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--nm-accent) 75%,transparent),var(--nm-accent));transition:width .5s cubic-bezier(.22,.61,.36,1)}
+.nm-prog-bar-fill[data-phase=complete]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-good) 75%,transparent),var(--nm-good))}
+.nm-prog-bar-fill[data-phase=error],.nm-prog-bar-fill[data-phase=aborted]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-error) 70%,transparent),var(--nm-error))}
+.nm-prog-batch-meta{font-size:11px;color:var(--nm-muted);display:flex;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.nm-prog-stale{color:color-mix(in srgb,var(--nm-error) 80%,var(--nm-muted))}
+.nm-prog-error{font-size:11px;color:var(--nm-error);line-height:1.55;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 9%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent);overflow-wrap:anywhere}
+.nm-prog-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+/* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
+   渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
+.nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill{transition:none}}
+</style><header class="nm-hero" style="position:relative"><button class="nm-help-btn" aria-label="查看帮助" title="查看功能介绍">?</button><div class="nm-row nm-between"><div class="nm-brand"><div class="nm-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z"/><path d="M12 6v14M6 9h3M6 12h3M15 9h3M15 12h3"/></svg></div><div ><div class="nm-row"><h2 >小说创作大师</h2><span class="nm-badge">v1.4.3</span></div><p class="nm-muted">把创作、经验与判断，整理成自己的写作工作台。</p></div></div><button type="button" disabled="true">刷新设置与状态</button></div><div class="nm-row"><span class="nm-chip" data-on="true"><i aria-hidden="true"></i>小说功能已启用</span><span class="nm-chip" data-on="true"><i aria-hidden="true"></i>已选择 0 / 0 项功能</span><span class="nm-chip"><i aria-hidden="true"></i>引导模型未启用</span><span class="nm-chip"><i aria-hidden="true"></i>学习总结未启用</span><span class="nm-chip"><i aria-hidden="true"></i>决策助手未启用</span></div></header><div class="nm-alert" role="alert"><div ><strong >暂时无法完成操作</strong><p >长夜将至</p></div><button type="button" disabled="true">重试连接</button></div><div class="nm-alert nm-success" role="status"></div><nav class="nm-tabs" role="tablist" aria-label="小说设置导航"><button type="button" role="tab" id="nm-tab-features" aria-controls="nm-panel-features" aria-selected="true" tab-index="0">功能选择</button><button type="button" role="tab" id="nm-tab-guidance" aria-controls="nm-panel-guidance" tab-index="-1">引导模型</button><button type="button" role="tab" id="nm-tab-learning" aria-controls="nm-panel-learning" tab-index="-1">学习总结</button><button type="button" role="tab" id="nm-tab-decision" aria-controls="nm-panel-decision" tab-index="-1">决策助手</button><button type="button" role="tab" id="nm-tab-research" aria-controls="nm-panel-research" tab-index="-1">资料检索</button><button type="button" role="tab" id="nm-tab-batch" aria-controls="nm-panel-batch" tab-index="-1">批量写作</button><button type="button" role="tab" id="nm-tab-persona" aria-controls="nm-panel-persona" tab-index="-1">作者人格</button><button type="button" role="tab" id="nm-tab-image" aria-controls="nm-panel-image" tab-index="-1">AI 生图</button><button type="button" role="tab" id="nm-tab-updates" aria-controls="nm-panel-updates" tab-index="-1">更新维护</button></nav><section class="nm-stack" id="nm-panel-features" role="tabpanel" aria-labelledby="nm-tab-features" tab-index="0"><div class="nm-card"><div ><h3 >创作工作台</h3><p class="nm-muted">关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。</p></div><label class="nm-switch"><span class="nm-switchcopy"><strong >启用小说功能</strong><small >已运行的写作目标可通过 /goal pause 暂停。</small></span><input type="checkbox" role="switch" aria-label="启用小说功能" checked="true" disabled="true"/><i class="nm-track" aria-hidden="true"></i></label><form aria-label="项目目录配置"><div class="nm-field"><span >项目目录</span><div class="nm-path-box"><input type="text" value="" disabled="true" required="true" aria-label="项目目录" placeholder="novel_projects"/><button type="button" disabled="true">📁 浏览…</button></div></div><p class="nm-muted">相对于工作目录保存小说项目，也可以点击“浏览”选择自定义绝对路径。</p><div class="nm-savebar"><span class="nm-muted">✓ 配置已同步</span><button class="nm-primary" type="submit" disabled="true">保存项目目录</button></div></form></div><div class="nm-card"><div ><h3 >创作流水线工作台</h3><p class="nm-muted">标准网文创作五阶段流转，点击指令代码可快速复制使用。</p></div><div class="nm-workbench-pipeline"><div class="nm-pipeline-step"><span class="nm-pipeline-badge">阶段 01</span><div class="nm-pipeline-title">脑洞构思</div><div class="nm-pipeline-desc">提炼核心看点与矛盾</div><code class="nm-inlinecode" title="点击复制指令">/novel-idea 你的脑洞</code></div><div class="nm-pipeline-step"><span class="nm-pipeline-badge">阶段 02</span><div class="nm-pipeline-title">世界与人设</div><div class="nm-pipeline-desc">建立人物谱系与环境法则</div><code class="nm-inlinecode" title="点击复制指令">/novel-cast + /novel-world</code></div><div class="nm-pipeline-step"><span class="nm-pipeline-badge">阶段 03</span><div class="nm-pipeline-title">分卷与细纲</div><div class="nm-pipeline-desc">规划每卷起承转合与钩子</div><code class="nm-inlinecode" title="点击复制指令">/novel-outline 60章</code></div><div class="nm-pipeline-step"><span class="nm-pipeline-badge">阶段 04</span><div class="nm-pipeline-title">正文生成</div><div class="nm-pipeline-desc">去机械化、真人作者质感</div><code class="nm-inlinecode" title="点击复制指令">/novel-chapter 1</code></div><div class="nm-pipeline-step"><span class="nm-pipeline-badge">阶段 05</span><div class="nm-pipeline-title">审校与反馈</div><div class="nm-pipeline-desc">模拟读者画像、把控节奏</div><code class="nm-inlinecode" title="点击复制指令">/novel-review + /novel-reader</code></div></div><div class="nm-quick-grid"><div class="nm-quick-card"><div ><strong style="display:block;margin-bottom:3px">快速立项建书</strong><span class="nm-muted">从设定到分卷一气呵成</span></div><code class="nm-inlinecode">复制</code></div><div class="nm-quick-card"><div ><strong style="display:block;margin-bottom:3px">生成指定新章节</strong><span class="nm-muted">安全生成不覆盖原稿</span></div><code class="nm-inlinecode">复制</code></div><div class="nm-quick-card"><div ><strong style="display:block;margin-bottom:3px">拆解爆款文风</strong><span class="nm-muted">提取词频习惯与黄金节奏</span></div><code class="nm-inlinecode">复制</code></div><div class="nm-quick-card"><div ><strong style="display:block;margin-bottom:3px">多重读者审校</strong><span class="nm-muted">挑刺党/催更党多维打分</span></div><code class="nm-inlinecode">复制</code></div></div></div><div class="nm-card"><div ><h3 >选择适合你的工具</h3><p class="nm-muted">按创作阶段选择，开关保存后立即生效；更新维护始终保留。</p></div><div class="nm-toolbar"><input class="nm-search" type="search" value="" placeholder="搜索功能名称或命令…" aria-label="搜索功能"/><button type="button" disabled="true">全部开启</button><button type="button" disabled="true">全部关闭</button></div><div class="nm-row"><span class="nm-muted">快速选择</span><button type="button" disabled="true">基础工具</button><button type="button" disabled="true">写作进阶</button><button type="button" disabled="true">完整工具</button></div><p class="nm-muted" role="status">已选择 0 / 0 项创作功能</p><div class="nm-empty" role="status">没有找到匹配功能，试试其他关键词。</div></div></section><section class="nm-stack" id="nm-panel-guidance" role="tabpanel" aria-labelledby="nm-tab-guidance" hidden="true" tab-index="0"><div class="nm-card"><div ><h3 >引导配置尚未就绪</h3><p class="nm-muted">当前 Host 尚未提供引导配置，请重载插件或重启 DSH。</p></div></div></section><section class="nm-stack" id="nm-panel-learning" role="tabpanel" aria-labelledby="nm-tab-learning" hidden="true" tab-index="0"><div class="nm-card"><div ><h3 >学习配置尚未就绪</h3><p class="nm-muted">当前 Host 尚未提供学习配置，请重载插件或重启 DSH。</p></div></div><div class="nm-card"><div class="nm-cardhead"><div ><h3 >智能活动</h3><p class="nm-muted">按需读取实际运行状态，不推测当前模型。</p></div><button type="button" disabled="true">读取学习与决策活动</button></div><p class="nm-muted">尚未读取。使用 /novel-memory 可查询已保存的经验。</p></div></section><section class="nm-stack" id="nm-panel-decision" role="tabpanel" aria-labelledby="nm-tab-decision" hidden="true" tab-index="0"><div class="nm-card"><div ><h3 >决策配置尚未就绪</h3><p class="nm-muted">当前 Host 尚未提供决策配置，请重载插件或重启 DSH。</p></div></div><div class="nm-callout">手动发起：<code class="nm-inlinecode">/novel-decide 问题 | 选项A | 选项B</code></div></section><section class="nm-stack" id="nm-panel-research" role="tabpanel" aria-labelledby="nm-tab-research" hidden="true" tab-index="0"><form class="nm-stack" aria-label="资料检索配置"><div class="nm-card"><div ><h3 >联网资料检索</h3><p class="nm-muted">默认关闭。启用后通过 /novel-research 检索并保存来源报告。</p></div><label class="nm-switch"><span class="nm-switchcopy"><strong >启用资料检索</strong><small >检索默认关闭，需选择模型并指定目录。</small></span><input type="checkbox" role="switch" aria-label="启用资料检索" disabled="true"/><i class="nm-track" aria-hidden="true"></i></label></div><div class="nm-card"><div ><h3 >检索模型和存储目录</h3><p class="nm-muted">指定研究模型，并设置资料报告存储路径。</p></div><div class="nm-stack"><div class="nm-field" style="margin-bottom:6px"><span style="display:flex;align-items:center;justify-content:space-between">从现有模型列表中选择检索模型<small class="nm-muted">已实时发现 5 个 DSH 可用模型</small></span><select class="nm-select" value="" disabled="true" aria-label="从现有模型列表中选择检索模型选择器"><option value="" disabled="true">-- 请在现有模型列表中选择 --</option><option value="hajimi::gemini-3.8-flash">hajimi / gemini-3.8-flash (主会话模型)</option><option value="workbuddy::deepseek-v4.1-flash">workbuddy / deepseek-v4.1-flash</option><option value="our-free-model::mimo-v2.6-flash-free">our-free-model / mimo-v2.6-flash-free</option><option value="our-free-model::space-bunny-free">our-free-model / space-bunny-free</option><option value="workbuddy::hy4-preview-f">workbuddy / hy4-preview-f</option></select></div><div class="nm-field"><span style="display:flex;align-items:center;justify-content:space-between">检索模型思考/推理强度 (Reasoning Effort)<small class="nm-muted">留空使用默认强度</small></span><select class="nm-select" value="" disabled="true" aria-label="检索模型思考/推理强度 (Reasoning Effort)选择器"><option value="">⚡ 默认思考强度 (Default)</option><option value="low">🌱 低思考强度 (Low · 极速响应)</option><option value="medium">⚖️ 中等思考强度 (Medium · 平衡)</option><option value="high">🧠 高深度思考 (High · 严密推演)</option><option value="extra_high">🔥 极限思考模式 (Extra High)</option></select></div><div class="nm-grid"><label class="nm-field"><span >检索模型提供方</span><input type="text" value="" disabled="true" aria-label="检索模型提供方" placeholder="provider ID"/></label><label class="nm-field"><span >检索模型 ID</span><input type="text" value="" disabled="true" aria-label="检索模型 ID" placeholder="model ID"/></label></div><div class="nm-path-box"><label class="nm-field"><span >资料存储目录</span><input type="text" value="novel_research" disabled="true" aria-label="资料存储目录" placeholder="novel_research 或绝对路径" required="true"/></label><button type="button" disabled="true">📁 浏览目录…</button></div><div class="nm-grid"><label class="nm-field"><span >最多来源数</span><input type="number" value="5" disabled="true" aria-label="最多来源数" min="1" max="10" step="1"/></label><label class="nm-field"><span >单来源字符上限</span><input type="number" value="12000" disabled="true" aria-label="单来源字符上限" min="1000" max="24000" step="1"/></label><label class="nm-field"><span >检索超时毫秒</span><input type="number" value="60000" disabled="true" aria-label="检索超时毫秒" min="1000" max="120000" step="1"/></label></div></div><div class="nm-savebar"><span class="nm-muted">✓ 配置已同步</span><button class="nm-primary" type="submit" disabled="true">保存资料检索配置</button></div></div></form></section><section class="nm-stack" id="nm-panel-batch" role="tabpanel" aria-labelledby="nm-tab-batch" hidden="true" tab-index="0"><form class="nm-stack" aria-label="批量写作配置"><div class="nm-card"><div ><h3 >按次计费批量写作</h3><p class="nm-muted">一次模型请求连续写多章，请求次数就是花费次数。</p></div><p class="nm-muted">按次计费模型选这里。每批章数越多，请求次数越少；提供方与模型都留空时，使用本会话最近一次实际路由。</p></div><div class="nm-card"><div ><h3 >模型与批量大小</h3><p class="nm-muted">指定按次计费模型，并设置每次请求写几章。</p></div><div class="nm-stack"><div class="nm-field" style="margin-bottom:6px"><span style="display:flex;align-items:center;justify-content:space-between">从现有模型列表中选择批量写作模型<small class="nm-muted">已实时发现 5 个 DSH 可用模型</small></span><select class="nm-select" value="" disabled="true" aria-label="从现有模型列表中选择批量写作模型选择器"><option value="" disabled="true">-- 请在现有模型列表中选择 --</option><option value="hajimi::gemini-3.8-flash">hajimi / gemini-3.8-flash (主会话模型)</option><option value="workbuddy::deepseek-v4.1-flash">workbuddy / deepseek-v4.1-flash</option><option value="our-free-model::mimo-v2.6-flash-free">our-free-model / mimo-v2.6-flash-free</option><option value="our-free-model::space-bunny-free">our-free-model / space-bunny-free</option><option value="workbuddy::hy4-preview-f">workbuddy / hy4-preview-f</option></select></div><div class="nm-field"><span style="display:flex;align-items:center;justify-content:space-between">批量写作思考/推理强度 (Reasoning Effort)<small class="nm-muted">留空使用默认强度</small></span><select class="nm-select" value="" disabled="true" aria-label="批量写作思考/推理强度 (Reasoning Effort)选择器"><option value="">⚡ 默认思考强度 (Default)</option><option value="low">🌱 低思考强度 (Low · 极速响应)</option><option value="medium">⚖️ 中等思考强度 (Medium · 平衡)</option><option value="high">🧠 高深度思考 (High · 严密推演)</option><option value="extra_high">🔥 极限思考模式 (Extra High)</option></select></div><div class="nm-grid"><label class="nm-field"><span >批量写作提供方</span><input type="text" value="" disabled="true" aria-label="批量写作提供方" placeholder="留空使用会话模型"/></label><label class="nm-field"><span >批量写作模型 ID</span><input type="text" value="" disabled="true" aria-label="批量写作模型 ID" placeholder="留空使用会话模型"/></label><label class="nm-field"><span >每次请求章数</span><input type="number" value="20" disabled="true" aria-label="每次请求章数" required="true" min="1" max="37" step="1"/></label></div><p class="nm-muted">输出上限由模型自身决定。章数设得过大时模型可能提前截断，这种情况下该批不会写入任何文件，可调小后重试。</p></div><div class="nm-savebar"><span class="nm-muted">✓ 配置已同步</span><button class="nm-primary" type="submit" disabled="true">保存批量写作配置</button></div></div><div class="nm-callout">手动发起：<code class="nm-inlinecode">/novel-batch 项目名 60章 --每批20章 --auto</code></div></form></section><section class="nm-stack" id="nm-panel-persona" role="tabpanel" aria-labelledby="nm-tab-persona" hidden="true" tab-index="0"><form class="nm-stack" aria-label="作者人格配置"><div class="nm-card"><div ><h3 >拆书分析模型</h3><p class="nm-muted">用 /novel-persona-study 分析参考作品，提炼成可套用的写作风格。整本参考作品都会发给这个模型，所以这一步才是真正费 token 的。</p></div><p class="nm-muted">留空时使用本会话最近一次实际路由；在命令里写 --provider/--model 优先级更高。</p><div class="nm-stack"><div class="nm-field" style="margin-bottom:6px"><span style="display:flex;align-items:center;justify-content:space-between">从现有模型列表中选择拆书模型<small class="nm-muted">已实时发现 5 个 DSH 可用模型</small></span><select class="nm-select" value="" disabled="true" aria-label="从现有模型列表中选择拆书模型选择器"><option value="" disabled="true">-- 请在现有模型列表中选择 --</option><option value="hajimi::gemini-3.8-flash">hajimi / gemini-3.8-flash (主会话模型)</option><option value="workbuddy::deepseek-v4.1-flash">workbuddy / deepseek-v4.1-flash</option><option value="our-free-model::mimo-v2.6-flash-free">our-free-model / mimo-v2.6-flash-free</option><option value="our-free-model::space-bunny-free">our-free-model / space-bunny-free</option><option value="workbuddy::hy4-preview-f">workbuddy / hy4-preview-f</option></select></div><div class="nm-field"><span style="display:flex;align-items:center;justify-content:space-between">拆书模型思考/推理强度 (Reasoning Effort)<small class="nm-muted">留空使用默认强度</small></span><select class="nm-select" value="" disabled="true" aria-label="拆书模型思考/推理强度 (Reasoning Effort)选择器"><option value="">⚡ 默认思考强度 (Default)</option><option value="low">🌱 低思考强度 (Low · 极速响应)</option><option value="medium">⚖️ 中等思考强度 (Medium · 平衡)</option><option value="high">🧠 高深度思考 (High · 严密推演)</option><option value="extra_high">🔥 极限思考模式 (Extra High)</option></select></div><div class="nm-grid"><label class="nm-field"><span >拆书提供方</span><input type="text" value="" disabled="true" aria-label="拆书提供方" placeholder="留空使用会话模型"/></label><label class="nm-field"><span >拆书模型 ID</span><input type="text" value="" disabled="true" aria-label="拆书模型 ID" placeholder="留空使用会话模型"/></label></div></div></div><div class="nm-card"><div ><h3 >自然语言意图解析模型</h3><p class="nm-muted">只用来听懂 /novel-persona-study 后面那句人话，比如「这本对话写得好，拼到《某书》上」。请求很短，几百 token 就结束。</p></div><p class="nm-muted">单独配一档，是因为这件事跟拆书不是同一种能力：拆书要长文本分析，听懂一句话要的是对口语的理解，成本也差得远。留空则沿用上面的拆书模型。</p><div class="nm-stack"><div class="nm-field" style="margin-bottom:6px"><span style="display:flex;align-items:center;justify-content:space-between">从现有模型列表中选择意图解析模型<small class="nm-muted">已实时发现 5 个 DSH 可用模型</small></span><select class="nm-select" value="" disabled="true" aria-label="从现有模型列表中选择意图解析模型选择器"><option value="" disabled="true">-- 请在现有模型列表中选择 --</option><option value="hajimi::gemini-3.8-flash">hajimi / gemini-3.8-flash (主会话模型)</option><option value="workbuddy::deepseek-v4.1-flash">workbuddy / deepseek-v4.1-flash</option><option value="our-free-model::mimo-v2.6-flash-free">our-free-model / mimo-v2.6-flash-free</option><option value="our-free-model::space-bunny-free">our-free-model / space-bunny-free</option><option value="workbuddy::hy4-preview-f">workbuddy / hy4-preview-f</option></select></div><div class="nm-field"><span style="display:flex;align-items:center;justify-content:space-between">意图解析思考/推理强度 (Reasoning Effort)<small class="nm-muted">留空使用默认强度</small></span><select class="nm-select" value="" disabled="true" aria-label="意图解析思考/推理强度 (Reasoning Effort)选择器"><option value="">⚡ 默认思考强度 (Default)</option><option value="low">🌱 低思考强度 (Low · 极速响应)</option><option value="medium">⚖️ 中等思考强度 (Medium · 平衡)</option><option value="high">🧠 高深度思考 (High · 严密推演)</option><option value="extra_high">🔥 极限思考模式 (Extra High)</option></select></div><div class="nm-grid"><label class="nm-field"><span >意图解析提供方</span><input type="text" value="" disabled="true" aria-label="意图解析提供方" placeholder="留空沿用拆书模型"/></label><label class="nm-field"><span >意图解析模型 ID</span><input type="text" value="" disabled="true" aria-label="意图解析模型 ID" placeholder="留空沿用拆书模型"/></label></div><p class="nm-muted">规则能认全的说法不会调用模型，所以这一档只在必要时才花一次请求。</p></div></div><div class="nm-card"><div ><h3 >用法</h3><p class="nm-muted">两档模型都留空也能用：只靠规则识别，认不出的说法会给出参数写法。</p></div><div class="nm-callout"><code class="nm-inlinecode">/novel-persona 项目名 wangyu-classic</code> → 先建基础风格</div><div class="nm-callout"><code class="nm-inlinecode">/novel-persona-study 参考.txt --只取 对话 --to 项目名</code> → 只把对话这一维拼过来</div><div class="nm-callout"><code class="nm-inlinecode">/novel-persona-study --list-models</code> → 列出宿主里所有可用模型</div><details ><summary >优先级与回退规则</summary><ul class="nm-muted"><li >命令行 --provider/--model 最高优先，当场指定的就该生效。</li><li >意图解析：命令行 &gt; 这一档设置 &gt; 拆书设置 &gt; 会话实际路由。</li><li >拆书分析：命令行 &gt; 拆书设置 &gt; 会话实际路由。</li><li >只填了提供方没填模型时，自动退回下一档，不会让命令失效。</li></ul></details></div><div class="nm-savebar"><span class="nm-muted">✓ 配置已同步</span><button class="nm-primary" type="submit" disabled="true">保存作者人格配置</button></div></form></section><section class="nm-stack" id="nm-panel-image" role="tabpanel" aria-labelledby="nm-tab-image" hidden="true" tab-index="0"><div class="nm-card"><div ><h3 >AI 生图与提示词扩写</h3><p class="nm-muted">地址填到 /v1 为止，插件自动拼 /chat/completions 与 /images/generations。请求由宿主进程发出，不受浏览器跨域限制。模型名既能从 DSH 已配置列表里选，也能直接手填中转站的模型 ID。</p></div><h4 class="nm-subhead">① 对话模型（把一句话扩写成生图提示词）</h4><label class="nm-switch"><span class="nm-switchcopy"><strong >启用对话模型</strong><small >扩写按钮可用；关闭后只能手写提示词。</small></span><input type="checkbox" role="switch" aria-label="启用对话模型" disabled="true"/><i class="nm-track" aria-hidden="true"></i></label><div class="nm-field"><span >接口地址</span><input type="text" value="" disabled="true" placeholder="https://api.example.com/v1" aria-label="对话模型接口地址"/></div><div class="nm-field"><span >模型名称</span><div class="nm-row" style="gap:6px"><input type="text" value="" disabled="true" placeholder="gpt-4o" aria-label="模型名称"/><button class="nm-modelpick" type="button" aria-label="从 DSH 选择模型名称">选择 (5)</button></div></div><div class="nm-field"><span >密钥</span><input type="password" value="" placeholder="由本机配置保存" auto-complete="off" aria-label="对话模型密钥"/></div><div class="nm-row"><button type="button" disabled="true">从中转站拉取模型列表</button><span class="nm-muted">DSH 已配置 5 个模型。</span></div><h4 class="nm-subhead">② 生图模型</h4><label class="nm-switch"><span class="nm-switchcopy"><strong >启用 AI 生图</strong><small >工作台与设定树地图的生图功能。</small></span><input type="checkbox" role="switch" aria-label="启用 AI 生图" disabled="true"/><i class="nm-track" aria-hidden="true"></i></label><div class="nm-field"><span >接口地址</span><input type="text" value="" disabled="true" placeholder="https://api.example.com/v1" aria-label="生图接口地址"/></div><div class="nm-field"><span >模型名称</span><div class="nm-row" style="gap:6px"><input type="text" value="" disabled="true" placeholder="gpt-image-1" aria-label="模型名称"/><button class="nm-modelpick" type="button" aria-label="从 DSH 选择模型名称">选择 (5)</button></div></div><div class="nm-field"><span >密钥</span><input type="password" value="" placeholder="由本机配置保存" auto-complete="off" aria-label="生图密钥"/></div><div class="nm-three"><label class="nm-field"><span >图片尺寸</span><input type="text" disabled="true" aria-label="图片尺寸" placeholder="1024x1024"/></label><label class="nm-field"><span >画质（可空）</span><input type="text" disabled="true" aria-label="画质（可空）" placeholder="standard / hd"/></label></div><div class="nm-row"><button type="button" disabled="true">从中转站拉取模型列表</button><span class="nm-muted">DSH 未发现生图模型，多数中转站的 /models 也不列，直接手填模型 ID 即可。</span></div></div></section><section class="nm-stack" id="nm-panel-updates" role="tabpanel" aria-labelledby="nm-tab-updates" hidden="true" tab-index="0"><div class="nm-card"><div ><h3 >版本与更新</h3><p class="nm-muted">按完整提交 SHA 安装，保留安装结果与代码重载结果。</p></div><div class="nm-three"><div class="nm-metric"><span >当前运行</span><strong >未知</strong><code >提交未知</code></div><div class="nm-metric"><span >磁盘安装</span><strong >未知</strong><code >提交未知</code></div><div class="nm-metric"><span >main 最新</span><strong >尚未检查</strong><code >提交未知</code></div></div><div class="nm-row"><button class="nm-primary" type="button" disabled="true">检查更新</button><button type="button" disabled="true">拉取此提交</button></div></div><div class="nm-card"><div ><h3 >更新网络</h3><p class="nm-muted">代理只影响更新检查；安装使用 DSH 插件管理器的网络设置。</p></div><form aria-label="更新代理配置"><label class="nm-field"><span >更新检查代理</span><input type="text" value="" disabled="true" aria-label="更新检查代理" placeholder="http://127.0.0.1:7897"/></label><p class="nm-muted">留空使用代理环境变量或直连。</p><div class="nm-savebar"><span class="nm-muted">✓ 配置已同步</span><button class="nm-primary" type="submit" disabled="true">保存更新代理</button></div></form></div><div class="nm-card"><div ><h3 >运行维护</h3><p class="nm-muted">代码重载切换 Host 运行实例，刷新界面只重新加载浏览器页面。</p></div><div class="nm-row"><button type="button" disabled="true">重载插件</button><button type="button" disabled="true">刷新界面</button></div><p class="nm-muted">当前运行实例未提供可用重载入口，需要时请重启 DSH。</p></div></section><footer class="nm-footer">创作由你掌舵 · 功能按需开启 · 配置保存后生效</footer></div></body></html>

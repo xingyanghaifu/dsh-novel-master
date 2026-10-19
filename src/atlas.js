@@ -14,6 +14,11 @@ import {
   withProjectsDirectory,
 } from './project.js'
 import { listAssets } from './assets.js'
+import fs from 'node:fs'
+import path from 'node:path'
+
+/** 批量写作阶段文件：由 cmd-batch 在每批开始/结束时写盘，进度面板只读它。 */
+export const BATCH_STATUS_FILE = '批量写作状态.json'
 
 /** 单个文档最多解析的标题节点数。 */
 export const MAX_HEADING_NODES = 400
@@ -78,14 +83,16 @@ export function headingTree(text) {
 function sectionTree(cwd, name, section) {
   const text = readProjectFile(cwd, name, section.file)
   if (text === undefined) {
-    return { ...section, exists: false, headings: 0, truncated: false, docTitle: '', nodes: [] }
+    return { ...section, exists: false, headings: 0, chars: 0, truncated: false, docTitle: '', nodes: [] }
   }
   const { nodes, total, truncated } = headingTree(text.slice(0, MAX_FILE_CHARS))
   // 文档自己的 H1 标题（如「# 设定」）只是包装，把它的子标题提升一级，
   // 避免每个分支下都挂着一层同名空壳节点。
   const hoisted = nodes.length === 1 && nodes[0].children.length > 0 ? nodes[0].children : nodes
   const docTitle = nodes.length === 1 && nodes[0].children.length > 0 ? nodes[0].label : ''
-  return { ...section, exists: true, headings: total, truncated, docTitle, nodes: hoisted }
+  // chars 是给「资产是否写好」用的，不看标题数：伏笔.md 是纯表格文档，
+  // 内容再多也没有一个标题，只按 headings 判断会把它当成空文档。
+  return { ...section, exists: true, headings: total, chars: text.length, truncated, docTitle, nodes: hoisted }
 }
 
 /** 伏笔表统计：与 /novel-stats 同口径（表行数、未回收数）。 */
@@ -294,6 +301,7 @@ export function projectAtlas(cwd, name) {
     level: 1,
     children: [],
   }))
+  const sections = ATLAS_SECTIONS.map((section) => sectionTree(cwd, name, section))
   return {
     name,
     title: state.title ?? name,
@@ -309,7 +317,13 @@ export function projectAtlas(cwd, name) {
       foreshadowOpen: foreshadow.open,
       branches,
     },
-    sections: ATLAS_SECTIONS.map((section) => sectionTree(cwd, name, section)),
+    sections,
+    // 生成进度面板要的是「哪些基础资产已经有了」，而不是每份文档的完整标题树。
+    // 单独给一份轻量汇总：扇区数据本来就为设定树算过，这里只是换一种口径讲出来，
+    // 不额外读盘。
+    readiness: assetReadiness(sections, chapters.length),
+    // 批量写作有真实的阶段文件（写盘时机由 cmd-batch 控制），进度面板直接读它。
+    batch: readBatchStatus(cwd, name),
     regions,
     events,
     // 已绑定的 AI 插图：kind+name 对应 relation 让前端能按地区/角色取图
@@ -319,6 +333,99 @@ export function projectAtlas(cwd, name) {
       truncated: chapters.length > MAX_CHAPTER_NODES,
       nodes: chapterNodes,
     },
+  }
+}
+
+/**
+ * 把各扇区的存在性汇总成一份「基础资产完成度」。
+ *
+ * 为什么不让前端自己数：扇区顺序是后端定义的（世界观→人设→大纲…），前端
+ * 复制一份就会出现两处不一致。而且「章节」不在 ATLAS_SECTIONS 里，单独补一项
+ * 才能让进度条的 7 项和实际能做的 7 件事对上。
+ *
+ * @param {Array<object>} sections - sectionTree 结果。
+ * @param {number} chapterCount - 已有章节数。
+ */
+export function assetReadiness(sections, chapterCount = 0) {
+  const items = sections.map((section) => ({
+    key: section.key,
+    label: section.label,
+    // 判断「写好了」看正文字符数而不是标题数：伏笔.md / 世界状态.md 这类文档
+    // 主体是表格，标题可能一个都没有，按 headings 判会把写好当成没写。
+    exists: section.exists === true && (section.chars ?? 0) > 0,
+    created: section.exists === true,
+    headings: section.headings ?? 0,
+    chars: section.chars ?? 0,
+    truncated: section.truncated === true,
+  }))
+  items.push({
+    key: 'chapters',
+    label: '正文',
+    exists: chapterCount > 0,
+    created: chapterCount > 0,
+    headings: chapterCount,
+    chars: 0,
+    truncated: false,
+  })
+  const done = items.filter((item) => item.exists).length
+  return {
+    items,
+    done,
+    total: items.length,
+    percent: items.length === 0 ? 0 : Math.round((done / items.length) * 100),
+    // 下一步该做什么：按顺序取第一个缺失项。前端据此给出一个可点的建议，
+    // 而不是让用户自己判断「现在该跑哪条命令」。
+    next: items.find((item) => !item.exists)?.key ?? null,
+  }
+}
+
+/** 批量写作阶段的中文名，前端和回执共用一份，避免两边说法不一致。 */
+export const BATCH_PHASE_LABELS = {
+  running: '正在写',
+  complete: '已完成',
+  error: '出错停了',
+  aborted: '已中止',
+}
+
+/**
+ * 读项目根的批量写作状态文件。
+ *
+ * 文件不存在是正常情况（没跑过批量写作），返回 null 而不是空对象，让前端
+ * 能区分「没跑过」和「跑过但字段缺失」。坏文件也当没跑过——进度面板属于
+ * 辅助信息，不该因为一份手改坏的 JSON 就整块报错。
+ *
+ * @returns {null | {phase: string, phaseLabel: string, done: number, target: number, percent: number, requestSize: number, lastError: string, updatedAt: string, staleMs: number}}
+ */
+export function readBatchStatus(cwd, name, now = Date.now()) {
+  let raw
+  try {
+    raw = fs.readFileSync(path.join(projectDir(cwd, name), BATCH_STATUS_FILE), 'utf8')
+  } catch {
+    return null
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+  const done = Number(parsed.done) || 0
+  const target = Number(parsed.target) || 0
+  const updatedAt = typeof parsed.updatedAt === 'string' ? parsed.updatedAt : ''
+  const stamped = updatedAt ? Date.parse(updatedAt) : Number.NaN
+  return {
+    phase: typeof parsed.phase === 'string' ? parsed.phase : 'unknown',
+    phaseLabel: BATCH_PHASE_LABELS[parsed.phase] ?? '状态未知',
+    done,
+    target,
+    percent: target > 0 ? Math.min(100, Math.round((done / target) * 100)) : null,
+    requestSize: Number(parsed.requestSize) || 0,
+    lastError: typeof parsed.lastError === 'string' ? parsed.lastError : '',
+    updatedAt,
+    // 上次更新距今多久。运行中的任务每写完一批就会更新，超过几分钟没动静
+    // 通常意味着进程已经没了，前端可以据此把「正在写」降级成「可能已中断」。
+    staleMs: Number.isFinite(stamped) ? Math.max(0, now - stamped) : null,
   }
 }
 

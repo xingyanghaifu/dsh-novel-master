@@ -48,9 +48,15 @@ window.__ModuleLoader__.load({
 .nm-settings .nm-toast{position:fixed;bottom:32px;right:32px;z-index:9999;padding:12px 24px;border-radius:999px;background:linear-gradient(135deg,var(--nm-raised),color-mix(in srgb,var(--nm-card) 95%,var(--nm-raised)));border:1px solid color-mix(in srgb,var(--nm-accent) 40%,var(--nm-border));color:var(--nm-text);font-size:13px;font-weight:650;box-shadow:0 10px 32px -6px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 20%,transparent);display:flex;align-items:center;gap:10px;animation:nm-toast-in .3s cubic-bezier(0.34,1.56,0.64,1);backdrop-filter:blur(12px)}
 .nm-settings .nm-topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
 .nm-settings .nm-path-box{display:flex;gap:8px;align-items:center}
+/* 输入框吃掉剩余宽度，按钮保持自身宽度不换行 —— 否则窄一点就把
+   「📁 浏览…」挤成两行，按钮高度跟着变，整行错位。 */
+.nm-path-box>input{flex:1;min-width:0}
+.nm-path-box>button{flex:none;white-space:nowrap}
 @keyframes nm-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes nm-settings-load{to{background-position:-200% 0}}@media(max-width:700px){.nm-settings{padding:16px;gap:16px}.nm-settings .nm-hero{padding:20px}.nm-settings .nm-grid,.nm-settings .nm-three,.nm-settings .nm-workbench-pipeline,.nm-settings .nm-quick-grid,.nm-settings .nm-topic-grid{grid-template-columns:1fr}.nm-settings .nm-card{padding:18px}.nm-settings .nm-tabs button{padding:9px 12px}.nm-settings h2{font-size:22px}.nm-settings .nm-features{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.nm-settings *{animation:none!important;transition:none!important}}
-.nm-help-btn{position:absolute;top:28px;right:28px;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.18),0 0 0 0 var(--nm-accent);transition:all .25s ease;z-index:10}
+/* 帮助按钮原来 absolute 在 hero 右上角，正好压住「刷新设置与状态」按钮，
+   文字被遮掉一半。改成跟着文档流排在右侧，靠 margin-left:auto 顶到最右。 */
+.nm-help-btn{flex:none;margin-left:auto;background:linear-gradient(135deg,var(--nm-accent),color-mix(in srgb,var(--nm-accent) 85%,#6366f1));color:white;border:0;border-radius:50%;width:34px;height:34px;font-size:16px;font-weight:700;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 14px color-mix(in srgb,var(--nm-accent) 32%,transparent);transition:transform .2s ease,box-shadow .2s ease}
 .nm-help-btn:hover{transform:scale(1.08) rotate(5deg);box-shadow:0 8px 24px rgba(0,0,0,0.28),0 0 0 4px color-mix(in srgb,var(--nm-accent) 20%,transparent)}
 .nm-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:9999;animation:nm-fade-in .25s ease;padding:20px}
 .nm-guide-box{background:var(--nm-card);border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,0.35),0 0 0 1px color-mix(in srgb,var(--nm-accent) 15%,transparent);max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;animation:nm-slide-up .35s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden}
@@ -230,6 +236,70 @@ window.__ModuleLoader__.load({
 .nm-atlas-tline strong{font-size:11px;color:var(--nm-accent);flex:none}
 .nm-atlas-ttitle{font-size:12px;line-height:1.5}
 .nm-atlas-tmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+/* ── 生成进度面板 ──────────────────────────────────────────────
+   侧边栏宽度通常只有 300–360px，所以全部按单列竖排设计：环形总览在上，
+   清单在中，批量写作在下。字号比设置页再小一号，因为这里离眼睛更远，
+   而且旁边就是正文。 */
+.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+.nm-prog-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.nm-prog-auto{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--nm-muted);cursor:pointer;user-select:none;white-space:nowrap}
+.nm-prog-auto input{width:12px;height:12px;accent-color:var(--nm-accent);cursor:pointer;margin:0}
+.nm-prog-select{flex:1;min-width:0}
+/* 总览卡：环形进度 + 文字。用 1px 半透明描边 + 极淡渐变做出层次，
+   不靠重阴影——深色主题下重阴影会显脏。左上角那道 accent 微光让卡片
+   和背景分离，又不至于抢走正文的注意力。 */
+.nm-prog-hero{position:relative;display:flex;align-items:center;gap:14px;padding:14px 15px;border-radius:14px;border:1px solid var(--nm-border);background:radial-gradient(120% 130% at 0% 0%,color-mix(in srgb,var(--nm-accent) 11%,transparent),transparent 62%),var(--nm-card);overflow:hidden}
+.nm-prog-ring{position:relative;flex:none;width:60px;height:60px;display:grid;place-items:center}
+/* 只给 inset 不给宽高，SVG 会在 grid 里塌成 0×0 —— 预览时就是这里让
+   进度弧整条不可见，只剩外圈的圆环背景。明确写出 60×60。 */
+.nm-prog-ring svg{position:absolute;inset:0;width:60px;height:60px;overflow:visible}
+/* 颜色一律走 CSS 规则，不写 stroke="var(--nm-accent)" 这种表现属性 ——
+   表现属性里的 var() 不保证被解析，变量取不到时整条弧直接变成不可见，
+   而且不报错，最难查。 */
+.nm-prog-ring-track{stroke:var(--nm-border);fill:none}
+.nm-prog-ring-arc{stroke:var(--nm-accent);fill:none;transition:stroke-dashoffset .6s cubic-bezier(.22,.61,.36,1);filter:drop-shadow(0 0 3px color-mix(in srgb,var(--nm-accent) 45%,transparent))}
+.nm-prog-ring-num{position:relative;font-size:14px;font-weight:700;letter-spacing:-.4px;color:var(--nm-text);font-variant-numeric:tabular-nums;line-height:1}
+.nm-prog-hero-text{min-width:0;flex:1;display:flex;flex-direction:column;gap:7px}
+.nm-prog-hero-title{font-size:12px;color:var(--nm-muted);display:flex;align-items:baseline;gap:6px}
+.nm-prog-hero-title b{font-size:15px;color:var(--nm-text);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.nm-prog-next{font-size:11px;color:var(--nm-muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.5}
+.nm-prog-next code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10.5px;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--nm-accent) 13%,var(--nm-bg));color:var(--nm-accent);border:1px solid color-mix(in srgb,var(--nm-accent) 26%,transparent);font-weight:600}
+.nm-prog-allset{color:var(--nm-good)}
+.nm-prog-section{display:flex;flex-direction:column;gap:7px}
+.nm-prog-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--nm-muted);letter-spacing:.4px;text-transform:uppercase}
+.nm-prog-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+/* 行高压到 30px：八项资产用两行间距会吃掉侧边栏一半高度，而这里每项
+   只需要「名字 + 状态」两段信息，不需要呼吸感。 */
+.nm-prog-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:12px;transition:background .16s ease}
+.nm-prog-item:hover{background:color-mix(in srgb,CanvasText 4%,transparent)}
+.nm-prog-item[data-state=missing] .nm-prog-label{color:var(--nm-muted)}
+.nm-prog-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-prog-meta{flex:none;font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+.nm-prog-item[data-state=done] .nm-prog-meta{color:color-mix(in srgb,var(--nm-good) 80%,var(--nm-muted))}
+.nm-prog-item[data-state=empty] .nm-prog-meta{color:color-mix(in srgb,var(--nm-accent) 70%,var(--nm-muted))}
+/* 状态点：已写好是实心绿勾，空文件是空心环，没建过是虚线圈。
+   三种状态的形状本身不同，不依赖颜色区分——灰度下也读得出来。 */
+.nm-prog-mark{flex:none;width:14px;height:14px;display:grid;place-items:center;color:var(--nm-muted)}
+.nm-prog-mark[data-state=done]{color:var(--nm-good)}
+.nm-prog-mark[data-state=empty]{color:var(--nm-accent)}
+.nm-prog-mark[data-state=missing]{color:color-mix(in srgb,var(--nm-muted) 65%,transparent)}
+.nm-prog-phase{flex:none;font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-muted);font-weight:600;letter-spacing:0;text-transform:none}
+.nm-prog-phase[data-phase=running]{color:var(--nm-accent);border-color:color-mix(in srgb,var(--nm-accent) 40%,transparent);background:color-mix(in srgb,var(--nm-accent) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=complete]{color:var(--nm-good);border-color:color-mix(in srgb,var(--nm-good) 40%,transparent);background:color-mix(in srgb,var(--nm-good) 12%,var(--nm-card))}
+.nm-prog-phase[data-phase=error]{color:var(--nm-error);border-color:color-mix(in srgb,var(--nm-error) 40%,transparent);background:color-mix(in srgb,var(--nm-error) 12%,var(--nm-card))}
+.nm-prog-bar{height:5px;border-radius:999px;background:color-mix(in srgb,CanvasText 9%,transparent);overflow:hidden}
+.nm-prog-bar-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--nm-accent) 75%,transparent),var(--nm-accent));transition:width .5s cubic-bezier(.22,.61,.36,1)}
+.nm-prog-bar-fill[data-phase=complete]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-good) 75%,transparent),var(--nm-good))}
+.nm-prog-bar-fill[data-phase=error],.nm-prog-bar-fill[data-phase=aborted]{background:linear-gradient(90deg,color-mix(in srgb,var(--nm-error) 70%,transparent),var(--nm-error))}
+.nm-prog-batch-meta{font-size:11px;color:var(--nm-muted);display:flex;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.nm-prog-stale{color:color-mix(in srgb,var(--nm-error) 80%,var(--nm-muted))}
+.nm-prog-error{font-size:11px;color:var(--nm-error);line-height:1.55;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 9%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent);overflow-wrap:anywhere}
+.nm-prog-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+/* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
+   渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
+.nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill{transition:none}}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
@@ -914,7 +984,9 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-row nm-between' }, h('div', { className: 'nm-brand' }, h('div', { className: 'nm-logo', 'aria-hidden': true }, h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }, h('path', { d: 'M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z' }), h('path', { d: 'M12 6v14M6 9h3M6 12h3M15 9h3M15 12h3' }))), h('div', null, h('div', { className: 'nm-row' }, h('h2', null, '小说创作大师'), h('span', { className: 'nm-badge' }, 'v1.4.3')), h('p', { className: 'nm-muted' }, '把创作、经验与判断，整理成自己的写作工作台。'))), actionButton('刷新设置与状态', refresh)),
           h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
-        notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
+        // 空提示不占位：`notice` 可能是空串或只有空白，truthy 判断会把
+        // 一条只有边框的绿色空条渲染出来，看着像布局坏了。
+        (notice && String(notice).trim() ? h('div', { role: 'status', className: 'nm-alert nm-success' }, notice) : null),
         h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['persona', '作者人格'], ['image', 'AI 生图'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
@@ -2194,6 +2266,192 @@ window.__ModuleLoader__.load({
     }
 
     // ────────────────────────────────────────────────────────────
+    // 生成进度：把「基础资产做齐了没」和「批量写作写到第几章」放在一屏
+    //
+    // 这里刻意不显示「模型正在写第几段」——插件拿不到宿主的流式事件，
+    // 硬装成实时只会显示假数据。能做到并且可靠的是：每隔几秒重读一次
+    // atlas，把文件真的出现了这件事告诉你。
+    // ────────────────────────────────────────────────────────────
+    const PROGRESS_ID = 'dsh-novel-master/progress'
+    const PROGRESS_KIND = 'novelProgress'
+
+    function ProgressGlyph({ size = 16 } = {}) {
+      return h('svg', {
+        viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor',
+        strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'nm-progress-title-icon',
+      },
+        h('circle', { cx: 12, cy: 12, r: 8.5, opacity: 0.35 }),
+        h('path', { d: 'M12 3.5a8.5 8.5 0 0 1 8.5 8.5', strokeWidth: 2.2 }),
+        h('path', { d: 'M12 7.5V12l3 1.8' }))
+    }
+
+    /** 资产清单里每一项的图标：已写好打勾，空文件是空心点，没建过是虚线圈。 */
+    function ReadinessMark({ item }) {
+      const state = item.exists ? 'done' : item.created ? 'empty' : 'missing'
+      return h('span', { className: 'nm-prog-mark', 'data-state': state, 'aria-hidden': true },
+        h('svg', { viewBox: '0 0 16 16', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          state === 'done' ? h('path', { d: 'M3 8.5 6.2 12 13 4.5' }) : null,
+          state === 'empty' ? h('circle', { cx: 8, cy: 8, r: 4.5, strokeWidth: 1.6, opacity: 0.7 }) : null,
+          state === 'missing' ? h('circle', { cx: 8, cy: 8, r: 6, strokeWidth: 1.4, strokeDasharray: '2.5 3', opacity: 0.55 }) : null))
+    }
+
+    /** 「下一步该做什么」：给一句能直接照抄的命令，而不是只甩一个词。 */
+    const NEXT_HINT = {
+      setting: ['补齐世界观', '/novel-setup'],
+      cast: ['创建人设', '/novel-cast'],
+      outline: ['生成大纲', '/novel-outline'],
+      worldstate: ['建立世界状态', '/novel-state'],
+      foreshadow: ['登记伏笔', '/novel-foreshadow'],
+      plot: ['搭剧情树', '/novel-plot'],
+      rules: ['确定写作规范', '/novel-style'],
+      chapters: ['开始写正文', '/novel-write'],
+    }
+
+    function ProgressBody(props) {
+      const { sessionId } = props ?? {}
+      const useSessionsHook = typeof props?.useSessions === 'function' ? props.useSessions : () => undefined
+      const cwd = useSessionsHook((state) => (sessionId === undefined ? undefined : state?.byId?.[sessionId]?.cwd))
+      const [data, setData] = useState(null)
+      const [error, setError] = useState('')
+      const [busy, setBusy] = useState(false)
+      const [selected, setSelected] = useState('')
+      const [auto, setAuto] = useState(true)
+      const alive = useRef(true)
+      const loading = useRef(false)
+
+      const load = (quiet) => {
+        // 自动刷新和手动刷新可能叠在一起，抢同一个 setState 会闪；用 ref 挡住
+        // 重入，静默刷新也不显示 loading 骨架。
+        if (loading.current) return
+        loading.current = true
+        if (!quiet) setBusy(true)
+        setError('')
+        api(`atlas?cwd=${encodeURIComponent(cwd ?? '')}`)
+          .then((payload) => {
+            if (!alive.current) return
+            setData(payload)
+            setSelected((prev) => (prev && (payload.projects ?? []).some((p) => p.name === prev))
+              ? prev
+              : (payload.defaultProject ?? payload.projects?.[0]?.name ?? ''))
+          })
+          .catch((e) => { if (alive.current) setError(e?.message ?? String(e)) })
+          .finally(() => { if (alive.current && !quiet) setBusy(false); loading.current = false })
+      }
+
+      useEffect(() => { alive.current = true; load(); return () => { alive.current = false } }, [cwd])
+
+      // 自动刷新只在页签可见时跑：切走就停，不在后台空转打接口。
+      useEffect(() => {
+        if (!auto || typeof document === 'undefined') return undefined
+        if (document.visibilityState === 'hidden') return undefined
+        const timer = setInterval(() => { if (!document.hidden) load(true) }, 4000)
+        return () => clearInterval(timer)
+      }, [auto, cwd])
+
+      const projects = data?.projects ?? []
+      const project = projects.find((p) => p.name === selected) ?? null
+
+      if (error) {
+        return h('div', { className: 'nm-atlas nm-prog' },
+          h('div', { className: 'nm-atlas-message' }, '读取进度失败：', error),
+          h('button', { type: 'button', className: 'nm-atlas-refresh', onClick: () => load() }, '重试'))
+      }
+      if (!data) return h('div', { className: 'nm-atlas nm-prog' }, h('div', { className: 'nm-atlas-message' }, busy ? '正在读取进度…' : '暂无进度'))
+      if (data.error === 'no-cwd') {
+        return h('div', { className: 'nm-atlas nm-prog' },
+          h('div', { className: 'nm-atlas-message' }, data.message ?? '无法定位项目目录'))
+      }
+      if (projects.length === 0) {
+        return h('div', { className: 'nm-atlas nm-prog' },
+          h('div', { className: 'nm-atlas-message' }, '还没有小说项目。先用 /novel 起一部，这里就会显示进度。'))
+      }
+
+      const readiness = project?.readiness
+      const batch = project?.batch
+      const chapters = project?.progress?.chapters ?? 0
+      const goal = project?.progress?.goal ?? 0
+      const next = readiness?.next ? NEXT_HINT[readiness.next] : null
+
+      return h('div', { className: 'nm-atlas nm-prog' },
+        h('div', { className: 'nm-atlas-head' },
+          projects.length > 1
+            ? h('select', {
+              className: 'nm-select nm-prog-select', value: selected, 'aria-label': '选择小说项目（生成进度）',
+              onChange: (event) => setSelected(event.target.value),
+            }, projects.map((p) => h('option', { key: p.name, value: p.name }, p.title ?? p.name)))
+            : h('span', { className: 'nm-atlas-title-icon' }, h(ProgressGlyph, { size: 15 }), project?.title ?? project?.name ?? ''),
+          h('div', { className: 'nm-prog-actions' },
+            h('label', { className: 'nm-prog-auto' },
+              h('input', { type: 'checkbox', checked: auto, onChange: (event) => setAuto(event.target.checked), 'aria-label': '自动刷新进度' }),
+              h('span', null, '自动刷新')),
+            h('button', { type: 'button', className: 'nm-atlas-refresh', onClick: () => load(), disabled: busy, 'aria-label': '刷新进度' },
+              h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' },
+                h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.9-4.2' }), h('path', { d: 'M13.5 2v3.2h-3.2' }))))),
+
+        // 总览：一个环形进度 + 两个关键数字
+        h('div', { className: 'nm-prog-hero' },
+          h('div', { className: 'nm-prog-ring', style: { '--pct': readiness?.percent ?? 0 }, role: 'img', 'aria-label': `基础资产完成 ${readiness?.percent ?? 0}%` },
+            h('svg', { viewBox: '0 0 48 48', width: 60, height: 60 },
+              h('circle', { cx: 24, cy: 24, r: 19, strokeWidth: 5, className: 'nm-prog-ring-track' }),
+              h('circle', {
+                cx: 24, cy: 24, r: 19, strokeWidth: 5, strokeLinecap: 'round',
+                strokeDasharray: 119.4, strokeDashoffset: 119.4 - (119.4 * (readiness?.percent ?? 0)) / 100,
+                transform: 'rotate(-90 24 24)', className: 'nm-prog-ring-arc',
+              })),
+            h('span', { className: 'nm-prog-ring-num' }, `${readiness?.percent ?? 0}%`)),
+          h('div', { className: 'nm-prog-hero-text' },
+            h('div', { className: 'nm-prog-hero-title' }, '基础资产', h('b', null, `${readiness?.done ?? 0}/${readiness?.total ?? 0}`)),
+            next
+              ? h('div', { className: 'nm-prog-next' },
+                h('span', null, '下一步：', next[0]),
+                h('code', { className: 'nm-inlinecode' }, next[1]))
+              : h('div', { className: 'nm-prog-next nm-prog-allset' }, '基础资产已齐，可以开写了'))),
+
+        // 清单与批量进度放在一起，交给 nm-prog-sections 分配剩余高度，
+        // 避免内容少时页面下半截空一片。
+        h('div', { className: 'nm-prog-sections' },
+          // 资产清单
+          h('div', { className: 'nm-prog-section' },
+            h('div', { className: 'nm-prog-section-head' }, '资产清单'),
+            h('ul', { className: 'nm-prog-list' },
+              (readiness?.items ?? []).map((item) => h('li', { key: item.key, className: 'nm-prog-item', 'data-state': item.exists ? 'done' : item.created ? 'empty' : 'missing' },
+                h(ReadinessMark, { item }),
+                h('span', { className: 'nm-prog-label' }, item.label),
+                h('span', { className: 'nm-prog-meta' },
+                  item.exists
+                    ? (item.key === 'chapters' ? `${item.headings} 章` : `${item.headings} 节`)
+                    : item.created ? '空文件' : '未创建'))))),
+
+          // 批量写作：只有真的跑过才显示，避免空面板占位
+          batch
+            ? h('div', { className: 'nm-prog-section' },
+              h('div', { className: 'nm-prog-section-head' },
+                '批量写作',
+                h('span', { className: 'nm-prog-phase', 'data-phase': batch.phase }, batch.phaseLabel)),
+              batch.percent !== null
+                ? h('div', { className: 'nm-prog-bar', role: 'progressbar', 'aria-valuenow': batch.percent, 'aria-valuemin': 0, 'aria-valuemax': 100 },
+                  h('div', { className: 'nm-prog-bar-fill', style: { width: `${batch.percent}%` }, 'data-phase': batch.phase }))
+                : null,
+              h('div', { className: 'nm-prog-batch-meta' },
+                batch.target > 0 ? `${batch.done} / ${batch.target} 章` : `${batch.done} 章`,
+                batch.staleMs !== null && batch.phase === 'running' && batch.staleMs > 180000
+                  ? h('span', { className: 'nm-prog-stale' }, '· 有一阵没动静了，可能已中断')
+                  : null),
+              batch.lastError ? h('div', { className: 'nm-prog-error' }, batch.lastError) : null)
+            : null),
+
+        h('div', { className: 'nm-prog-foot' },
+          `正文 ${chapters}${goal > 0 ? ` / ${goal}` : ''} 章`,
+          project?.progress?.chars ? ` · ${project.progress.chars} 字` : null))
+    }
+
+    function ProgressTitle(props) {
+      const useTabInfoHook = typeof props?.useTabInfo === 'function' ? props.useTabInfo : () => null
+      const info = useTabInfoHook()
+      return h(React.Fragment, null, h(ProgressGlyph, { size: 16 }), info?.tab?.title ?? '生成进度')
+    }
+
+    // ────────────────────────────────────────────────────────────
     // 生图工作台：左侧输入 → LLM 扩写 → 生成图片 → 绑定资产
     // ────────────────────────────────────────────────────────────
     const ART_KINDS = [
@@ -2609,7 +2867,7 @@ window.__ModuleLoader__.load({
             kind: ART_KIND,
             title: () => '生图工作台',
             guide: [{
-              id: 'art', order: 21,
+              id: 'art', order: 22,
               title: () => '生图工作台',
               description: () => '角色立绘 · 场景地图 · 物品道具',
               icon: ArtGlyph,
@@ -2619,6 +2877,24 @@ window.__ModuleLoader__.load({
             slots.register({ name: 'sidebar.right.pane.tab', key: ART_ID }, ArtBody)))
           cleanups.push(slots.inject('sidebar.right.pane.tab.title', () =>
             slots.register({ name: 'sidebar.right.pane.tab.title', key: ART_ID }, ArtTitle)))
+
+          // 生成进度：排在设定树之后、生图之前 —— 它是「我现在该干什么」，
+          // 比「我已经有什么」更需要一眼看到。
+          cleanups.push(tabs.register({
+            id: PROGRESS_ID,
+            kind: PROGRESS_KIND,
+            title: () => '生成进度',
+            guide: [{
+              id: 'progress', order: 21,
+              title: () => '生成进度',
+              description: () => '基础资产完成度 · 批量写作进度',
+              icon: ProgressGlyph,
+            }],
+          }))
+          cleanups.push(slots.inject('sidebar.right.pane.tab', () =>
+            slots.register({ name: 'sidebar.right.pane.tab', key: PROGRESS_ID }, ProgressBody)))
+          cleanups.push(slots.inject('sidebar.right.pane.tab.title', () =>
+            slots.register({ name: 'sidebar.right.pane.tab.title', key: PROGRESS_ID }, ProgressTitle)))
           return () => {
             for (const clean of cleanups.splice(0).reverse()) {
               try { clean?.() } catch { /* 清理失败不能阻塞卸载 */ }
