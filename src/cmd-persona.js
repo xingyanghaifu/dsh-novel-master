@@ -80,6 +80,68 @@ export function parseNaturalIntent(raw) {
   return result
 }
 
+/**
+ * 用模型理解整句话的意图，作为规则识别的兜底。
+ *
+ * 规则（parseNaturalIntent）只认固定说法，遇到「把那份对白的味道挪过去」
+ * 这种表述就认不出。这里让模型在**已给出的选项范围内**挑：项目必须是真实
+ * 存在的，维度必须是六个之一。返回 null 表示模型也没听懂，调用方继续按
+ * 原逻辑报错，不假装成功。
+ *
+ * @param {object} ctx - 宿主上下文。
+ * @param {object} route - { provider, model, reasoningEffort? }。
+ * @param {string} text - 用户原话。
+ * @param {string[]} projects - 真实存在的项目名。
+ * @param {object} signal - 取消信号。
+ * @returns {Promise<{only?: string, to?: string} | null>}
+ */
+export async function modelIntent(ctx, route, text, projects, signal) {
+  const { callText } = await import('./model-intelligence.js')
+  const dimensions = PERSONA_DIMENSIONS.map(item => `${item.key}=${item.label}`).join('、')
+  const system = [
+    '你是命令行参数解析器。用户下了一条拆书命令，但用自然语言说了需求，你要把它翻译成参数。',
+    `可用的维度（只能选这些，写 key）：${dimensions}`,
+    `实际存在的项目（只能选这些，一字不差）：${projects.join('、') || '（无）'}`,
+    '只返回一个 JSON 对象，字段：only（字符串数组，元素必须是上面维度的 key；没说就是空数组）、to（字符串，必须是上面项目之一；没说是 null）、reason（简短依据）。',
+    '不要输出 Markdown 或额外字段。认不出就返回 {"only":[],"to":null,"reason":"..."}，不要编造。',
+  ].join('\n')
+  let raw
+  try {
+    raw = await callText(ctx, {
+      ...route,
+      signal,
+      system,
+      prompt: `用户原话：${text}`,
+      maxTokens: 400,
+      maxOutputChars: 2000,
+      timeoutMs: 30000,
+      // limits 只认配置名（default/batch/probe），传对象会被拒成
+      // 「未知的调用上限配置」。意图解析很短，用默认档就够。
+    })
+  } catch {
+    // 兜底失败不该盖掉主流程的错误提示：模型听不懂时，调用方会退回
+    // 规则结果或给出明确的可用参数说明。
+    return null
+  }
+  let parsed
+  try {
+    const match = String(raw).match(/\{[\s\S]*\}/u)
+    parsed = JSON.parse(match === null ? String(raw) : match[0])
+  } catch {
+    return null
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+  const keys = Array.isArray(parsed.only)
+    ? parsed.only.filter(key => PERSONA_DIMENSIONS.some(item => item.key === key))
+    : []
+  const to = typeof parsed.to === 'string' && projects.includes(parsed.to.trim()) ? parsed.to.trim() : undefined
+  if (keys.length === 0 && to === undefined) return null
+  return {
+    ...(keys.length === 0 ? {} : { only: keys.join(',') }),
+    ...(to === undefined ? {} : { to }),
+  }
+}
+
 /** 从原始输入里剥掉模型路由参数，剩下的才是项目名/文件路径。 */
 function takeRouteOptions(raw) {
   const text = ` ${String(raw ?? '')} `
@@ -286,8 +348,46 @@ export function personaStudyCommand(ctx, config) {
       // 自然语言兜底：显式参数优先，缺的部分才从整句话里认。
       // 「这本小说对话写得好，帮我拼到《网管修仙》上」不该要求用户改写。
       const intent = parseNaturalIntent(options.rest)
-      const only = options.only ?? intent.only
-      const to = options.to ?? intent.to
+      let only = options.only ?? intent.only
+      let to = options.to ?? intent.to
+
+      // 规则没认全时问模型。规则免费且确定，所以永远先跑规则；只在「确实
+      // 像自然语言」时才花一次请求。
+      // 判断不能只看「含中文」：`我的书.txt` 也是中文，但那是一个纯参数
+      // 调用，不该因此多花一次请求，更不该被误判成听不懂。
+      const stripped = options.rest.replace(/[^\s"'《》「」\\/:]+\.(?:txt|md|markdown)/giu, ' ').trim()
+      const looksLikeProse = intent.consumed || /[\u4e00-\u9fa5]{2,}/u.test(stripped)
+      const incomplete = looksLikeProse && (only === undefined || to === undefined)
+      if (incomplete && options.listModels !== true) {
+        const early = await resolveRoute(ctx, invocation, config, options)
+        if (early.route !== undefined) {
+          const guessed = await modelIntent(ctx, early.route, options.rest, listProjects(cwd), invocation.signal)
+          if (guessed !== null) {
+            // 规则常常只认出一个维度（「人说话和冲突」里只匹配到「冲突」），
+            // 而模型能看出两个。此时采用模型更全的那份 —— 但仅限「规则结果
+            // 是模型的子集」：反过来就不行，那等于让模型覆盖明确的规则命中。
+            // 比较前必须都换成 key：规则给的是口语词（冲突），模型给的是
+            // conflictIntensity，直接比永远不相等。
+            if (only === undefined) only = guessed.only
+            else if (guessed.only !== undefined) {
+              const { parseFocusDimensions } = await import('./author-persona.js')
+              const ruleKeys = parseFocusDimensions(only).keys
+              const modelKeys = parseFocusDimensions(guessed.only).keys
+              const subset = ruleKeys.every(key => modelKeys.includes(key))
+              if (subset && modelKeys.length > ruleKeys.length) only = guessed.only
+            }
+            to = to ?? guessed.to
+          }
+          if (options.only === undefined && options.to === undefined && guessed === null) {
+            // 规则和模型都没听懂：说明白，别让用户对着「读不到文件」猜。
+            return fail(formatError('没听懂这条命令要做什么', [
+              '可以直接用参数：/novel-persona-study 参考.txt --只取 对话 --to 项目名',
+              `可用维度：${PERSONA_DIMENSIONS.map(item => item.label).join('、')}`,
+              `现有项目：${listProjects(cwd).join('、') || '（无）'}`,
+            ]))
+          }
+        }
+      }
       // 自然语言认出的部分要从剩余输入里去掉，否则「《书名》」会被当成
       // 参考文件路径去找。但只删「认出来的那些词」，其余原样保留 ——
       // 文件路径常常和自然语言混在同一句里（`这本书.txt 对话写得好…`），
@@ -302,17 +402,16 @@ export function personaStudyCommand(ctx, config) {
       }
       // 去掉「拼到 / 写得很好 / 帮我」这类已经用过的口语残渣，留下路径。
       input = input
-        .replace(/拼到|拼给|拼进|接到|合到|应用到|套到|帮我|帮忙|我想|我要|把|的话|写得好|写得不错|很好|很棒|不错/gu, ' ')
+        .replace(/拼到|拼给|拼进|接到|合到|应用到|套到|挪到|移到|搬过去|挪过去|移植|帮我|帮忙|我想|我要|把|的话|写得好|写得不错|很好|很棒|不错/gu, ' ')
         .replace(/[，,。；;、]/gu, ' ')
         .replace(/\s+/gu, ' ')
         .trim()
       // 自然语言和路径混在一句里时，上面的清洗必然留下碎片（「这本书 上」）。
       // 与其把碎片拼成不存在的路径，不如在目录里认含扩展名的真实文件：
       // 句子中出现的路径优先，其次是整句里唯一带扩展名的词。
-      // 只要句子被自然语言解析过，就可能夹着非路径的词（`这本书.txt 对话
-      // 写得好 --只取 …`）。此时必须在 input 里挑出真正的文件，否则会把
-      // 整句当成路径读不到。两个显式参数都给了也一样要抢救。
-      if (intent.consumed) {
+      // 只要句子被自然语言解析过（规则或模型），就可能夹着非路径的词。
+      // 此时必须在 input 里挑出真正的文件，否则会把整句当成路径读不到。
+      if (intent.consumed || only !== undefined || to !== undefined) {
         const candidates = input.split(/\s+/u).filter(token => /\.(?:txt|md|markdown)$/iu.test(token))
         if (candidates.length > 0) {
           // 取最长的那个：「这本书.txt」优于可能残留的「书.txt」。
