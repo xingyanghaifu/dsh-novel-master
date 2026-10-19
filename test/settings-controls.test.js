@@ -50,8 +50,21 @@ function harness(options = {}) {
       return { ok: true, json: async () => document }
     },
   })
-  plugin.apply({ slots: { inject: (_, mount) => mount(), register: (meta, render) => { assert.equal(meta.id, 'novel-master'); assert.equal(meta.order, 36); page = render({}).type } } })
-  const render = () => { stateIndex = 0; refIndex = 0; return page() }
+  plugin.apply({
+    slots: { inject: (_, mount) => mount(), register: (meta, render) => { assert.equal(meta.id, 'novel-master'); assert.equal(meta.order, 36); page = render } },
+    // 真实 DSH 会在插件上下文里提供 remote 命名空间。不传时「浏览」按钮走
+    // 「本版本不提供目录选择器」分支，路径选择功能就测不到。
+    ...(options.remote === undefined ? {} : { remote: options.remote }),
+  })
+  // 插件注册的是 render 回调（`props => h(SettingsPage, {...props, ctx})`）。
+  // 必须先拿到它返回的元素，再把该元素的 props 交给组件函数 —— 直接调用组件
+  // 而不传 props，SettingsPage 里的 props.ctx 就是 undefined，「浏览」按钮
+  // 会永远走「本版本不提供目录选择器」分支，测试也就测不到真实路径。
+  const render = () => {
+    stateIndex = 0; refIndex = 0
+    const element = page({})
+    return element.type(element.props)
+  }
   const flatten = node => Array.isArray(node) ? node.flatMap(flatten) : !node || typeof node !== 'object' ? [] : [node, ...node.children.flatMap(flatten)]
   const nodes = () => flatten(render())
   const text = node => Array.isArray(node) ? node.map(text).join('') : node && typeof node === 'object' ? node.type === 'style' ? '' : node.children.map(text).join('') : node === false || node == null ? '' : String(node)
@@ -393,6 +406,46 @@ test('model picker opens a searchable list and filters candidates by keyword', a
 
   h.edit('模型名称搜索', '')
   assert.match(h.text(h.render()), /共 \d+ 个模型/)
+})
+
+test('浏览按钮真的调用宿主的目录选择器并回填结果', async () => {
+  // 这条测试盯的是一个真实故障：按钮的 onClick 引用了组件作用域里并不存在的
+  // ctx，点下去抛 ReferenceError，界面上表现为「点了没反应」，连 toast 都出
+  // 不来。所以这里既断言 pick 被调用，也断言返回值真的写回了输入框。
+  const picked = []
+  const h = harness({
+    remote: {
+      directoryPicker: { pick: async () => { picked.push(1); return 'E:\\草稿\\我的小说' } },
+      llm: { listProviders: async () => [] },
+    },
+  })
+  await h.click('📁 浏览…')
+  assert.equal(picked.length, 1, '应当调用宿主的 pick()')
+  assert.match(h.text(h.render()), /已选定目录/u)
+  assert.equal(h.find('input', '项目目录').props.value, 'E:\\草稿\\我的小说')
+})
+
+test('宿主没有目录选择器时给出可照做的提示，而不是静默失败', async () => {
+  const h = harness({ remote: { llm: { listProviders: async () => [] } } })
+  await h.click('📁 浏览…')
+  assert.match(h.text(h.render()), /不提供目录选择器/u)
+  // 提示里要告诉用户还能怎么办。
+  assert.match(h.text(h.render()), /手动填写/u)
+})
+
+test('目录选择器报错时说明原因，用户点取消则不报错', async () => {
+  const failing = harness({
+    remote: { directoryPicker: { pick: async () => { throw new Error('chooser unavailable') } }, llm: { listProviders: async () => [] } },
+  })
+  await failing.click('📁 浏览…')
+  assert.match(failing.text(failing.render()), /无法启动系统目录选择器/u)
+
+  // 取消是正常操作，不该被当成错误播报。
+  const cancelled = harness({
+    remote: { directoryPicker: { pick: async () => { const e = new Error('cancelled'); throw e } }, llm: { listProviders: async () => [] } },
+  })
+  await cancelled.click('📁 浏览…')
+  assert.doesNotMatch(cancelled.text(cancelled.render()), /无法启动系统目录选择器/u)
 })
 
 test('activity is read only on demand and renders actual backend status and errors', async () => {  const h = harness()

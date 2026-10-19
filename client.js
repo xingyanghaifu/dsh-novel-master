@@ -342,6 +342,11 @@ window.__ModuleLoader__.load({
     }
 
     function SettingsPage(props) {
+      // 宿主上下文在这里取一次。此前只有 loadModels 内部声明了 const ctx，
+      // 而三个「浏览」按钮在 render 时引用的是外层作用域里的 ctx —— 那里
+      // 根本没有这个变量，点下去直接抛 ReferenceError，连 toast 都来不及
+      // 显示，用户看到的就是「按钮没反应」。
+      const ctx = props?.ctx
       const [form, setForm] = useState(null)
       const [state, setState] = useState(null)
       const [busy, setBusy] = useState('')
@@ -460,8 +465,6 @@ window.__ModuleLoader__.load({
 
       async function loadModels(signal) {
         if (!alive.current || signal?.aborted) return
-        
-        const ctx = props?.ctx
         if (ctx?.remote?.llm && typeof ctx.remote.llm.listProviders === 'function') {
           try {
             const [reg, decl] = await Promise.all([

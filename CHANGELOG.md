@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.9.6
+
+### 「浏览」按钮点了没反应
+
+设置页里三个目录选择按钮（项目目录、学习存储目录、资料存储目录）点击后毫无反应。
+
+根因是作用域引错。`ctx` 只在一个函数内部声明过：
+
+```js
+async function loadModels(signal) {
+  const ctx = props?.ctx     // ← 只在这个函数里存在
+  ...
+}
+```
+
+而三个按钮的 `onClick` 在组件主体里写 `pickDirectory('projectsDir', ctx)`，那里根本没有 `ctx`。点下去直接抛 `ReferenceError`，异常发生在 toast 之前，所以用户看到的只是「按钮没反应」——连「本版本不提供目录选择器」这句提示都出不来。
+
+把 `ctx` 提到 `SettingsPage` 顶层取一次即可。这是加作者人格页签时连带发现的，此前的错误提示一直在误导排查方向。
+
+### 测试也没覆盖到，原因同样在测试里
+
+补测试时发现旧 harness 是这样渲染的：
+
+```js
+register: (meta, render) => { page = render({}).type }
+const render = () => page()          // ← 没传 props
+```
+
+插件注册的是 `props => h(SettingsPage, { ...props, ctx })`。harness 拿走了 `.type`（组件函数）却直接 `page()` 调用，`props` 是 `undefined`，于是 `props.ctx` 永远是 undefined，「浏览」按钮必然走「本版本不提供目录选择器」分支——**这个分支恰好是正常降级路径，看起来完全正常**，所以一直没人察觉。
+
+现在 harness 按 React 的真实行为调用：先拿 `render({})` 返回的元素，再把 `element.props` 交给组件。补了 3 条测试（正常调用并回填、宿主无选择器时给提示、报错与取消的区分）。
+
+### 测试
+
+376 项全部通过（新增 3 项）。
+
 ## 2.9.5
 
 全量审查后修掉 6 处问题。其中 3 处是我在 2.9.0–2.9.4 里自己引入的，前两次提交的测试没能覆盖到。
