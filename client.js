@@ -322,31 +322,33 @@ window.__ModuleLoader__.load({
    「正文 40/40 章」那行插进资产清单中间，压住「伏笔」「剧情树」。
    整块面板本身已经是 overflow:auto，溢出交给它滚就够了。 */
 .nm-prog-sections{flex:none;display:flex;flex-direction:column;gap:16px}
-/* 世界生成区块图：仿 Minecraft Java 版加载屏。
-   真实画面几乎是黑白的 —— 纯黑是「尚未生成」，一大片浅灰是「已生成」，
-   彩色只有零星几格。所以底色必须是纯黑，格子之间不留缝（真实画面里
-   区块是紧挨着的，留缝会变成点阵）。 */
-.nm-world{display:flex;flex-direction:column;gap:9px;padding:12px 12px 11px;border-radius:var(--nm-r-lg);background:var(--nm-raised);box-shadow:var(--nm-ring)}
-.nm-world-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.nm-world-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted)}
-.nm-world-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
-/* 地图本体。格数 30×30=900，无缝隙 —— 真实加载屏里区块是紧贴的，
-   加缝会立刻变成「点阵图」而不是「地形」。底色 #000 与未生成格同色，
-   这样地图边界不会被一条外框显形。 */
-.nm-world-map{display:grid;grid-template-columns:repeat(var(--nm-world-size,30),1fr);width:100%;aspect-ratio:1;background:#000}
-.nm-world-map i{display:block;border-radius:0;background:#000}
-/* 已生成区的棋盘微纹理。参考画面的浅灰部分能看到细分网格 —— 区块色图
-   的分辨率比区块网格更细。不给这层，整片就是一块死平的灰，像色块不像地图。 */
-.nm-world-map i[data-alt="1"]{filter:brightness(.955)}
-/* 未生成区的两档：贴着已生成区的那一圈极暗灰，其余纯黑。
-   差别必须小到几乎看不出边界，只用来暗示「正在往前推」。 */
-.nm-world-map i[data-dim="1"]{background:#1a1a1a}
-.nm-world-map i[data-dim="2"]{background:#000}
-/* 底部进度条压得很薄 —— 主视觉是地图，条只是一个刻度。 */
-.nm-world-bar{height:3px;background:color-mix(in srgb,#000 50%,transparent);overflow:hidden}
-.nm-world-bar-fill{height:100%;background:#D1D1D1;transition:width 420ms var(--nm-ease-std)}
-/* 尊重系统的减少动效设置：环形和进度条的过渡全部取消。 */
-@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-world-grid i,.nm-world-bar-fill{transition:none}}
+/* 世界地貌：等高线地形图。
+   换成地图学里成熟的表达 —— 一条线一个高程，线越密坡越陡，这是地形图
+   上百年没变的语言，自带「精确」的观感，而且矢量绘制不像素化。
+   进度语义是「水位下降」：地形从水下逐层浮出，当前水面线就是世界的前沿。 */
+.nm-terra{display:flex;flex-direction:column;gap:10px;padding:13px 13px 12px;border-radius:var(--nm-r-lg);background:var(--nm-raised);box-shadow:var(--nm-ring)}
+.nm-terra-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.nm-terra-title{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--nm-muted)}
+.nm-terra-pct{font-size:13px;font-weight:700;color:var(--nm-text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+/* 画布保持接近正方。底色用很深的蓝黑而不是纯黑 —— 地形图的「水下」是
+   有色调的，纯黑会让等高线看起来像描在虚空里，没有空间感。 */
+.nm-terra-canvas{position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:radial-gradient(120% 120% at 50% 42%,#0d1620 0%,#080c12 62%,#05070a 100%);box-shadow:inset 0 0 0 1px color-mix(in srgb,#8fd3ff 9%,transparent)}
+.nm-terra-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* 前沿那一条要能「呼吸」，但不能抢戏：慢速脉冲，幅度极小。 */
+.nm-terra-front{animation:nm-terra-pulse 3.6s var(--nm-ease-std) infinite}
+@keyframes nm-terra-pulse{0%,100%{opacity:.95}50%{opacity:.62}}
+.nm-terra-glow{animation:nm-terra-glow 5s var(--nm-ease-std) infinite}
+@keyframes nm-terra-glow{0%,100%{opacity:.34}50%{opacity:.6}}
+/* 高程色标：横条把配色说清楚，不需要额外图例文字。
+   <i> 是行内元素，直接给 height 不生效 —— 必须 display:block，
+   否则整条塌成 0 高，只剩文字旁边一片空白。 */
+.nm-terra-scale{display:flex;align-items:center;gap:8px}
+.nm-terra-scale-label{flex:none;font-size:9.5px;letter-spacing:.5px;color:var(--nm-muted);opacity:.75}
+.nm-terra-scale-bar{display:block;flex:1;height:4px;border-radius:999px;background:linear-gradient(90deg,rgb(36 52 70) 0%,rgb(58 88 112) 28%,rgb(104 143 172) 55%,rgb(168 200 222) 78%,rgb(226 240 250) 100%)}
+.nm-terra-bar{display:block;height:3px;border-radius:2px;background:color-mix(in srgb,#8fd3ff 14%,transparent);overflow:hidden}
+.nm-terra-bar-fill{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#3d7ea6,#8fd3ff);transition:width 420ms var(--nm-ease-std)}
+/* 尊重系统的减少动效设置。 */
+@media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-terra-front,.nm-terra-glow,.nm-terra-bar-fill{transition:none;animation:none}}
 `
     const LABELS = {
       novel: '一键完本', continue: '续写', study: '拆书', outline: '大纲', cast: '人设',
@@ -2333,136 +2335,336 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * 世界生成区块图 —— 仿 Minecraft Java 版的世界加载屏幕。
+     * 世界地貌 —— 用真实等高线渲一张地形图。
      *
-     * Java 版的加载屏不是一根进度条，而是一张「颜色图」：每个像素是一个区块，
-     * 像素颜色代表该区块的生成阶段（未生成 #545454 → 结构 → 生物群系 #80B252
-     * → 地形 #D1D1D1 → 光照 #FFE0A0 → 完毕 #FFFFFF）。区块加载时像素逐片变色
-     * 并向外扩展，进度条只是辅助。这种做法的好处是把「抽象百分比」变成
-     * 「一片正在长出来的世界」，用户不用读数字也知道快好了。
+     * 前面几版都在追「像不像 Minecraft 的加载屏」，越追越糟：方块地图的
+     * 表达力全在「像素密度」上，一旦画布只有三百来像素宽，密不起来就只剩
+     * 彩色方格子。换个思路 —— 加载屏之所以好看，不是因为方块，是因为它
+     * 把「世界正在成形」这件事变成了空间上的推进。
      *
-     * 这里把八项基础资产映射成一片方格：每项按自己的体量占若干格
-     * （世界观 4 节就占 4 格，正文 40 章占更多），已写好的格子用地形色点亮，
-     * 未完成的是暗灰「未生成」。格子从左上向右下推进，顺序与实际生成顺序一致。
+     * 这里用地图学的正统做法：等高线 + 高程配色（hypsometric tint）。
+     * 一条等值线代表一个高程，线越密坡度越陡，这是地形图一百多年没变的
+     * 语言，天然带有「精确」的观感，而且矢量绘制不受分辨率限制。
+     *
+     * 进度语义换成「水位下降」：想象这块陆地原来沉在水下，随着内容写完，
+     * 水位一点点退，地形逐层浮出水面。当前水面高度的等值线就是「世界已经
+     * 长到哪儿」的前沿，用亮色描出来。
+     *
+     * 等高线用 marching squares 逐格求等值点再串成折线 —— 不是贴图，是算
+     * 出来的。整张地形只算一次并缓存：它由确定性噪声决定，与进度无关，
+     * 进度只决定「露出哪些层」。
      */
-    const BLOCK_TINTS = {
-      // 取自 Minecraft 区块状态的官方色值，按「完成度」由浅到深
-      full: '#FFFFFF',
-      light: '#FFE0A0',
-      features: '#21C600',
-      biomes: '#80B252',
-      surface: '#726809',
-      carvers: '#303572',
-      noise: '#D1D1D1',
-      empty: '#545454',
-      unknown: '#000000',
+    const TERRA = { size: 84, levels: 12, cache: null }
+
+    /** 确定性哈希。面板每 4 秒轮询，非确定性的场会让整张图每次刷新都重排。 */
+    function terraHash(x, y) {
+      const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+      return s - Math.floor(s)
+    }
+    function terraSmooth(t) { return t * t * (3 - 2 * t) }
+    function terraNoise(x, y) {
+      const xi = Math.floor(x); const yi = Math.floor(y)
+      const u = terraSmooth(x - xi); const v = terraSmooth(y - yi)
+      const a = terraHash(xi, yi); const b = terraHash(xi + 1, yi)
+      const c = terraHash(xi, yi + 1); const d = terraHash(xi + 1, yi + 1)
+      return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
+    }
+
+    /** 高程色阶：低处冷而暗（水下/滩涂），高处提亮偏白（山脊），整体压低饱和度。 */
+    const TERRA_RAMP = [
+      [0.00, [36, 52, 70]],
+      [0.28, [58, 88, 112]],
+      [0.55, [104, 143, 172]],
+      [0.78, [168, 200, 222]],
+      [1.00, [226, 240, 250]],
+    ]
+    function terraColor(t) {
+      const stops = TERRA_RAMP
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const [t0, c0] = stops[i - 1]; const [t1, c1] = stops[i]
+          const k = t1 === t0 ? 0 : (t - t0) / (t1 - t0)
+          const rgb = c0.map((v, j) => Math.round(v + (c1[j] - v) * k))
+          return `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`
+        }
+      }
+      const last = stops[stops.length - 1][1]
+      return `rgb(${last[0]} ${last[1]} ${last[2]})`
     }
 
     /**
-     * 世界生成区块图 —— 仿 Minecraft Java 版的世界加载屏幕。
+     * 对一层高程求等值线，返回 SVG path 的 d 串。
      *
-     * 看过真实加载屏的画面后，最要紧的一点是：**它几乎是黑白的**。
-     * 黑色是「尚未生成」，一大片均匀的浅灰是「已经生成」，彩色只是零星
-     * 几格（生物群系绿 #80B252、结构紫 #5F6191）。
-     *
-     * 我之前的版本把 11 种阶段色平铺满屏，出来是彩色拼贴画 —— 那是
-     * 「色卡」，不是加载屏。真实画面之所以像「地图在长出来」，靠的是：
-     *   1) 大面积留黑 —— 未生成区域占绝大多数，已生成的是其中一块不规则区域；
-     *   2) 已生成部分以灰为主（地形 #D1D1D1 占九成），颜色只是点缀；
-     *   3) 边界参差 —— 已生成区是带着碎块的城状轮廓，不是圆或方。
-     *
-     * 八项资产不逐一配色，而是汇成一个 0–1 的完成度，驱动「已生成区域有多大」。
-     * 资产本身的信息已在下方清单里逐项列出，地图只负责给整体直觉。
+     * marching squares：每个小方格的四个角与等值比较，得出 16 种穿越形态，
+     * 在边上线性插值求出交点。相邻格共用同一条边，插值参数完全相同，
+     * 所以端点能逐位相等 —— 后面才能用字符串键把线段接成折线。
      */
-    function WorldBlocks({ items, percent }) {
-      // 官方区块状态色。实际画面里只有前三种高频出现，其余是零星点缀。
-      const FULL = '#D1D1D1'   // noise：初始地形，绝大多数的已生成区块
-      const BIOME = '#80B252'  // biomes：生物群系，成片的绿色
-      const STRUCT = '#5F6191' // structure_references：结构，少量紫
-      const WHITE = '#FFFFFF'  // full：已完全生成
-      const SIZE = 30
-      const list = items ?? []
-      const total = list.length
-      const done = list.filter((i) => i.exists).length
-      const ratio = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
-
-      // 确定性哈希 → 值噪声。必须确定性：面板每 4 秒轮询一次，
-      // 非确定性场会让整张图每次刷新都重排，看着像渲染故障。
-      const hash = (x, y) => {
-        const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
-        return s - Math.floor(s)
-      }
-      const smooth = (t) => t * t * (3 - 2 * t)
-      const valueNoise = (x, y) => {
-        const xi = Math.floor(x); const yi = Math.floor(y)
-        const u = smooth(x - xi); const v = smooth(y - yi)
-        const a = hash(xi, yi); const b = hash(xi + 1, yi)
-        const c = hash(xi, yi + 1); const d = hash(xi + 1, yi + 1)
-        return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
-      }
-      // 三层八度：大尺度给区域形状，中尺度给城状碎边，小尺度给单格毛刺。
-      // 只叠两层时边界偏圆润，不像区块加载那种锯齿推进。
-      const fieldAt = (x, y) =>
-        valueNoise(x / 9.5, y / 9.5) * 0.5
-        + valueNoise(x / 4.1, y / 4.1) * 0.33
-        + valueNoise(x / 1.9, y / 1.9) * 0.17
-
-      const cells = []
-      const half = SIZE / 2
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-          // 加载从出生点向外推进，所以距离是主项；噪声只负责把边界打碎。
-          // 这里噪声权重给到 0.55，边界才会碎成方块状而不是一圈套一圈。
-          const dist = Math.max(Math.abs(x + 0.5 - half) / half, Math.abs(y + 0.5 - half) / half)
-          const field = dist * 0.45 + fieldAt(x, y) * 0.55
-          const lit = field < ratio
-          let color = null
-          if (lit) {
-            // 已生成的格子里绝大多数是地形灰；只有噪声同时取到很高的局部
-            // 极值才染生物群系绿或结构紫。阈值必须定得很高 —— 参考画面里
-            // 1032 个格子里彩色不到十格，阈值放低一点就会变成迷彩色块，
-            // 那读起来是「伪装图案」而不是「地形」。
-            const n = valueNoise(x / 3.3, y / 3.3)
-            const n2 = valueNoise(x / 1.7 + 40, y / 1.7 + 40)
-            if (n > 0.855 && n2 > 0.52) color = BIOME
-            else if (n < 0.145 && n2 > 0.58) color = STRUCT
-            // 完全生成时中心一小片转白，其余仍是地形灰 —— 真实画面里
-            // 白色也只出现在最后完成的区块，不会整片刷白。
-            else if (ratio >= 0.999 && dist < 0.16) color = WHITE
-            else color = FULL
+    function terraContour(field, n, level) {
+      const at = (x, y) => field[y * n + x]
+      const segs = []
+      for (let y = 0; y < n - 1; y++) {
+        for (let x = 0; x < n - 1; x++) {
+          const v0 = at(x, y); const v1 = at(x + 1, y)
+          const v2 = at(x + 1, y + 1); const v3 = at(x, y + 1)
+          let idx = 0
+          if (v0 >= level) idx |= 1
+          if (v1 >= level) idx |= 2
+          if (v2 >= level) idx |= 4
+          if (v3 >= level) idx |= 8
+          if (idx === 0 || idx === 15) continue
+          // 四条边上的交点。分母为 0（两侧等高）时取边中点，避免 NaN。
+          //
+          // 这四条插值必须严格对称，否则相邻格在公共边上算出的交点对不齐，
+          // 线段就接不起来。此前 left 写成
+          //   [x, y + 1 + (level - v3) / (v0 - v3)]
+          // 既多加了 +1 又把斜率方向用反了，左侧交点整体下偏一格：
+          // 实测 344 个端点里 216 个是孤立的，等高线全断成短笔。
+          // 左边正确的参数化是从 (x, y+1) 沿 y 负方向走 t，
+          //   t = (level - v3) / (v0 - v3)  ⇒  y = y + 1 - t
+          const top = [x + (v1 === v0 ? 0.5 : (level - v0) / (v1 - v0)), y]
+          const right = [x + 1, y + (v2 === v1 ? 0.5 : (level - v1) / (v2 - v1))]
+          const bottom = [x + (v2 === v3 ? 0.5 : (level - v3) / (v2 - v3)), y + 1]
+          const left = [x, y + 1 - (v0 === v3 ? 0.5 : (level - v3) / (v0 - v3))]
+          const push = (a, b) => segs.push([a[0], a[1], b[0], b[1]])
+          switch (idx) {
+            case 1: case 14: push(left, top); break
+            case 2: case 13: push(top, right); break
+            case 3: case 12: push(left, right); break
+            case 4: case 11: push(right, bottom); break
+            case 6: case 9: push(top, bottom); break
+            case 7: case 8: push(left, bottom); break
+            // 5 与 10 是鞍点，两条线可能交叉，需要用中心值决定连法。
+            case 5: {
+              const mid = (v0 + v1 + v2 + v3) / 4
+              if (mid >= level) { push(left, bottom); push(top, right) }
+              else { push(left, top); push(right, bottom) }
+              break
+            }
+            case 10: {
+              const mid = (v0 + v1 + v2 + v3) / 4
+              if (mid >= level) { push(left, top); push(right, bottom) }
+              else { push(left, bottom); push(top, right) }
+              break
+            }
+            default: break
           }
-          cells.push({
-            key: `${x}-${y}`,
-            lit,
-            color,
-            // 未生成区域分两档：紧贴已生成区的「下一圈」稍亮，其余纯黑。
-            // 两档差异必须很小，否则那条边会显得像刻意画的轮廓线。
-            dim: lit ? 0 : (field < ratio + 0.09 ? 1 : 2),
-            // 已生成区里再叠一层极淡的棋盘纹理。参考画面的浅灰区能看到
-            // 细分网格，因为区块色图的分辨率比区块网格更细。不加这层，
-            // 已生成区就是一块死平的灰，像色块而不像地图。
-            alt: lit && ((x + y) & 1) === 1,
-          })
+        }
+      }
+      if (segs.length === 0) return ''
+
+      // 把散线段按端点接成折线。
+      //
+      // 这里有个必须做对的地方：marching squares 产出的线段是无向的，
+      // 同一条等值线上的相邻两段，可能一段是 A→B、另一段是 B→A。
+      // 早先的版本只用「当前段终点」去找下一段，遇到反向的那一半就断了 ——
+      // 结果是 788 条折线里有 705 条只有 2 个点（89.5% 碎线），
+      // 等高线渲出来全是短促的断笔。必须两个方向都能接。
+      //
+      // 端点键取到千分位：相邻格共用同一条边，插值参数逐位相同，
+      // 所以能精确对上；用 toFixed 反而会被浮点数格式化截断。
+      const key = (x, y) => `${Math.round(x * 1000)}:${Math.round(y * 1000)}`
+      const endsAt = new Map()
+      const link = (k, i) => {
+        if (!endsAt.has(k)) endsAt.set(k, [])
+        endsAt.get(k).push(i)
+      }
+      for (let i = 0; i < segs.length; i++) {
+        link(key(segs[i][0], segs[i][1]), i)
+        link(key(segs[i][2], segs[i][3]), i)
+      }
+      const other = (i, k) => {
+        // 取同一段线段的另一个端点，用于「反向续接」
+        const s = segs[i]
+        return key(s[0], s[1]) === k ? [s[2], s[3]] : [s[0], s[1]]
+      }
+      const used = new Uint8Array(segs.length)
+      const parts = []
+
+      for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue
+        used[i] = 1
+        // 以线段 i 为种子，向两端各长一次，最后整体反转前半段拼起来。
+        const forward = [[segs[i][0], segs[i][1]], [segs[i][2], segs[i][3]]]
+        let tail = key(segs[i][2], segs[i][3])
+        const head = [segs[i][0], segs[i][1]]
+        for (;;) {
+          const next = (endsAt.get(tail) ?? []).find((j) => !used[j])
+          if (next === undefined) break
+          used[next] = 1
+          const p = other(next, tail)
+          forward.push(p)
+          tail = key(p[0], p[1])
+        }
+        // 再往种子起点那侧长
+        let backKey = key(head[0], head[1])
+        const backward = []
+        for (;;) {
+          const prev = (endsAt.get(backKey) ?? []).find((j) => !used[j])
+          if (prev === undefined) break
+          used[prev] = 1
+          const p = other(prev, backKey)
+          backward.push(p)
+          backKey = key(p[0], p[1])
+        }
+        const pts = backward.reverse().concat(forward)
+        if (pts.length < 2) continue
+        parts.push('M' + pts.map((p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join('L'))
+      }
+      return parts.join('')
+    }
+
+    /** 一次性算出地形与全部高程层，之后只按进度决定露哪些层。 */
+    function terraLayers() {
+      if (TERRA.cache) return TERRA.cache
+      const n = TERRA.size
+      const field = new Float32Array(n * n)
+      let peak = 0
+      let peakAt = n * n >> 1
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          // 域扭曲（domain warp）：先把采样点本身用两层低频噪声推开，再取
+          // 高程。不做这一步，fBm 出来的等高线是一圈套一圈的洋葱 —— 前两版
+          // 都是同心环。推一下之后山脊会弯、会分叉、会出现鞍部，才有地形感。
+          const wx = x + 34 * (terraNoise(x / 19 + 5.2, y / 19 + 1.3) - 0.5)
+          const wy = y + 34 * (terraNoise(x / 19 + 9.7, y / 19 + 4.8) - 0.5)
+          // 五层八度。振幅衰减要慢（0.58）—— 衰减太快时高频几乎不出力，
+          // 地形就成了一个大缓坡；衰减太慢又会变成满屏椒盐。0.58 配五次
+          // 叠加，山体上既有大起伏也有支脉。
+          let amp = 1; let freq = 1 / 34; let sum = 0; let norm = 0
+          for (let o = 0; o < 5; o++) {
+            sum += amp * terraNoise(wx * freq + o * 17.3, wy * freq + o * 31.7)
+            norm += amp
+            amp *= 0.58
+            freq *= 2.11
+          }
+          // 边缘软掩膜。陆地必须收在画面内，等高线才全是闭合环。
+          //
+          // 但掩膜本身不能用纯径向 —— 那等于把整个场乘上一个圆锥，等值线
+          // 收到边界时必然收成同心圆，外围看着像洋葱。前三版都是这个毛病。
+          // 解法是先把半径本身用噪声推歪：r 不再等于到中心的距离，而是一条
+          // 被扰动的「海岸线半径」，于是陆地边缘呈半岛与海湾状，边界那一圈
+          // 等高线自然跟着歪。
+          const nx = (x / (n - 1)) * 2 - 1
+          const ny = (y / (n - 1)) * 2 - 1
+          const ang = Math.atan2(ny, nx)
+          // 极坐标下取两层噪声，形成连续但不重复的海岸形状。
+          const coast = 0.20 * (terraNoise(Math.cos(ang) * 1.9 + 11, Math.sin(ang) * 1.9 + 7) - 0.5) * 2
+            + 0.12 * (terraNoise(Math.cos(ang) * 4.1 + 23, Math.sin(ang) * 4.1 + 19) - 0.5) * 2
+          const r = Math.hypot(nx, ny) + coast * 0.42
+          const edge = 1 - terraSmooth(Math.min(1, Math.max(0, (r - 0.52) / 0.46)))
+          const raw = sum / norm
+          // 把噪声归一到 0–1 后再乘掩膜，幅度才稳定。幂次略大于 1，
+          // 低处（浅滩）因此更平缓，等高线在岸边疏、在山腰密。
+          const h = Math.pow(Math.max(0, Math.min(1, (raw - 0.16) / 0.66)), 1.15) * edge
+          field[y * n + x] = h
+          if (h > peak) { peak = h; peakAt = y * n + x }
         }
       }
 
+      // 高程层用「等面积分位」定阈值，而不是固定步长。
+      // 固定步长在噪声分布上一头密一头疏；按分位取，每层覆盖的面积相当，
+      // 等高线的疏密只反映坡度本身 —— 这才是地形图的读法。
+      const sorted = Array.from(field).sort((a, b) => a - b)
+      const nth = (q) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * sorted.length)))]
+      const levels = []
+      for (let i = 1; i <= TERRA.levels; i++) {
+        const q = i / (TERRA.levels + 1)
+        const t = nth(q)
+        if (!(t > 0)) continue
+        const d = terraContour(field, n, t)
+        if (d) levels.push({ t, frac: q, d })
+      }
+      TERRA.peak = { x: peakAt % n, y: Math.floor(peakAt / n), h: peak }
+      TERRA.cache = levels
+      return levels
+    }
+
+    function TerrainGlyph({ items, percent }) {
+      const list = items ?? []
+      const total = list.length
+      const done = list.filter((i) => i.exists).length
+      // 完成度：资产数与百分比取较大者，中途刷新时地貌不会倒退。
+      const p = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
+      const pct = Math.min(1, Math.max(0, p))
+      const layers = terraLayers()
       const complete = total > 0 && done >= total
-      return h('div', { className: 'nm-world', 'data-complete': complete ? '1' : '0' },
-        h('div', { className: 'nm-world-head' },
-          h('span', { className: 'nm-world-title' }, complete ? '世界已生成' : '正在生成世界'),
-          h('span', { className: 'nm-world-pct' }, `${percent ?? 0}%`)),
-        h('div', {
-          className: 'nm-world-map', style: { '--nm-world-size': SIZE },
-          role: 'img', 'aria-label': `资产生成进度 ${percent ?? 0}%，八项中已完成 ${done} 项`,
-        }, cells.map((cell) => h('i', {
-          key: cell.key,
-          'data-dim': cell.dim,
-          'data-alt': cell.alt ? '1' : '0',
-          // 颜色直接写成内联值：只有零星几格需要着色，走 CSS 变量反而绕。
-          style: cell.color ? { background: cell.color } : undefined,
-        }))),
-        h('div', { className: 'nm-world-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
-          h('div', { className: 'nm-world-bar-fill', style: { width: `${percent ?? 0}%` } })))
+      const peak = TERRA.peak ?? { x: TERRA.size / 2, y: TERRA.size / 2 }
+      const S = TERRA.size
+
+      // 揭示半径：进度从中心向外扩张，把已经「写出来」的那一块显影。
+      //
+      // 之前两版的语义都错了：一版按高程水位（低处先出），一版 slice 前 N 层
+      // （同样把最高的几层切掉）。两者都会在画面正中留下一个大空洞 —— 因为
+      // 山峰恰恰是最高那层，最先被砍掉的就是它。
+      //
+      // 正确的心智模型是「一块已探明的地域在扩大」：地形本身完整存在，
+      // 进度决定其中多大的范围被清楚地看见。半径用 sqrt 映射，让面积的
+      // 增长与百分比同步 —— 线性映射半径时，前 20% 才覆盖 4% 的面积，
+      // 观感上会显得「卡住不动」。
+      const reach = Math.sqrt(pct) * S * 0.80
+
+      return h('div', { className: 'nm-terra', 'data-complete': complete ? '1' : '0' },
+        h('div', { className: 'nm-terra-head' },
+          h('span', { className: 'nm-terra-title' }, complete ? '世界已成形' : '世界生成中'),
+          h('span', { className: 'nm-terra-pct' }, `${percent ?? 0}%`)),
+        h('div', { className: 'nm-terra-canvas', role: 'img', 'aria-label': `地貌生成 ${percent ?? 0}%，${total} 项基础资产已完成 ${done} 项` },
+          h('svg', {
+            viewBox: `0 0 ${S} ${S}`,
+            preserveAspectRatio: 'none',
+            className: 'nm-terra-svg', 'aria-hidden': true,
+          },
+          // 遮罩：一块以画面中心为心、半径随进度扩张的圆。
+          //
+          // 这里踩过一个坑：最初把渐变放在遮罩内部（radialGradient 配
+          // userSpaceOnUse 的圆），指望边缘有软过渡。但 radialGradient 给的是
+          // objectBoundingBox 时，它的参照是那个小圆本身，半径越小渐变越失效，
+          // 低进度下画布四角会冒出奇怪弧线。改成纯色圆 + 单独一层柔边圆环，
+          // 行为跟半径无关，任何进度都稳定。
+          h('mask', { id: 'nm-terra-reveal', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: S, height: S },
+            h('circle', { cx: S / 2, cy: S / 2, r: Math.max(0.01, reach), fill: '#fff' })),
+          // ---- 未探明的地形：极淡，只作为「还没长出来」的暗示 ----
+          h('g', { opacity: 0.16 },
+            layers.map((layer) => h('path', {
+              key: `u${layer.t.toFixed(3)}`,
+              d: layer.d, fill: 'none',
+              stroke: terraColor(layer.frac * 0.6),
+              strokeWidth: 0.2, strokeLinejoin: 'round',
+            }))),
+          // ---- 已探明的地形：走遮罩，两遍描出厚度 ----
+          h('g', { mask: 'url(#nm-terra-reveal)' },
+            layers.map((layer) => h('path', {
+              key: `b${layer.t.toFixed(3)}`,
+              d: layer.d, fill: 'none',
+              stroke: terraColor(layer.frac * 0.5),
+              strokeWidth: 0.66 - 0.3 * layer.frac,
+              strokeLinejoin: 'round',
+              opacity: 0.2 + 0.18 * layer.frac,
+            })),
+            layers.map((layer) => h('path', {
+              key: `l${layer.t.toFixed(3)}`,
+              d: layer.d, fill: 'none',
+              stroke: terraColor(Math.min(1, layer.frac * 1.12 + 0.14)),
+              strokeWidth: 0.28 - 0.13 * layer.frac,
+              strokeLinejoin: 'round',
+              opacity: 0.5 + 0.46 * layer.frac,
+            }))),
+          // 揭示边界本身：一圈亮环，就是「世界已经长到哪儿」。
+          !complete && reach > 0.5 ? h('circle', {
+            cx: S / 2, cy: S / 2, r: reach,
+            fill: 'none', stroke: '#9adcff', strokeWidth: 0.5,
+            opacity: 0.5, className: 'nm-terra-front',
+          }) : null,
+          // 完稿后在最高峰点一个极小的光点，收束视线。
+          // 用同心双环而不是实心圆：实心小圆在深底上读起来像一粒灰尘或
+          // 渲染瑕疵，双环加柔光才像「山顶的光」，也才配得上地形图的气质。
+          complete ? h('g', { className: 'nm-terra-glow' },
+            h('circle', { cx: peak.x, cy: peak.y, r: 4.2, fill: 'none', stroke: '#9adcff', strokeWidth: 0.35, opacity: 0.45 }),
+            h('circle', { cx: peak.x, cy: peak.y, r: 1.5, fill: '#dff3ff', opacity: 0.95 })) : null)),
+        h('div', { className: 'nm-terra-scale' },
+          h('span', { className: 'nm-terra-scale-label' }, '高程'),
+          h('i', { className: 'nm-terra-scale-bar' })),
+        h('div', { className: 'nm-terra-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
+          h('div', { className: 'nm-terra-bar-fill', style: { width: `${percent ?? 0}%` } })))
     }
 
     /** 资产清单里每一项的图标：已写好打勾，空文件是空心点，没建过是虚线圈。 */
@@ -2572,9 +2774,9 @@ window.__ModuleLoader__.load({
                 h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.9-4.2' }), h('path', { d: 'M13.5 2v3.2h-3.2' }))))),
 
         // 总览：一个环形进度 + 两个关键数字
-        // 世界生成区块图：把「8 项里完成了几项」变成一片正在长出来的方块。
+        // 地貌等高线：把「8 项里完成了几项」变成一块正在浮出水面的陆地。
         // 环形图保留在上方给一个精确数字，两者互补 —— 图给直觉，环给刻度。
-        h(WorldBlocks, { items: readiness?.items, percent: readiness?.percent ?? 0 }),
+        h(TerrainGlyph, { items: readiness?.items, percent: readiness?.percent ?? 0 }),
 
         h('div', { className: 'nm-prog-hero' },
           h('div', { className: 'nm-prog-ring', style: { '--pct': readiness?.percent ?? 0 }, role: 'img', 'aria-label': `基础资产完成 ${readiness?.percent ?? 0}%` },

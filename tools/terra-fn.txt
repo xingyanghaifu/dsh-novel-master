@@ -1,0 +1,228 @@
+    /**
+     * 世界地貌 —— 用真实等高线渲一张地形图。
+     *
+     * 前面几版都在追「像不像 Minecraft 的加载屏」，越追越糟：方块地图的
+     * 表达力全在「像素密度」上，一旦画布只有三百来像素宽，密不起来就只剩
+     * 彩色方格子。换个思路 —— 加载屏之所以好看，不是因为方块，是因为它
+     * 把「世界正在成形」这件事变成了空间上的推进。
+     *
+     * 这里用地图学的正统做法：等高线 + 高程配色（hypsometric tint）。
+     * 一条等值线代表一个高程，线越密坡度越陡，这是地形图一百多年没变的
+     * 语言，天然带有「精确」的观感，而且矢量绘制不受分辨率限制。
+     *
+     * 进度语义换成「水位下降」：想象这块陆地原来沉在水下，随着内容写完，
+     * 水位一点点退，地形逐层浮出水面。当前水面高度的等值线就是「世界已经
+     * 长到哪儿」的前沿，用亮色描出来。
+     *
+     * 等高线用 marching squares 逐格求等值点再串成折线 —— 不是贴图，是算
+     * 出来的。整张地形只算一次并缓存：它由确定性噪声决定，与进度无关，
+     * 进度只决定「露出哪些层」。
+     */
+    const TERRA = { size: 84, levels: 12, cache: null }
+
+    /** 确定性哈希。面板每 4 秒轮询，非确定性的场会让整张图每次刷新都重排。 */
+    function terraHash(x, y) {
+      const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+      return s - Math.floor(s)
+    }
+    function terraSmooth(t) { return t * t * (3 - 2 * t) }
+    function terraNoise(x, y) {
+      const xi = Math.floor(x); const yi = Math.floor(y)
+      const u = terraSmooth(x - xi); const v = terraSmooth(y - yi)
+      const a = terraHash(xi, yi); const b = terraHash(xi + 1, yi)
+      const c = terraHash(xi, yi + 1); const d = terraHash(xi + 1, yi + 1)
+      return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
+    }
+
+    /** 高程色阶：低处冷而暗（水下/滩涂），高处提亮偏白（山脊），整体压低饱和度。 */
+    const TERRA_RAMP = [
+      [0.00, [36, 52, 70]],
+      [0.28, [58, 88, 112]],
+      [0.55, [104, 143, 172]],
+      [0.78, [168, 200, 222]],
+      [1.00, [226, 240, 250]],
+    ]
+    function terraColor(t) {
+      const stops = TERRA_RAMP
+      for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i][0]) {
+          const [t0, c0] = stops[i - 1]; const [t1, c1] = stops[i]
+          const k = t1 === t0 ? 0 : (t - t0) / (t1 - t0)
+          const rgb = c0.map((v, j) => Math.round(v + (c1[j] - v) * k))
+          return `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`
+        }
+      }
+      const last = stops[stops.length - 1][1]
+      return `rgb(${last[0]} ${last[1]} ${last[2]})`
+    }
+
+    /**
+     * 对一层高程求等值线，返回 SVG path 的 d 串。
+     *
+     * marching squares：每个小方格的四个角与等值比较，得出 16 种穿越形态，
+     * 在边上线性插值求出交点。相邻格共用同一条边，插值参数完全相同，
+     * 所以端点能逐位相等 —— 后面才能用字符串键把线段接成折线。
+     */
+    function terraContour(field, n, level) {
+      const at = (x, y) => field[y * n + x]
+      const segs = []
+      for (let y = 0; y < n - 1; y++) {
+        for (let x = 0; x < n - 1; x++) {
+          const v0 = at(x, y); const v1 = at(x + 1, y)
+          const v2 = at(x + 1, y + 1); const v3 = at(x, y + 1)
+          let idx = 0
+          if (v0 >= level) idx |= 1
+          if (v1 >= level) idx |= 2
+          if (v2 >= level) idx |= 4
+          if (v3 >= level) idx |= 8
+          if (idx === 0 || idx === 15) continue
+          // 四条边上的交点。分母为 0 时（两侧同值）取中点，避免 NaN。
+          const top = [x + (v1 === v0 ? 0.5 : (level - v0) / (v1 - v0)), y]
+          const right = [x + 1, y + (v2 === v1 ? 0.5 : (level - v1) / (v2 - v1))]
+          const bottom = [x + (v2 === v3 ? 0.5 : (level - v3) / (v2 - v3)), y + 1]
+          const left = [x, y + 1 + (v0 === v3 ? -0.5 : (level - v3) / (v0 - v3))]
+          const push = (a, b) => segs.push([a[0], a[1], b[0], b[1]])
+          switch (idx) {
+            case 1: case 14: push(left, top); break
+            case 2: case 13: push(top, right); break
+            case 3: case 12: push(left, right); break
+            case 4: case 11: push(right, bottom); break
+            case 6: case 9: push(top, bottom); break
+            case 7: case 8: push(left, bottom); break
+            // 5 与 10 是鞍点，两条线可能交叉，需要用中心值决定连法。
+            case 5: {
+              const mid = (v0 + v1 + v2 + v3) / 4
+              if (mid >= level) { push(left, bottom); push(top, right) }
+              else { push(left, top); push(right, bottom) }
+              break
+            }
+            case 10: {
+              const mid = (v0 + v1 + v2 + v3) / 4
+              if (mid >= level) { push(left, top); push(right, bottom) }
+              else { push(left, bottom); push(top, right) }
+              break
+            }
+            default: break
+          }
+        }
+      }
+      if (segs.length === 0) return ''
+
+      // 把散线段按端点接成折线。端点键取到千分位 —— 相邻格的插值结果
+      // 逐位相同，所以能精确接上；用 toFixed 会被浮点误差打断。
+      const key = (x, y) => `${Math.round(x * 1000)}:${Math.round(y * 1000)}`
+      const buckets = new Map()
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i]
+        for (const k of [key(s[0], s[1]), key(s[2], s[3])]) {
+          if (!buckets.has(k)) buckets.set(k, [])
+          buckets.get(k).push(i)
+        }
+      }
+      const used = new Uint8Array(segs.length)
+      const parts = []
+      for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue
+        const pts = [[segs[i][0], segs[i][1]]]
+        let cur = i
+        while (cur !== -1) {
+          used[cur] = 1
+          const s = segs[cur]
+          pts.push([s[2], s[3]])
+          const cand = (buckets.get(key(s[2], s[3])) ?? []).find((j) => !used[j])
+          cur = cand === undefined ? -1 : cand
+        }
+        if (pts.length < 2) continue
+        parts.push('M' + pts.map((p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join('L'))
+      }
+      return parts.join('')
+    }
+
+    /** 一次性算出地形与全部高程层，之后只按进度决定露哪几层。 */
+    function terraLayers() {
+      if (TERRA.cache) return TERRA.cache
+      const n = TERRA.size
+      const field = new Float32Array(n * n)
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          const nx = (x / (n - 1)) * 2 - 1
+          const ny = (y / (n - 1)) * 2 - 1
+          // 归一化到「中心 0、四角 1」，这样岛屿边缘能压在画布四边。
+          const r = Math.hypot(nx, ny) / Math.SQRT2
+          // 海岸线不能是圆：用一层低频噪声把半径推歪，形成半岛与海湾。
+          const warp = (terraNoise(x / 13 + 31, y / 13 + 31) - 0.5) * 0.30
+          const rr = Math.min(1, Math.max(0, r + warp))
+          // 主体是穹顶，向边缘平滑收到 0。
+          const dome = 1 - Math.min(1, Math.max(0, (rr - 0.06) / 0.88))
+          // 三层八度塑形：大尺度给山体，中尺度给山脊，小尺度给碎石质感。
+          const relief = 0.55 * terraNoise(x / 15, y / 15)
+            + 0.30 * terraNoise(x / 7.3, y / 7.3)
+            + 0.15 * terraNoise(x / 3.1, y / 3.1)
+          field[y * n + x] = dome * (0.30 + 0.70 * relief)
+        }
+      }
+
+      const levels = []
+      for (let i = 1; i <= TERRA.levels; i++) {
+        // 阈值整体压在 0.97 以下，最高一层不至于顶到场的理论上限而消失。
+        const t = (i / (TERRA.levels + 1)) * 0.97
+        const d = terraContour(field, n, t)
+        if (d) levels.push({ t, frac: t / 0.97, d })
+      }
+      TERRA.cache = levels
+      return levels
+    }
+
+    function TerrainGlyph({ items, percent }) {
+      const list = items ?? []
+      const total = list.length
+      const done = list.filter((i) => i.exists).length
+      // 完成度：资产数与百分比取较大者，中途刷新时地貌不会倒退。
+      const p = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
+      const layers = terraLayers()
+      const complete = total > 0 && done >= total
+
+      // 水位随进度下降：只有高程高于水面的部分露出。
+      const level0 = 1 - Math.min(1, Math.max(0, p))
+      const shown = layers.filter((l) => l.frac >= level0 - 1e-9)
+      // 最外面那一层就是前沿，单独用亮色描，标出「世界已经长到哪儿」。
+      const frontier = shown.length > 0 ? shown[0] : null
+
+      return h('div', { className: 'nm-terra', 'data-complete': complete ? '1' : '0' },
+        h('div', { className: 'nm-terra-head' },
+          h('span', { className: 'nm-terra-title' }, complete ? '世界已成形' : '世界生成中'),
+          h('span', { className: 'nm-terra-pct' }, `${percent ?? 0}%`)),
+        h('div', { className: 'nm-terra-canvas', role: 'img', 'aria-label': `地貌生成 ${percent ?? 0}%，${total} 项基础资产已完成 ${done} 项` },
+          h('svg', {
+            viewBox: `0 0 ${TERRA.size} ${TERRA.size}`,
+            preserveAspectRatio: 'none',
+            className: 'nm-terra-svg', 'aria-hidden': true,
+          },
+          // 水面以下不画；水面以上逐层画等高线，越高的层越亮。
+          shown.map((layer) => h('path', {
+            key: layer.t.toFixed(3),
+            d: layer.d,
+            fill: 'none',
+            stroke: terraColor(layer.frac),
+            strokeWidth: 0.17,
+            strokeLinejoin: 'round',
+            opacity: 0.32 + 0.62 * layer.frac,
+          })),
+          // 前沿：亮色 + 略粗，是整张图唯一「有主张」的一笔。
+          frontier ? h('path', {
+            d: frontier.d, fill: 'none', stroke: '#8fd3ff',
+            strokeWidth: 0.34, strokeLinejoin: 'round', opacity: 0.95,
+            className: 'nm-terra-front',
+          }) : null,
+          // 完稿后加一个极淡的中心高光，收束视线，避免整张图散着。
+          complete ? h('circle', {
+            cx: TERRA.size / 2, cy: TERRA.size / 2, r: TERRA.size * 0.16,
+            fill: 'url(#nm-terra-glow)', opacity: 0.5, className: 'nm-terra-glow',
+          }) : null)),
+        h('div', { className: 'nm-terra-scale' },
+          h('span', { className: 'nm-terra-scale-label' }, '高程'),
+          h('i', { className: 'nm-terra-scale-bar' })),
+        h('div', { className: 'nm-terra-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
+          h('div', { className: 'nm-terra-bar-fill', style: { width: `${percent ?? 0}%` } })))
+    }
+

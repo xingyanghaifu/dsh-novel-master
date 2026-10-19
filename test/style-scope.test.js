@@ -47,59 +47,46 @@ test('帮助按钮不再带旋转变形', () => {
   assert.doesNotMatch(CSS, /\.nm-help-btn:hover\{[^}]*rotate\(/u, 'hover 不应旋转按钮')
 })
 
-test('世界生成区块图使用官方区块状态色', () => {
-  // 取自 Minecraft Wiki 的区块状态色表。用同一色会把图退化成普通点阵，
-  // 这是「世界生成」这个隐喻能否成立的关键。
-  const m = CSS.match(/\.nm-world\{([^}]*)\}/)
-  assert.ok(m, '必须存在 .nm-world 规则')
-  for (const hex of ['#80B252', '#D1D1D1', '#5F6191', '#303572', '#726809', '#21C600', '#FFE0A0']) {
-    assert.ok(SOURCE.includes(hex), `缺少官方区块色 ${hex}`)
-  }
+test('地貌画布有底色与内边框，不是透明浮在面板上', () => {
+  // 等高线是细亮线，必须落在明确的深底上才读得出层次。没有底色时
+  // 线条看起来像直接描在面板上，整块区域没有「这是张地图」的边界感。
+  const m = CSS.match(/\.nm-terra-canvas\{([^}]*)\}/)
+  assert.ok(m, '必须存在 .nm-terra-canvas 规则')
+  assert.match(m[1], /background:/, '画布要有底色')
+  assert.match(m[1], /aspect-ratio:1/, '画布要接近正方，地形图不能是窄条')
 })
 
-test('未生成区必须接近纯黑，与已生成区拉开亮度', () => {
-  // 参考画面里约三分之二是纯黑。未生成区如果发灰，整张图就失去
-  // 「还没长出来」的对比，看着像一片均匀的贴图。
-  const dim1 = CSS.match(/\.nm-world-map i\[data-dim="1"\]\{([^}]*)\}/)
-  const dim2 = CSS.match(/\.nm-world-map i\[data-dim="2"\]\{([^}]*)\}/)
-  assert.ok(dim1 && dim2, '未生成的两档都要有样式')
-  // 最深一档必须是纯黑：参考画面的底就是黑的
-  assert.match(dim2[1], /#000\b/i, '最深一档应为纯黑')
-  // 紧贴已生成区的那一档只能极暗，不能到中灰
-  const hex = dim1[1].match(/#([0-9a-f]{6})/i)
-  assert.ok(hex, '需为十六进制色')
-  const lum = parseInt(hex[1].slice(0, 2), 16) + parseInt(hex[1].slice(2, 4), 16) + parseInt(hex[1].slice(4, 6), 16)
-  assert.ok(lum < 120, `紧邻生成区的那档必须很暗（当前总和 ${lum}），否则边界看着像画的线`)
+test('等高线只描边，不能整片填充', () => {
+  // 试过给每层做半透明填充：11 层同色叠起来，中间糊成一坨实心圆饼，
+  // 等高线全被盖住。高程的观感必须来自「线的疏密」—— 地形图本来就是
+  // 靠间距读坡度的。这条测试锁住「只画线」这个决定。
+  assert.match(SOURCE, /fill: 'none'/, '等高线路径必须是 fill:none')
+  assert.doesNotMatch(SOURCE, /fill: terraColor/, '不能拿高程色整片填充')
 })
 
-test('地图格数够密，且区块之间不留缝', () => {
-  // 真实加载屏里区块是紧贴的。加缝隙会立刻从「地形」变成「点阵图」。
-  assert.match(SOURCE, /const SIZE = (?:2[4-9]|3\d)/, '地图边长至少 24 格，太粗就变成色卡')
-  const map = CSS.match(/\.nm-world-map\{([^}]*)\}/)[1]
-  assert.doesNotMatch(map, /gap:/, '不能有缝隙，区块是紧贴的')
-  assert.doesNotMatch(map, /padding:/, '不能有内边距，否则外圈多出一道框')
+test('地形场必须有域扭曲，否则等高线会收成同心环', () => {
+  // 前几版都是洋葱：一圈套一圈的规整环。根源是高度场以径向掩膜为主。
+  // 必须先扭曲采样坐标再取噪声，山脊才会弯、会分叉、会出现鞍部。
+  assert.match(SOURCE, /domain warp|域扭曲/, '需要域扭曲')
+  const warp = SOURCE.match(/const wx = x \+ ([\d.]+) \* \(terraNoise/)
+  assert.ok(warp, '采样点必须被噪声推开')
+  assert.ok(Number(warp[1]) >= 20, `扭曲幅度需 ≥20 格才打散得开，当前 ${warp[1]}`)
 })
 
-test('彩色必须是极小比例，不能变成迷彩', () => {
-  // 第一次按参考重做时把阈值定低了，绿紫铺满整片，读起来像迷彩服。
-  // 参考画面里 1032 格中彩色不到十格 —— 密度本身就是这个效果的关键。
-  const biome = SOURCE.match(/if \(n > ([\d.]+) && n2 > ([\d.]+)\) color = BIOME/)
-  const struct = SOURCE.match(/else if \(n < ([\d.]+) && n2 > ([\d.]+)\) color = STRUCT/)
-  assert.ok(biome && struct, '生物群系与结构的判定必须存在')
-  assert.ok(Number(biome[1]) >= 0.8, `生物群系阈值需 ≥0.8，当前 ${biome[1]}`)
-  assert.ok(Number(struct[1]) <= 0.2, `结构阈值需 ≤0.2，当前 ${struct[1]}`)
+test('海岸线不能被纯径向收缩，否则外圈仍是同心圆', () => {
+  // 掩膜一旦是纯 r，等值线收到边界必然收成圆。必须把半径本身推歪，
+  // 形成半岛与海湾，边界那一圈才跟着歪。
+  assert.match(SOURCE, /const coast = /, '需要海岸线扰动项')
+  assert.match(SOURCE, /const r = Math\.hypot\(nx, ny\) \+ coast/, '半径要叠加海岸扰动')
 })
 
-test('地形用噪声塑形，不能是按距离分层的同心方框', () => {
-  // 只按「离中心多远」上色会渲成靶心：一圈套一圈的规整方框，
-  // 完全不像地形。必须有噪声参与且权重足够大才能打散成斑块。
-  assert.match(SOURCE, /valueNoise/, '需要值噪声')
-  // 注意要抓含 dist 的那一行：文件里还有一个同名的表单辅助函数 field，
-  // 用 /const field = / 会先命中它，取出来的权重是 NaN。
-  const field = SOURCE.match(/const field = dist \* ([\d.]+) \+ fieldAt\([^)]*\) \* ([\d.]+)/)
-  assert.ok(field, '必须用 dist 与噪声场混合出 field')
-  const noiseWeight = Number(field[2])
-  assert.ok(noiseWeight >= 0.3, `噪声权重需 ≥0.3 才能打散同心感，当前 ${noiseWeight}`)
+test('揭示范围随进度扩张，且用面积映射', () => {
+  // 语义是「一块已探明的地域在扩大」：地形完整存在，进度决定看清多少。
+  // 半径若按线性映射，前 20% 只覆盖 4% 面积，观感上像卡住不动。
+  const m = SOURCE.match(/const reach = Math\.sqrt\(pct\) \* S \* ([\d.]+)/)
+  assert.ok(m, '揭示半径必须用 sqrt 映射面积')
+  // 系数要留边：给满 1.0 时 100% 会有半圈超出画布
+  assert.ok(Number(m[1]) <= 0.9, `半径系数需留边，当前 ${m[1]}`)
 })
 
 test('进度面板自己注入样式，不依赖设置页', () => {
