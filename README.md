@@ -107,7 +107,7 @@ github:xingyanghaifu/dsh-novel-master
 | `/novel-spark [项目] [卡点]` | 请求下一步剧情建议 |
 | `/novel-study <参考文件> [--to 项目]` | 统计参考文本并请求风格分析 |
 | `/novel-persona [项目] [风格id]` | 查看或套用作者风格（5 种内置，也可用拆书结果） |
-| `/novel-persona-study <参考文件> [--to 项目] [--provider X --model Y --effort Z]` | 拆书提取结构化作者人格，可指定分析模型 |
+| `/novel-persona-study <参考文件> [--to 项目] [--provider X --model Y --effort Z] [--list-models]` | 拆书提取结构化作者人格，可指定分析模型 |
 | `/novel-review [项目] [章号\|最近N章] [--deep]` | 请求基础或深度审校 |
 | `/novel-conflict [项目] [章号\|N-M]` | 请求冲突分析 |
 | `/novel-pace [项目]` | 请求节奏分析和文字图示 |
@@ -165,11 +165,16 @@ github:xingyanghaifu/dsh-novel-master
 
 ```text
 /novel-persona-study 凡人修仙传.txt --provider deepseek --model deepseek-chat --effort high --to 网管修仙
+/novel-persona-study --list-models        # 先看宿主有哪些 provider/model 可用，不用靠猜
 ```
 
-也可以什么都不写：留空则用插件设置「作者人格提取」里配置的模型，再没有就用本会话实际路由。三段都不成立时命令直接报错并列出三种解决办法——**不会猜一个模型**，因为猜错会把整本参考作品发到别的 provider 上计费。
+也可以什么都不写：留空则用插件设置「作者人格提取」里配置的模型，再没有就用本会话实际路由。三段都不成立时命令直接报错并列出三种解决办法——**不会猜一个模型**，因为猜错会把整本参考作品发到别的 provider 上计费。`--list-models`（也可写 `--模型列表`）会列出宿主当前可发现的全部 provider/model 组合。
+
+**长篇小说不会只读开头。** 真实作品动辄几十万字，而一次请求塞不下这么多，插件会对全文做均匀采样：固定 16 段，第一段取开篇、最后一段贴住大结局，中间等距铺开。这样能避免一个具体问题——很多书的开头是慢热的序章（世界观铺垫、长句、几乎没对话），正文却是短句对话体；只读开头会把一个快节奏作者判成「描写密、节奏慢」。回执里的「分析样本」会写明「均匀采样约 N%」，N 是实际覆盖比例，一眼能看出这份人格基于全书多少内容。
 
 风格存在项目内 `作者人格.json`（可手改），同时写进 `写作规范.md` 的标记块。写文件而不是只放提示词，是因为完本/续写要跑很多轮，上下文随时被压缩，只有落在文件里的口径每轮都在。换风格会整体替换标记块，不会把旧风格堆在文件末尾。拆书产出的内容属于模型的风格判断，不是对作者的客观评价，也不代表仿写质量。
+
+人格文件里还记着 `model`（哪个模型拆的）、`source`（从哪份文本）、`covered`（看了全书多少比例）与 `truncated`，方便日后判断这份风格值不值得信。
 
 内置 5 种：`wangyu-classic` 忘语（凡人流）、`ergen-style` 耳根（仙侠诗意）、`chendong-epic` 辰东（洪荒史诗）、`maoniannian-delicate` 猫腻（文青细腻）、`tiancan-fast` 天蚕土豆（快节奏爽文）。分值是相对刻度，不是对作者的评分。
 

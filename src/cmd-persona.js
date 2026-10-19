@@ -29,24 +29,23 @@ import {
 /** 从原始输入里剥掉模型路由参数，剩下的才是项目名/文件路径。 */
 function takeRouteOptions(raw) {
   const text = ` ${String(raw ?? '')} `
-  const take = pattern => {
-    const match = text.match(pattern)
+  const grab = (pattern, current) => {
+    const match = current.rest.match(pattern)
     if (match === null) return undefined
-    text.replace(match[0], ' ')
+    current.rest = `${current.rest.slice(0, match.index)} ${current.rest.slice(match.index + match[0].length)}`
     return match[1]
   }
-  let rest = text
-  const grab = (pattern) => {
-    const match = rest.match(pattern)
-    if (match === null) return undefined
-    rest = `${rest.slice(0, match.index)} ${rest.slice(match.index + match[0].length)}`
-    return match[1]
-  }
+  const current = { rest: text }
+  const provider = grab(/(?:^|\s)--provider\s+([^\s]+)(?=\s|$)/iu, current)
+  const model = grab(/(?:^|\s)--model\s+([^\s]+)(?=\s|$)/iu, current)
+  const reasoningEffort = grab(/(?:^|\s)--effort\s+([^\s]+)(?=\s|$)/iu, current)
+  const listModels = grab(/(?:^|\s)--(?:list-models|模型列表)(?=\s|$)/iu, current) !== undefined
   return {
-    provider: grab(/(?:^|\s)--provider\s+([^\s]+)(?=\s|$)/iu),
-    model: grab(/(?:^|\s)--model\s+([^\s]+)(?=\s|$)/iu),
-    reasoningEffort: grab(/(?:^|\s)--effort\s+([^\s]+)(?=\s|$)/iu),
-    rest: rest.replace(/\s+/gu, ' ').trim(),
+    provider,
+    model,
+    reasoningEffort,
+    listModels,
+    rest: current.rest.replace(/\s+/gu, ' ').trim(),
   }
 }
 
@@ -192,6 +191,26 @@ export function personaStudyCommand(ctx, config) {
     handler: async (invocation) => {
       const cwd = agentCwd(invocation)
       const options = takeRouteOptions(invocation.rawInput)
+
+      // 先看清有哪些模型可用再选，比让用户猜 provider/model 拼写靠谱得多。
+      if (options.listModels) {
+        const { discoverHostModels } = await import('./models-discovery.js')
+        const failures = []
+        const { models } = await discoverHostModels(ctx, failures)
+        if (models.length === 0) {
+          return fail(formatError('宿主没有可发现的模型', [
+            ...failures.map(item => `${item.source}：${item.message}`),
+            '直接在命令里指定：--provider X --model Y',
+            '或在插件设置 → 作者人格提取 里填写',
+          ]))
+        }
+        const lines = models.map(item => `  ${item.provider}  ${item.model}${item.tag ? `  [${item.tag}]` : ''}`)
+        return ok(formatSuccess('可用于拆书的模型', {
+          '🤖 可用列表': `\n${lines.join('\n')}`,
+          '💡 用法': `/novel-persona-study 参考.txt --provider <上面第一个> --model <第二个>`,
+        }))
+      }
+
       const toMatch = options.rest.match(/(?:^|\s)--to\s+(\S+)(?=\s|$)/u)
       const to = toMatch === null ? undefined : toMatch[1]
       const input = toMatch === null
@@ -242,12 +261,16 @@ export function personaStudyCommand(ctx, config) {
         return fail(`提取作者人格失败：${message}`)
       }
 
+      // 长篇只按百分比采样，回执里说清楚分析范围，避免用户以为读了全书。
+      const sampleLine = persona.truncated
+        ? `${Math.round(persona.evidence.chars / 1000)}K 字（均匀采样约 ${Math.round((persona.covered ?? 0) * 100)}%）`
+        : `${Math.round(persona.evidence.chars / 1000)}K 字（全文）`
       if (to === undefined) {
         // 没指定项目：只在回复里给结论，不落盘。用户可能只是想看看。
         return ok(formatSuccess(`作者人格分析：${reference.label}`, {
           '🎨 风格特征': `\n${personaReport(persona)}`,
           '🤖 使用模型': `${persona.model}（来源：${routeSourceLabel(resolved.source)}）`,
-          '📏 分析样本': `${Math.round(persona.evidence.chars / 1000)}K 字${persona.truncated ? '（已截断）' : ''}`,
+          '📏 分析样本': sampleLine,
           '💾 未保存': `加 --to 项目名 可写入项目的 ${PERSONA_FILE}`,
         }))
       }
@@ -259,7 +282,7 @@ export function personaStudyCommand(ctx, config) {
       return ok(formatSuccess(`作者人格已保存到《${to}》`, {
         '🎨 风格特征': `\n${personaReport(persona)}`,
         '🤖 使用模型': `${persona.model}（来源：${routeSourceLabel(resolved.source)}）`,
-        '📏 分析样本': `${Math.round(persona.evidence.chars / 1000)}K 字${persona.truncated ? '（已截断）' : ''}`,
+        '📏 分析样本': sampleLine,
         '📁 人格文件': `${projectRelativeDir(to)}/${PERSONA_FILE}`,
         '💡 下一步': `/novel-continue ${to} 10章 —— 写的时候会自动带上这个风格`,
       }))

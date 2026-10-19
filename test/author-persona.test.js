@@ -13,6 +13,7 @@ import path from 'node:path'
 import {
   BUILTIN_PERSONA_IDS,
   BUILTIN_PERSONAS,
+  MAX_PERSONA_TEXT,
   PERSONA_DIMENSIONS,
   PERSONA_FILE,
   builtinPersona,
@@ -24,6 +25,7 @@ import {
   personaReport,
   removePersonaFromRules,
   resolvePersonaRoute,
+  samplePersonaText,
   savePersona,
   takePersonaOption,
   writePersonaToRules,
@@ -310,7 +312,7 @@ test('extractPersona 长文本截断并在证据里如实标注', async () => {
   const huge = SAMPLE.repeat(40)
   const persona = await extractPersona(h.ctx, { text: huge, route })
   assert.equal(persona.truncated, true)
-  assert.match(h.calls[0].messages[0].content[0].text, /已截取/u)
+  assert.match(h.calls[0].messages[0].content[0].text, /均匀取材/u)
 })
 
 test('resolvePersonaRoute 按 命令行 > 设置 > 会话 回退', async () => {
@@ -357,4 +359,91 @@ test('人格套用后，提示词区块真的出现在 写作规范.md 里', () 
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true })
   }
+})
+
+/**
+ * 长篇采样。真实小说动辄几十万字，只取开头会按序章的写法给全书打分：
+ * 慢热开头（长句、无对话）会把一个快节奏对话体的作者判成“描写密、节奏慢”。
+ */
+test('sampledPersonaText 对短文本原样返回，不标注截断', () => {
+  const { sample, truncated, covered } = samplePersonaText('短文本。'.repeat(50))
+  assert.equal(truncated, false)
+  assert.equal(covered, 1)
+  assert.equal(sample, '短文本。'.repeat(50))
+})
+
+test('sampledPersonaText 覆盖全书，而不是只截开头', () => {
+  // 采样必然有间隙，所以不断言某个精确偏移被命中，而是验证三件关键的事：
+  // 开头在、结尾在、采样点铺满全书。
+  const head = `【开头标记】${'甲'.repeat(40000)}`
+  const tail = `${'丙'.repeat(40000)}【结尾标记】`
+  const full = head + tail
+  const { sample, truncated, covered } = samplePersonaText(full)
+  assert.equal(truncated, true)
+  assert.ok(sample.length <= MAX_PERSONA_TEXT + 2000, `采样超预算：${sample.length}`)
+  assert.match(sample, /【开头标记】/u, '必须看到开篇写法')
+  assert.match(sample, /【结尾标记】/u, '必须看到大结局写法 —— 只取开头就漏了')
+  assert.ok(covered > 0 && covered <= 1)
+
+  // 采样点要铺到全书后段，不能都挤在前半本。
+  const positions = [...sample.matchAll(/原文位置约 (\d+)%/gu)].map(match => Number(match[1]))
+  assert.ok(positions.length >= 10, `采样点太少：${positions.length}`)
+  assert.equal(positions[0], 0, '第一个点应在开篇')
+  assert.ok(positions.at(-1) >= 90, `最后一个点应接近结尾，实际 ${positions.at(-1)}%`)
+  // 每个 20% 区间都要有采样点，否则中段整段被跳过。
+  for (const bucket of [20, 40, 60, 80]) {
+    assert.ok(
+      positions.some(value => value >= bucket - 10 && value < bucket + 10),
+      `${bucket}% 附近没有采样点：${positions.join(',')}`,
+    )
+  }
+})
+
+test('sampledPersonaText 会打乱慢热开头造成的误判', () => {
+  // 开头全是有对话的慢热铺垫，后面是短句对话体。
+  const slowOpening = `${'他想着许多年后才会明白的事情，天色一点点暗下去。'.repeat(800)}`
+  const dialogueBody = `${'“走！”他喊。刀光一闪。\n“你疯了？”她问。\n'}`
+    .repeat(2500)
+  const full = slowOpening + dialogueBody
+  const headOnly = full.slice(0, MAX_PERSONA_TEXT)
+  const { sample } = samplePersonaText(full)
+  // 只看开头时统计到的对话比例，与采样后的比例必须不同，
+  // 否则说明采样没有把正文的对话体带进来。
+  const headDialogue = personaEvidence(headOnly).dialogueRatio
+  const sampleDialogue = personaEvidence(sample).dialogueRatio
+  assert.ok(sampleDialogue > headDialogue, `采样后对话占比应更高：开头 ${headDialogue}% vs 采样 ${sampleDialogue}%`)
+})
+
+test('拆书结果落盘后仍能追溯模型、来源与覆盖比例', async () => {
+  // 风格卡片是给人看的，但「这份人格可不可信」要靠溯源字段判断：
+  // 用了哪个模型、从什么来源、看了全书多少比例。这些一旦在保存时被
+  // 白名单过滤掉，日后就再也查不回来了。
+  const cwd = makeWorkspace()
+  try {
+    const h = host(personaJson())
+    const huge = `${'开头。'.repeat(20000)}${'结尾。'.repeat(20000)}`
+    const persona = await extractPersona(h.ctx, { text: huge, route, name: '某作者' })
+    savePersona(cwd, '测试书', persona)
+    const loaded = loadPersona(cwd, '测试书')
+    assert.equal(loaded.model, `${route.provider}/${route.model}`, '要记住是哪个模型拆的')
+    assert.ok(loaded.covered > 0 && loaded.covered <= 1, `覆盖比例丢失：${loaded.covered}`)
+    assert.equal(loaded.truncated, true)
+    assert.ok(loaded.source !== undefined || loaded.covered !== undefined)
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true })
+  }
+})
+
+test('extractPersona 对长篇把采样范围与覆盖比例交给模型并如实回报', async () => {
+  const h = host(personaJson())
+  const huge = `${'开头段。'.repeat(3000)}${'中段。'.repeat(3000)}${'结尾段。'.repeat(3000)}`
+  const persona = await extractPersona(h.ctx, { text: huge, route })
+  assert.equal(persona.truncated, true)
+  assert.ok(persona.covered > 0)
+  const sent = h.calls[0].messages[0].content[0].text
+  assert.match(sent, /均匀取材/u, '提示词要说明是采样而非全文')
+  assert.match(sent, /开头\/中段\/结尾/u)
+  assert.match(sent, /结尾段/u, '采样必须真的包含结尾内容')
+  // 送出去的字数不能超过预算，否则会撞 input-limit。
+  assert.ok(sent.length <= MAX_PERSONA_TEXT + 6000, `提示词过长：${sent.length}`)
 })
