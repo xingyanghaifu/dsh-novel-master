@@ -363,6 +363,29 @@ window.__ModuleLoader__.load({
 .nm-terra-save-btn:disabled{opacity:.55;cursor:default}
 .nm-terra-save-ok{font-size:11px;color:var(--nm-good)}
 .nm-terra-save-err{font-size:11px;color:var(--nm-error)}
+/* 气候推演。放在「存为地图资产」下面 —— 前者是动作，后者是核对结果，
+   顺序上先给动作再给解释，作者点完能立刻看到这张图合不合理。 */
+.nm-world{display:flex;flex-direction:column;gap:7px;margin-top:4px;padding-top:10px;border-top:1px solid var(--nm-border-soft)}
+.nm-world-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nm-world-title{font-size:10.5px;font-weight:600;letter-spacing:.4px;color:var(--nm-muted);text-transform:uppercase}
+.nm-world-hint{font-size:10px;color:var(--nm-muted);opacity:.6}
+.nm-world-list{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
+.nm-world-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5}
+.nm-world-name{color:var(--nm-text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-world-band,.nm-world-terrain{font-size:10.5px;color:var(--nm-muted);white-space:nowrap}
+.nm-world-terrain{opacity:.8}
+.nm-world-climate{font-size:10.5px;color:var(--nm-accent);white-space:nowrap;font-variant-numeric:tabular-nums}
+.nm-world-issues{display:flex;flex-direction:column;gap:5px;margin-top:3px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 7%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent)}
+.nm-world-issues-head{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:var(--nm-error)}
+.nm-world-issues-count{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;font-size:9.5px;border-radius:999px;background:color-mix(in srgb,var(--nm-error) 18%,transparent);font-variant-numeric:tabular-nums}
+.nm-world-issue-list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+.nm-world-issue{display:flex;gap:5px;font-size:11px;line-height:1.5;color:var(--nm-muted);cursor:help}
+.nm-world-issue b{flex:none;font-weight:600;color:var(--nm-text)}
+.nm-world-issue span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.nm-world-issue-high b{color:var(--nm-error)}
+.nm-world-issue-mid b{color:color-mix(in srgb,var(--nm-accent) 70%,var(--nm-text))}
+.nm-world-issue-low b{color:var(--nm-muted)}
+.nm-world-more{font-size:10px;color:var(--nm-muted);opacity:.7}
 /* 尊重系统的减少动效设置。 */
 @media (prefers-reduced-motion:reduce){.nm-prog-ring-arc,.nm-prog-bar-fill,.nm-terra-front,.nm-terra-glow,.nm-terra-bar-fill{transition:none;animation:none}}
 `
@@ -2946,6 +2969,9 @@ window.__ModuleLoader__.load({
           desc: String(region.desc ?? '').trim(),
           pos: String(region.pos ?? '').trim(),
           terrain: String(region.terrain ?? '').trim(),
+          // 后端推演好的气候直接带过来。前端不重算 —— 两处各算一套，
+          // 迟早会出现「图上写着湿热、侧栏写着干旱」这种自相矛盾。
+          climate: region.climate ?? null,
           // 地区的「厚」按说明写得多细算，而不是按正文字数 —— 地区没有字数
           chars: String(region.desc ?? '').length,
         }))
@@ -3109,7 +3135,61 @@ window.__ModuleLoader__.load({
             title: '把当前地形连同地名存成项目里的 地图.svg 与 地图.md',
           }, saving ? '正在保存…' : '存为地图资产'),
           saved ? h('span', { className: 'nm-terra-save-ok', role: 'status' }, `已保存 ${saved}`) : null,
-          saveError ? h('span', { className: 'nm-terra-save-err', role: 'alert' }, saveError) : null))
+          saveError ? h('span', { className: 'nm-terra-save-err', role: 'alert' }, saveError) : null),
+        // ---- 世界讲不讲得通 ----
+        //
+        // 地名表本身看不出问题：六个地名并排放着，谁也不会觉得「雪原在赤道」
+        // 有什么不对。只有把位置和地形的后果算出来，矛盾才会浮到纸面上。
+        // 这段就是那个结果，作者不用自己去推。
+        WorldNotes(h, { regions: placeLike, world: project?.world }))
+    }
+
+    /**
+     * 世界概览：每个地区的纬度带、地形、气候，以及讲不通的地方。
+     *
+     * 为什么单独一块而不是塞进地名标签里：标签上最多再放两个字，
+     * 「温带·凉爽半干」放不下，而且一挤就把地名本身挤没了。
+     * 气候是**核对**用的，不是瞄一眼用的，放在图下面更合适。
+     *
+     * 数据全部来自后端（atlas 的 world 字段），前端不重算。
+     */
+    function WorldNotes(h, { regions, world }) {
+      // 只有真的有地区才显示。空项目不该多出一块空表格。
+      const list = Array.isArray(regions) ? regions.filter((r) => r && r.climate) : []
+      if (list.length === 0) return null
+      const issues = Array.isArray(world?.issues) ? world.issues : []
+      // high 级问题用错误色提醒，其余用中性色 —— 全都标红等于都没标红
+      const marks = { high: 'nm-world-issue-high', medium: 'nm-world-issue-mid', low: 'nm-world-issue-low' }
+      return h('div', { className: 'nm-world' },
+        h('div', { className: 'nm-world-head' },
+          h('span', { className: 'nm-world-title' }, '气候推演'),
+          h('span', { className: 'nm-world-hint' }, '按方位与地形推出，不是你写的')),
+        h('ul', { className: 'nm-world-list' },
+          list.map((region) => h('li', { key: region.name, className: 'nm-world-row' },
+            h('span', { className: 'nm-world-name' }, region.name),
+            h('span', { className: 'nm-world-band' }, region.climate.bandLabel),
+            h('span', { className: 'nm-world-terrain' }, region.climate.terrainLabel),
+            h('span', { className: 'nm-world-climate' }, region.climate.summary)))),
+        issues.length > 0
+          ? h('div', { className: 'nm-world-issues' },
+            h('div', { className: 'nm-world-issues-head' },
+              // 标题按最重的那条定，不能一律写「讲不通」——
+              // 列表里混着 medium 时，那个标题就成了冤枉人。
+              world?.coherent ? '可能有出入的地方' : '讲不通的地方',
+              h('span', { className: 'nm-world-issues-count' }, `${issues.length}`)),
+            h('ul', { className: 'nm-world-issue-list' },
+              issues.slice(0, 5).map((issue, index) => h('li', {
+                key: `${issue.kind}-${issue.region}-${index}`,
+                className: `nm-world-issue ${marks[issue.severity] ?? ''}`,
+                // 完整解释放在 title 里：列表要短，作者想知道细节时再展开
+                title: `${issue.message}\n\n建议：${issue.suggestion}`,
+              },
+              h('b', null, issue.region),
+              h('span', null, issue.message)))),
+            issues.length > 5
+              ? h('div', { className: 'nm-world-more' }, `还有 ${issues.length - 5} 条，见 /novel-world`)
+              : null)
+          : null)
     }
 
     /** 资产清单里每一项的图标：已写好打勾，空文件是空心点，没建过是虚线圈。 */

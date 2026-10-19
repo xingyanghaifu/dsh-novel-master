@@ -14,6 +14,7 @@ import {
   withProjectsDirectory,
 } from './project.js'
 import { listAssets } from './assets.js'
+import { enrichRegions } from './world-model.js'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -213,16 +214,72 @@ function regionsFromWorldState(cwd, name) {
     if (!raw) continue
     const item = raw.match(/^[-*+]\s+(.*)$/u)
     if (!item) continue
-    // `**艾尔登维尔大陆**：主舞台` / `艾尔登维尔大陆：主舞台` / `艾尔登维尔大陆`
     const body = item[1].replace(/\*\*/g, '')
-    const sep = body.search(/[:：]/u)
-    const region = sep > 0
-      ? { name: body.slice(0, sep).trim(), desc: body.slice(sep + 1).trim() }
-      : { name: body.trim(), desc: '' }
-    if (region.name) regions.push({ ...region, pos: '', terrain: '', people: '' })
+    const region = parseRegionLine(body)
+    if (region.name) regions.push({ ...region, people: '' })
     if (regions.length >= MAX_REGIONS) break
   }
   return regions
+}
+
+/**
+ * 方位词表。只认这九个 —— 再多就成了猜谜。
+ *
+ * 复合方位必须排在单字前面：正则从左到右取第一个能匹配的，
+ * 「西南」若排在「西」后面就只会匹配到「西」，地点会被摆到正左方
+ * 而不是左下角。这个顺序是语义，不是风格。
+ */
+const BEARINGS = '东北|西北|东南|西南|东|西|南|北|中'
+/** 地形词表。与 world-model 的 TERRAIN_TRAITS 对齐。 */
+const TERRAIN_WORDS = '火山|雪原|沙漠|水域|沼泽|地下|岛屿|城邦|森林|山地|原野'
+
+/**
+ * 解析一行地名，把可选的方位与地形标注拆出来。
+ *
+ * 世界状态.md 的地理段原先是 `- **地名**：说明`，只有名字和一句话，
+ * 没有任何空间信息 —— 六个地点因此全被摆到画布正中，气候一模一样，
+ * 「真实世界感」就无从谈起。
+ *
+ * 支持三种写法，后两种是这次新增的：
+ *
+ *   - **白塔**：源质最浓的平原
+ *   - **白塔**（东·城邦）：源质最浓的平原
+ *   - **白塔**（东）：源质最浓的平原
+ *
+ * 括号里的方位和地形都能省略，中间用 · 、 / 或空格分隔。
+ * 旧格式照旧能读，读到的东西和以前一样 —— 不写括号的作者不受影响。
+ */
+export function parseRegionLine(body) {
+  // 自己也去一遍粗体标记，而不是指望调用方先处理 ——
+  // regionsFromWorldState 会先 replace，但直接测试或别处复用时没有那一步，
+  // 名字会带着 `**` 出来。一个函数不该对输入干不干净有隐含约定。
+  const text = String(body ?? '').replace(/\*\*/g, '').trim()
+  const sep = text.search(/[:：]/u)
+  const head = sep > 0 ? text.slice(0, sep).trim() : text
+  const desc = sep > 0 ? text.slice(sep + 1).trim() : ''
+
+  // 括号里的标注：全角或半角括号都认
+  const tagged = head.match(/^(.+?)\s*[（(]([^）)]*)[）)]\s*$/u)
+  if (!tagged) return { name: head, desc, pos: '', terrain: '' }
+
+  const nameOnly = tagged[1].trim()
+  const inside = tagged[2].trim()
+  // 括号里必须是「方位/地形」这两个词本身，中间用 ·、/、空格分隔，
+  // 不能夹带别的字。这样「雾谷（北境）」不会被拆成「雾谷」+ 方位北 ——
+  // 「北境」是个地名，切成方位会把作者起的名毁掉。
+  // 早先用的是「含方位字就算」，于是任何带「北」「南」的地名都被误拆。
+  const parts = inside.split(/[·・/／,，\s]+/u).filter(Boolean)
+  const bearingPart = parts.find((part) => new RegExp(`^(${BEARINGS})$`, 'u').test(part))
+  const terrainPart = parts.find((part) => new RegExp(`^(${TERRAIN_WORDS})$`, 'u').test(part))
+  // 只要有一个词没认出来，就整条不拆 —— 宁可少一个方位，也别拆错名字。
+  const allKnown = parts.length > 0 && parts.every((part) => part === bearingPart || part === terrainPart)
+  if (!allKnown) return { name: head, desc, pos: '', terrain: '' }
+  return {
+    name: nameOnly,
+    desc,
+    pos: bearingPart ?? '',
+    terrain: terrainPart ?? '',
+  }
 }
 
 /** 世界状态.md「世界时钟」段落的正文行（背景/史前事件）。 */
@@ -338,6 +395,9 @@ export function projectAtlas(cwd, name) {
   const foreshadow = foreshadowStats(readProjectFile(cwd, name, '伏笔.md') ?? '')
   const branches = (readProjectFile(cwd, name, '剧情树.md')?.match(/^#{2,3}\s/gmu) ?? []).length
   const regions = regionsOf(cwd, name)
+  // 给地区补上坐标和推演气候，并顺带做一次一致性审计。
+  // 作者看到的就不只是「一张地名表」，而是「这块地方为什么长这样」。
+  const world = enrichRegions(regions)
   const events = eventsOf(cwd, name, regions)
   const chapterNodes = chapters.slice(0, MAX_CHAPTER_NODES).map((chapter) => ({
     id: `chapters/${chapter.number}`,
@@ -369,7 +429,10 @@ export function projectAtlas(cwd, name) {
     readiness: assetReadiness(sections, chapters.length),
     // 批量写作有真实的阶段文件（写盘时机由 cmd-batch 控制），进度面板直接读它。
     batch: readBatchStatus(cwd, name),
-    regions,
+    regions: world.regions,
+    // 气候推演与一致性审计。coherent 为 false 时前端提醒作者：
+    // 不是判他错，是让他知道自己破的是哪条规则。
+    world: { issues: world.issues, climates: world.climates, coherent: world.coherent },
     events,
     // 已绑定的 AI 插图：kind+name 对应 relation 让前端能按地区/角色取图
     assets: safeAssets(cwd, name),

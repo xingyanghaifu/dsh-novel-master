@@ -7,6 +7,8 @@ import path from 'node:path'
 import { leadingChapter } from './args.js'
 import { NO_PROJECT, agentCwd, fail, ok, projectExists, queueTask, resolveProject } from './context.js'
 import { CHAPTER_DIR, RULES_FILE, countChars, listChapters, projectDir, projectRelativeDir, readProjectFile, readState } from './project.js'
+import { regionsOf } from './atlas.js'
+import { enrichRegions } from './world-model.js'
 
 /** Resolve the target project or return an error result. */
 function target(invocation) {
@@ -61,7 +63,10 @@ export const mapCommand = () => modelCommand({
 ${note ? `用户要求：${note}\n` : ''}整理出地区与事件两个文件（没有就新建，已有则只补全表格、不删已有行）：
 1. ${dir}/地区.md：一张 Markdown 表格 | 地区 | 方位 | 地形 | 说明 | 人物 |，5-12 个地区。方位填 北/南/西/东/中/东北/西南 这类方位词；地形从 山地/雪原/森林/沙漠/水域/沼泽/城邦/原野/地下/火山/岛屿 里选一个最贴切的（这决定面板上的地貌小图）；说明一句话讲清地貌与氛围；人物填该地活跃的角色。
 2. ${dir}/事件.md：一张 Markdown 表格 | 事件 | 章号 | 地区 | 状态 |，按大纲逐章与伏笔的埋设/回收整理，一行一个事件。章号写「第N章」，史前/背景事件章号留空；地区必须用地区.md 里出现的名称；状态用 未发生/进行中/已发生。
-表格之外不要写其他正文。回复只列地区名、地形和事件数量。`,
+表格之外不要写其他正文。回复只列地区名、地形和事件数量。
+
+方位就是纬度：北边冷、南边热，越往两端越极端。分配地形时守住这条 —— 雪原放北、雨林和沙漠的取舍看它离赤道多远；沙漠要么贴副热带（离正中偏三到四成的位置），要么就在山脉背风的一侧。聚落必须有水：河、湖、海岸、泉，至少挨着一个水域或湿地。写不出理由的极端地形（赤道上的雪原、雨林里的沙海）要么换位置，要么在说明里补一句为什么（高海拔、寒流、魔法）。
+如果 世界状态.md 的「地理」段是列表形式，给它每条加上方位与地形标注，写成 \`- **地名**（方位·地形）：说明\`，这样面板能推出气候。`,
   }),
 })
 
@@ -286,6 +291,29 @@ function clip(text, max = 1800) {
   return t.length > max ? `${t.slice(0, max)}\n…（已截断，完整内容见文件）` : t
 }
 
+/** clip 的补充：把世界推演结果压成一段能读的摘要。 */
+function worldBrief(cwd, project) {
+  const { regions, issues, coherent } = enrichRegions(regionsOf(cwd, project))
+  // 没写地理的项目不显示这一节 —— 空表格只会占地方
+  if (regions.length === 0) return ''
+  const rows = regions
+    .filter((region) => region.climate)
+    .map((region) => {
+      const c = region.climate
+      return `  ${region.name}｜${c.bandLabel}｜${c.terrainLabel}｜${c.summary}`
+    })
+  const lines = ['———— 世界概览（按方位推演） ————', ...rows]
+  if (issues.length > 0) {
+    lines.push('', coherent ? '可能有出入的地方：' : '讲不通的地方：')
+    for (const issue of issues.slice(0, 6)) {
+      lines.push(`  · ${issue.region}：${issue.message}`)
+    }
+    // 一次最多列六条：全列出来会把原文挤掉，作者反而看不到设定本身
+    if (issues.length > 6) lines.push(`  …还有 ${issues.length - 6} 条，见 Web 面板`)
+  }
+  return `${lines.join('\n')}\n\n`
+}
+
 export function worldCommand() {
   return {
     name: 'novel-world',
@@ -297,11 +325,15 @@ export function worldCommand() {
       if (t.note.length > 0) {
         return queueTask({ ...invocation, novelProject: t.project ?? null }, `【世界推演】项目 ${t.dir}。读 设定.md、角色.md、世界状态.md、大纲.md。
 要求：${t.note}
-按每个势力/角色自己的目标和性格推进他们的计划（不为主角让路），写进 世界状态.md 的「幕后推进」并推进世界时钟；会影响主线的变化同步进 大纲.md 后续章节。回复列出关键变化。`, `开始推演《${t.project}》的世界。`)
+按每个势力/角色自己的目标和性格推进他们的计划（不为主角让路），写进 世界状态.md 的「幕后推进」并推进世界时钟；会影响主线的变化同步进 大纲.md 后续章节。回复列出关键变化。
+地理不要推倒重来：地名、方位、地形沿用 世界状态.md 与 地区.md 里已有的。新增地点沿用 \`- **地名**（方位·地形）：说明\` 这个格式，方位用 北/南/西/东/中 加 东北/西北/东南/西南，地形用 山地/雪原/森林/沙漠/水域/沼泽/城邦/原野/地下/火山/岛屿。新地点的气候要跟它所在方位说得通 —— 北边不能长雨林，赤道不能常年积雪，城市必须挨着水。`, `开始推演《${t.project}》的世界。`)
       }
       const world = readProjectFile(t.cwd, t.project, '世界状态.md')
       const tree = readProjectFile(t.cwd, t.project, '剧情树.md')
-      return ok(`《${t.project}》世界状态\n\n${clip(world)}\n\n———— 剧情树 ————\n${clip(tree, 1200)}`)
+      // 光把 Markdown 原样打出来，作者看不出世界讲不讲得通。
+      // 这里顺手推演一遍气候、跑一次一致性审计 —— 已经读过的盘，不额外花钱。
+      const brief = worldBrief(t.cwd, t.project)
+      return ok(`《${t.project}》世界状态\n\n${brief}${clip(world)}\n\n———— 剧情树 ————\n${clip(tree, 1200)}`)
     },
   }
 }
