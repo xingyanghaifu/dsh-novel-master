@@ -1,6 +1,6 @@
 # dsh-novel-master · 小说创作大师
 
-为 DeepSeek Harness（DSH）提供小说写作、分析、项目管理和智能辅助工具。当前包含 30 个功能命令及 1 个更新维护命令。
+为 DeepSeek Harness（DSH）提供小说写作、分析、项目管理和智能辅助工具。当前包含 32 个功能命令及 1 个更新维护命令。
 
 ## 安装
 
@@ -94,8 +94,8 @@ github:xingyanghaifu/dsh-novel-master
 
 | 命令 | 用途 |
 |---|---|
-| `/novel <脑洞> [60章\|20万字] [--auto]` | 建项目并提交规划、写作和收尾目标 |
-| `/novel-continue [项目\|文件.txt] [N章] [--auto]` | 续写项目或导入 TXT/Markdown（支持 GBK） |
+| `/novel <脑洞> [60章\|20万字] [--auto] [--persona 风格id]` | 建项目并提交规划、写作和收尾目标 |
+| `/novel-continue [项目\|文件.txt] [N章] [--auto] [--persona 风格id]` | 续写项目或导入 TXT/Markdown（支持 GBK） |
 | `/novel-chapter [项目] <章号> [要求]` | 请求生成指定新章节，避免静默覆盖已有章 |
 | `/novel-batch [项目] [N章] [--每批20章] [--auto] [要求]` | 一次模型请求连续写多章，按次计费模型最省请求 |
 | `/novel-rewrite [项目] <章号> [要求]` | 请求改写，要求先保留旧稿 |
@@ -106,6 +106,8 @@ github:xingyanghaifu/dsh-novel-master
 | `/novel-role [项目] [角色名\|要求]` | 查看角色，或提交修改任务 |
 | `/novel-spark [项目] [卡点]` | 请求下一步剧情建议 |
 | `/novel-study <参考文件> [--to 项目]` | 统计参考文本并请求风格分析 |
+| `/novel-persona [项目] [风格id]` | 查看或套用作者风格（5 种内置，也可用拆书结果） |
+| `/novel-persona-study <参考文件> [--to 项目] [--provider X --model Y --effort Z]` | 拆书提取结构化作者人格，可指定分析模型 |
 | `/novel-review [项目] [章号\|最近N章] [--deep]` | 请求基础或深度审校 |
 | `/novel-conflict [项目] [章号\|N-M]` | 请求冲突分析 |
 | `/novel-pace [项目]` | 请求节奏分析和文字图示 |
@@ -144,6 +146,33 @@ github:xingyanghaifu/dsh-novel-master
 
 恢复默认只预览，明确指定 `--apply` 才执行；执行前保留恢复前快照，额外文件不会被删除。恢复按文件原子替换，并非整项目事务；I/O 失败时可使用恢复前快照处理。差异比较按文件哈希列出变化，不是逐行 diff。合并/拆分生成项目「整理」目录下的新文件，不自动统一角色设定或重排原正文；拆分按 Unicode 字符目标硬切，可能跨句。
 
+## 作者人格
+
+想让新书带着某位作者的味道写，有两条路：套用内置风格，或从参考作品里拆出来。
+
+```text
+/novel-persona 网管修仙                       # 看当前项目的风格状态与可选清单
+/novel-persona 网管修仙 wangyu-classic        # 套用忘语那档风格
+/novel-persona-study 凡人修仙传.txt --to 网管修仙
+/novel-continue 网管修仙 20章                 # 自动带上已保存的风格
+```
+
+`/novel-persona` 只给项目名时显示现状；第二个参数是风格 id，也接受 `--persona 风格id` 写法。
+
+拆书时会先统计客观数据（平均句长、短句/长句占比、对话占比、独立短段占比、每千字省略号与感叹号），再交给模型评分，模型不能凭空给分。提取结果给你看的是 6 个维度（叙事节奏、对话风格、描写密度、情感基调、冲突烈度、人物刻画）的 0-10 分加可执行的「风格签名」，不写「文笔老练」这类没法执行的话。
+
+**指定分析模型**（三段回退，命令行最优先）：
+
+```text
+/novel-persona-study 凡人修仙传.txt --provider deepseek --model deepseek-chat --effort high --to 网管修仙
+```
+
+也可以什么都不写：留空则用插件设置「作者人格提取」里配置的模型，再没有就用本会话实际路由。三段都不成立时命令直接报错并列出三种解决办法——**不会猜一个模型**，因为猜错会把整本参考作品发到别的 provider 上计费。
+
+风格存在项目内 `作者人格.json`（可手改），同时写进 `写作规范.md` 的标记块。写文件而不是只放提示词，是因为完本/续写要跑很多轮，上下文随时被压缩，只有落在文件里的口径每轮都在。换风格会整体替换标记块，不会把旧风格堆在文件末尾。拆书产出的内容属于模型的风格判断，不是对作者的客观评价，也不代表仿写质量。
+
+内置 5 种：`wangyu-classic` 忘语（凡人流）、`ergen-style` 耳根（仙侠诗意）、`chendong-epic` 辰东（洪荒史诗）、`maoniannian-delicate` 猫腻（文青细腻）、`tiancan-fast` 天蚕土豆（快节奏爽文）。分值是相对刻度，不是对作者的评分。
+
 ## 实际行为与边界
 
 写作、审校、冲突、节奏、虚拟读者、市场等命令会把任务和文件路径交给当前会话的模型。命令返回「已提交」表示任务排队成功，报告和正文需由模型后续生成；评分与读者反应属于模型判断，不是客观测量或真实读者测试。
@@ -156,6 +185,7 @@ github:xingyanghaifu/dsh-novel-master
 
 ```text
 /novel 网管发现网吧电脑能修仙 30章
+/novel 网管发现网吧电脑能修仙 30章 --persona tiancan-fast
 /novel-outline
 /novel-chapter 1 开场直接出现异常
 /novel-reader 1 --persona 挑剔读者
@@ -166,21 +196,22 @@ github:xingyanghaifu/dsh-novel-master
 
 ## 文件与持久化
 
-每本书一个项目目录，包含 `项目.json`、`写作规范.md`、`完本流程.md`、`设定.md`、`角色.md`、`大纲.md`、`世界状态.md`、`伏笔.md`、`剧情树.md` 和 `正文/`。进度以文件为准，可跨会话、压缩和重启保留。生成工作流要求模型持续同步这些文件。
+每本书一个项目目录，包含 `项目.json`、`写作规范.md`、`完本流程.md`、`设定.md`、`角色.md`、`大纲.md`、`世界状态.md`、`伏笔.md`、`剧情树.md`、`作者人格.json`（设过风格才有）和 `正文/`。进度以文件为准，可跨会话、压缩和重启保留。生成工作流要求模型持续同步这些文件。
 
 ## 开发
 
 ```sh
 npm install
-npm test                 # 运行全部测试（225 项）
+npm test                 # 运行全部测试（308 项）
 npm run test:coverage    # 覆盖率报告（Node 原生，无需额外依赖）
 npm pack --dry-run       # 验证发布内容
 ```
 
-覆盖率使用 Node.js 内置 `--experimental-test-coverage`，不引入 c8 等第三方依赖。当前：行 80.3% / 分支 78.9% / 函数 85.0%。
+覆盖率使用 Node.js 内置 `--experimental-test-coverage`，不引入 c8 等第三方依赖。
 
 - [入口与配置](src/index.js)
 - [项目路径](src/project.js)
+- [作者人格](src/author-persona.js)
 - [扩展工具](src/cmd-extra.js)
 - [更新服务](src/updater.js)
 - [地图底图指南](docs/map-asset-guide.md)

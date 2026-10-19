@@ -1,7 +1,7 @@
 {
   "name": "dsh-novel-master",
-  "version": "2.7.0",
-  "description": "小说创作插件 for DeepSeek Harness - 30 个功能命令及更新入口，资料可信度评估、热点题材分析、多场景推理强度配置，右侧栏设定树（世界观/人设/大纲/进度可视化）",
+  "version": "2.8.0",
+  "description": "小说创作插件 for DeepSeek Harness - 32 个功能命令及更新入口，作者人格（拆书提取 + 内置风格）、资料可信度评估、热点题材分析、多场景推理强度配置，右侧栏设定树（世界观/人设/大纲/进度可视化）",
   "type": "module",
   "main": "src/index.js",
   "exports": {

@@ -46,6 +46,7 @@ import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from 
 import { researchCommand, trendAnalysisCommand } from './research.js'
 import { batchCommand, batchTool } from './cmd-batch.js'
 import { probeCommand, probeTool } from './cmd-probe.js'
+import { personaCommand, personaStudyCommand } from './cmd-persona.js'
 
 export const name = 'novel-master'
 
@@ -85,6 +86,8 @@ const COMMAND_KEYS = [
   ['trends', '热点分析 (/novel-trends)'],
   ['batch', '批量写作 (/novel-batch)'],
   ['probe', '输出上限实测 (/novel-probe)'],
+  ['persona', '作者风格 (/novel-persona)'],
+  ['persona-study', '拆书提取人格 (/novel-persona-study)'],
   ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
   ...INTELLIGENCE_KEYS,
 ]
@@ -177,6 +180,12 @@ export const Config = z.object({
     // more only risks a max-tokens cut that discards the whole batch.
     chaptersPerRequest: live(z.natural().min(1).max(37).default(20)).description('每次请求写几章').comment('实测单次上限约 37 章（77525 字）。按次计费时这是唯一影响花费的旋钮：章数越多，请求次数越少。建议 20。'),
   }).description('批量写作（一次请求写多章）'),
+  persona: z.object({
+    provider: live(z.string().default('')).description('拆书分析 Provider')
+      .comment('用于 /novel-persona-study 提取作者风格。留空则使用本会话实际路由；命令行 --provider 优先级更高。'),
+    model: live(z.string().default('')).description('拆书分析模型 ID'),
+    reasoningEffort: live(z.string().default('')).description('拆书分析推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
+  }).description('作者人格提取（拆书）'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
@@ -262,6 +271,8 @@ export function definitions(ctx, intelligence, config) {
     { key: 'trends', factory: () => trendAnalysisCommand(ctx, config?.research) },
     { key: 'batch', factory: () => batchCommand(ctx, readField(config, 'batch')) },
     { key: 'probe', factory: () => probeCommand(ctx, readField(config, 'batch')) },
+    { key: 'persona', factory: () => personaCommand() },
+    { key: 'persona-study', factory: () => personaStudyCommand(ctx, config) },
     ...EXTRA_COMMANDS,
     ...intelligenceDefinitions(intelligence),
   ]

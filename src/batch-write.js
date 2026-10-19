@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { callText, BATCH_LIMITS } from './model-intelligence.js'
 import { CHAPTER_DIR, CHAPTER_RE, RULES_FILE, countChars, listChapters, projectDir, projectRelativeDir, readProjectFile, readState, safeName, writeState } from './project.js'
+import { loadPersona, personaPromptSection, writePersonaToRules } from './author-persona.js'
 
 /** Marker the model must emit between chapters; split on it, never on prose. */
 export const CHAPTER_SEPARATOR = '===第{{N}}章==='
@@ -44,6 +45,13 @@ function readCapped(cwd, name, file, cap) {
 export function buildBatchPrompt({ cwd, name, chapters, startChapter, requirement }) {
   const state = readState(cwd, name) ?? {}
   const rules = readCapped(cwd, name, RULES_FILE, 8000)
+  // Batch mode gets exactly one chance: no tools, no second turn, so the style
+  // must arrive in this prompt. 写作规范.md carries the persona block already,
+  // but a project that saved a persona without ever running a write command has
+  // it only in 作者人格.json — fold that in explicitly rather than assume.
+  const persona = loadPersona(cwd, name)
+  if (persona !== undefined) writePersonaToRules(cwd, name, persona)
+  const personaBlock = persona === undefined ? '' : `\n${personaPromptSection(persona)}\n`
   const refs = READ_FILES
     .map(file => {
       const text = readCapped(cwd, name, file, Math.floor(MAX_INLINE_CHARS / READ_FILES.length))
@@ -76,7 +84,7 @@ export function buildBatchPrompt({ cwd, name, chapters, startChapter, requiremen
 
 【写作规范】
 ${rules || '（无，按中文网文常规：节奏快、对话自然、细节具体。）'}
-
+${personaBlock}
 【项目资料】
 ${refs || '（暂无额外设定资料，请依据本章清单与上一章自行保持一致。）'}
 ${recentText ? `\n【最近正文（保持衔接）】${recentText}` : ''}

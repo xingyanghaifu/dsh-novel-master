@@ -14,6 +14,38 @@ import { safeName, projectRelativeDir } from './project.js'
 import { finishObjective } from './prompts.js'
 import { WORKFLOW_FILE, ensureProject, prepareRun, uniqueName } from './workflow.js'
 import { validateChapterTarget, validateProjectName, formatError, formatSuccess } from './validators.js'
+import { builtinPersona, loadPersona, savePersona, takePersonaOption, writePersonaToRules } from './author-persona.js'
+
+/**
+ * Resolve the persona a write command should use, and persist it.
+ *
+ * A `--persona <id>` on this call wins and is written to the project, so the
+ * fingerprint survives the goal loop and later sessions. Without the flag an
+ * already-saved persona is reused, which is what makes "set once, keep writing"
+ * work. Either way the section is written into 写作规范.md rather than only the
+ * receipt: 完本/续写 runs many rounds and the context is compacted between them,
+ * so a style that lives only in this turn's prompt would evaporate.
+ *
+ * @returns {{ persona?: object, error?: string }}
+ */
+function applyPersona(cwd, name, personaId) {
+  if (personaId !== undefined) {
+    const persona = builtinPersona(personaId)
+    if (persona === undefined) return { error: `没有内置风格「${personaId}」` }
+    savePersona(cwd, name, { ...persona, source: `builtin:${personaId}` })
+    writePersonaToRules(cwd, name, persona)
+    return { persona }
+  }
+  const saved = loadPersona(cwd, name)
+  if (saved === undefined) return {}
+  writePersonaToRules(cwd, name, saved)
+  return { persona: saved }
+}
+
+/** 命中了人格时，回执里多一行，让用户知道风格确实生效了。 */
+function personaReceipt(persona) {
+  return persona === undefined ? {} : { '🎨 作者风格': persona.name }
+}
 
 /** Optional goal service; undefined when the host does not compose it. */
 function goalsOf(ctx) {
@@ -81,10 +113,14 @@ export function novelCommand(ctx) {
   return {
     name: 'novel',
     description: '一键完本：输入脑洞，自动规划并写完整本小说',
-    input: { hint: '<脑洞> [60章|20万字] [--auto 自动分岔]', attachments: true },
+    input: { hint: '<脑洞> [60章|20万字] [--auto 自动分岔] [--persona 风格id]', attachments: true },
     handler: (invocation) => {
       const cwd = agentCwd(invocation)
-      const options = extractOptions(invocation.rawInput)
+      // Strip --persona before option parsing so the id cannot leak into the
+      // project name ("网管修仙--persona-wangyu-classic").
+      const personaOption = takePersonaOption(invocation.rawInput)
+      if (personaOption.error !== undefined) return fail(formatError(personaOption.error))
+      const options = extractOptions(personaOption.rest)
       if (options.rest.length === 0) {
         return fail(formatError(
           '缺少必需参数：脑洞',
@@ -99,6 +135,8 @@ export function novelCommand(ctx) {
       const target = chapterTarget(options)
       const name = uniqueName(cwd, safeName(options.rest, 12) || '未命名小说')
       ensureProject(cwd, name, options.rest)
+      const applied = applyPersona(cwd, name, personaOption.personaId)
+      if (applied.error !== undefined) return fail(formatError(applied.error))
       const { done } = prepareRun(cwd, name, {
         mode: 'finish',
         target,
@@ -110,7 +148,8 @@ export function novelCommand(ctx) {
         formatSuccess(`新书「${name}」创建成功`, {
           '📁 项目路径': `${projectRelativeDir(name)}/`,
           '📝 目标章数': `${target} 章`,
-          '🎯 分岔模式': options.auto ? '自动决策' : '手动选择'
+          '🎯 分岔模式': options.auto ? '自动决策' : '手动选择',
+          ...personaReceipt(applied.persona),
         }))
     },
   }
@@ -132,10 +171,12 @@ export function continueCommand(ctx) {
   return {
     name: 'novel-continue',
     description: '续写：接着已有项目或导入的小说文件往下写，可自动连写',
-    input: { hint: '[项目名|小说.txt] [续写N章] [--auto] [要求]', attachments: true },
+    input: { hint: '[项目名|小说.txt] [续写N章] [--auto] [--persona 风格id] [要求]', attachments: true },
     handler: (invocation) => {
       const cwd = agentCwd(invocation)
-      const options = extractOptions(invocation.rawInput)
+      const personaOption = takePersonaOption(invocation.rawInput)
+      if (personaOption.error !== undefined) return fail(formatError(personaOption.error))
+      const options = extractOptions(personaOption.rest)
       const conflict = goalConflict(ctx, invocation)
       if (conflict !== undefined) return conflict
       const add = chapterTarget(options, 10)
@@ -164,13 +205,16 @@ export function continueCommand(ctx) {
         note,
         target: 0,
       })
+      const applied = applyPersona(cwd, name, personaOption.personaId)
+      if (applied.error !== undefined) return fail(formatError(applied.error))
       const target = done + add
       prepareRun(cwd, name, { mode: 'continue', branchMode: options.auto ? 'auto' : 'ask', note, target })
       return launch(ctx, invocation, name, target, done,
         formatSuccess(`继续写作「${name}」`, {
           '📚 已完成': `${done} 章`,
           '📝 续写目标': `+${add} 章 → ${target} 章`,
-          '🎯 分岔模式': options.auto ? '自动决策' : '手动选择'
+          '🎯 分岔模式': options.auto ? '自动决策' : '手动选择',
+          ...personaReceipt(applied.persona),
         }))
     },
   }

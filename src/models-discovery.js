@@ -2,15 +2,49 @@ import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 
 /**
+ * Report a discovery failure instead of swallowing it.
+ *
+ * Each source below is optional: the desktop app may not compose `llm`, a Web
+ * client may have no settings service, and the profile file may simply be
+ * absent. None of those are fatal, so the walk continues — but a *real* failure
+ * (network error, changed API, permissions) used to vanish into an empty catch
+ * and surfaced to the user only as "no models found", which is impossible to
+ * debug. Log it and keep going.
+ *
+ * @param {object} ctx - cordis context, used only for its logger when present.
+ * @param {string} source - which discovery step failed.
+ * @param {unknown} error - the thrown value.
+ */
+function warn(ctx, source, error) {
+  const message = error?.message ?? String(error)
+  const line = `[novel-master/models-discovery] ${source} 失败：${message}`
+  try {
+    const logger = typeof ctx?.logger === 'function' ? ctx.logger('novel-master') : ctx?.logger
+    if (typeof logger?.warn === 'function') { logger.warn(line); return }
+  } catch { /* logger itself must never break discovery */ }
+  // No logger wired (plain test host): stay silent rather than print noise on
+  // every command, but keep the function non-empty so nothing is swallowed here.
+}
+
+/**
  * Discover all configured models in the current DSH environment.
  * Queries:
  * 1. ctx.get('llm') service (listProviders / resolveModelInfo)
  * 2. ctx.get('settings') service
  * 3. Desktop cordis.patch.yml & profile configurations
+ *
+ * @param {object} ctx - cordis context.
+ * @param {object[]} [failures] - optional sink that receives `{ source, message }`
+ *   for every step that could not be read, so a caller can explain an empty list.
  */
-export async function discoverHostModels(ctx) {
+export async function discoverHostModels(ctx, failures = []) {
   const models = []
   const seen = new Set()
+  /** Record a failure in the sink and report it through the logger. */
+  const report = (source, error) => {
+    warn(ctx, source, error)
+    failures.push({ source, message: error?.message ?? String(error) })
+  }
 
   const add = (provider, model, label, tag, efforts = []) => {
     if (!provider || !model) return
@@ -48,7 +82,7 @@ export async function discoverHostModels(ctx) {
         }
       }
     }
-  } catch {}
+  } catch (error) { report('llm 服务', error) }
 
   // 2. Check ctx.get('settings')
   try {
@@ -77,7 +111,7 @@ export async function discoverHostModels(ctx) {
         }
       }
     }
-  } catch {}
+  } catch (error) { report('settings 服务', error) }
 
   // 3. Fallback: Parse cordis.patch.yml
   try {
@@ -133,7 +167,7 @@ export async function discoverHostModels(ctx) {
         }
       }
     }
-  } catch {}
+  } catch (error) { report('cordis.patch.yml', error) }
 
   // 4. Also scan catalog.json if our-free-model exists
   try {
@@ -146,7 +180,7 @@ export async function discoverHostModels(ctx) {
         }
       }
     }
-  } catch {}
+  } catch (error) { report('our-free-model catalog', error) }
 
   return { models }
 }

@@ -18,11 +18,25 @@ import fs from 'node:fs'
  * workspace, which would scatter projects outside the workspace.
  */
 export function agentCwd(invocation) {
-  return invocation?.cwd
+  const resolved = invocation?.cwd
     ?? invocation?.agent?.session?.header?.cwd
     ?? invocation?.agent?.session?.cwd
     ?? invocation?.agent?.ctx?.get?.('workingDirectory')?.defaultDirectory
     ?? process.cwd()
+  // Falling through to process.cwd() is the last resort and silently wrong under
+  // the desktop app, where it is the installation directory rather than the
+  // user's workspace — projects would be scattered outside the workspace with no
+  // hint why. Every other branch means the host told us the directory.
+  if (resolved === process.cwd() && invocation?.cwd === undefined) {
+    const line = `[novel-master] 未从宿主取得会话工作目录，回退到进程目录：${resolved}。` +
+      '若非预期位置，请在插件设置中把「项目目录」改为绝对路径。'
+    try {
+      const logger = invocation?.agent?.ctx?.get?.('logger')
+      if (typeof logger?.warn === 'function') logger.warn(line)
+      else console.warn(line)
+    } catch { /* diagnostics must never block a command */ }
+  }
+  return resolved
 }
 
 export const ok = (text) => ({ kind: 'success', text })

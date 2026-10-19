@@ -40,6 +40,18 @@ function buildSummarySystem(topics = []) {
 
 function localChapterText(snapshot, project, limit) {
   const root = withProjectsDirectory(snapshot.projectsDirectory, () => projectDir(snapshot.cwd, project))
+  // Resolve the whole chain at once. The per-segment walk below only starts at
+  // the project root, so a symlinked *ancestor* (a linked workspace, or a linked
+  // projects directory) used to slip through and chapters were read from outside
+  // the tree the user configured. realpathSync collapses every link first.
+  let resolvedRoot
+  try {
+    resolvedRoot = fs.realpathSync(root)
+  } catch (error) {
+    // A missing root is a fact about the project, not a symlink problem.
+    throw error.code === 'ENOENT' ? new Error(`项目目录不存在：${root}`) : error
+  }
+  if (resolvedRoot !== path.resolve(root)) throw new Error('不能学习符号链接目录中的内容')
   // Explicitly selected project names come only from the project inventory.
   let current = path.parse(root).root
   for (const part of root.slice(current.length).split(path.sep).filter(Boolean)) {

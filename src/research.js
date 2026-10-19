@@ -165,6 +165,40 @@ function parseJson(text) {
   try { return JSON.parse(text) } catch { throw new IntelligenceError('invalid-json', '检索模型没有返回有效 JSON') }
 }
 
+const SCRIPT_BLOCK = /<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/giu
+const HTML_COMMENT = /<!--[\s\S]*?-->/gu
+const HTML_TAG = /<[^>]*>/gu
+// Control characters that carry no meaning in prose. \t and \n are kept so the
+// model still sees paragraph breaks instead of one wall of text.
+const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu
+
+/**
+ * Reduce fetched page content to plain prose before it reaches the model.
+ *
+ * Why this exists: the body of a fetched page is attacker-controlled. Dropped
+ * into the evidence blob verbatim, a page can carry `<script>` payloads, CSS
+ * hides, or tag-shaped text that reads as instructions to the model. Markup is
+ * stripped and control characters removed so the evidence is text the model can
+ * cite, not a second channel into its prompt. This is *not* a fact check and
+ * cannot stop plain-text prompt injection — the system prompt plus URL-bound
+ * citations remain the defence against that — but it removes the markup vector.
+ *
+ * @param {unknown} html - raw body from `web.fetch`.
+ * @returns {string} plain text (possibly empty).
+ */
+export function sanitizeWebContent(html) {
+  if (typeof html !== 'string') return ''
+  return html
+    .replace(SCRIPT_BLOCK, ' ')
+    .replace(HTML_COMMENT, ' ')
+    .replace(HTML_TAG, ' ')
+    .replace(CONTROL, '')
+    // Collapse runs of spaces/tabs but keep newlines as paragraph breaks.
+    .replace(/[^\S\n]+/gu, ' ')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim()
+}
+
 /**
  * 资料检索命令 - 增强版，包含可信度评估
  */
@@ -200,7 +234,12 @@ export function researchCommand(ctx, configuredResearch) {
         let body = ''
         try {
           const fetched = await web.fetch({ url: source.url }, invocation.signal)
-          if (fetched?.statusCode >= 200 && fetched.statusCode < 300) body = bounded(typeof fetched.body === 'string' ? fetched.body : fetched.body?.content, sourceLimit)
+          // Strip markup before the body becomes evidence; the raw bytes are
+          // attacker-controlled and must not reach the model as instructions.
+          if (fetched?.statusCode >= 200 && fetched.statusCode < 300) {
+            const raw = typeof fetched.body === 'string' ? fetched.body : fetched.body?.content
+            body = bounded(sanitizeWebContent(raw), sourceLimit)
+          }
         } catch { /* 单个来源失败仍保留搜索摘要，并在报告中标记未抓取 */ }
         const heading = sourceText(source, '')
         const room = Math.min(perSource - heading.length, MAX_TOTAL_CHARS - total - heading.length)
