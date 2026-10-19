@@ -186,8 +186,19 @@ export function validateFilePath(filepath) {
  * @returns {{ valid: boolean, type?: string, value?: number, error?: string }}
  */
 export function validateChapterTarget(input) {
+  // 所有校验函数的契约都是「返回 {valid:false,error}」而不是抛异常 ——
+  // 调用方靠它给用户一句人话。这里原先直接 input.match，非字符串
+  // （命令参数被解析成数字、或者上层传了 undefined）会抛 TypeError，
+  // 用户看到的是堆栈而不是「请写成 80章 或 20万字」。
+  if (typeof input !== 'string') {
+    return { valid: false, error: '❌ 目标格式不正确，请写成「80章」或「20万字」' }
+  }
+  const text = input.trim()
+  if (!text) {
+    return { valid: false, error: '❌ 无法识别的目标格式，请写成「80章」或「20万字」' }
+  }
   // 章节数：60章、80章
-  const chapterMatch = input.match(/^(\d+)章$/u)
+  const chapterMatch = text.match(/^(\d+)章$/u)
   if (chapterMatch) {
     const count = parseInt(chapterMatch[1])
     if (count < 1 || count > 10000) {
@@ -200,7 +211,7 @@ export function validateChapterTarget(input) {
   }
   
   // 字数：20万字、50万字
-  const wordMatch = input.match(/^(\d+)万字$/u)
+  const wordMatch = text.match(/^(\d+)万字$/u)
   if (wordMatch) {
     const words = parseInt(wordMatch[1]) * 10000
     // 假设每章 3000 字

@@ -13,7 +13,7 @@ import { enhanceTaskPrompt, bindNovelGoal } from './task-intelligence.js'
 import { safeName, projectRelativeDir } from './project.js'
 import { finishObjective } from './prompts.js'
 import { WORKFLOW_FILE, ensureProject, prepareRun, uniqueName } from './workflow.js'
-import { validateChapterTarget, validateProjectName, formatError, formatSuccess } from './validators.js'
+import { formatError, formatSuccess } from './validators.js'
 import { builtinPersona, loadPersona, savePersona, takePersonaOption, writePersonaToRules } from './author-persona.js'
 
 /**
