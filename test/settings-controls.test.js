@@ -12,7 +12,7 @@ const DEFAULT = {
 }
 function harness(options = {}) {
   const states = [], refs = [], calls = []
-  let stateIndex = 0, refIndex = 0, plugin, page, document = { revision: 3, value: structuredClone(DEFAULT) }
+  let stateIndex = 0, refIndex = 0, plugin, page, document = options.document ?? { revision: 3, value: structuredClone(DEFAULT) }
   states[0] = document
   states[1] = { busy: options.serverBusy ?? false, reloadSupported: true }
   const React = {
@@ -65,7 +65,7 @@ function harness(options = {}) {
 test('tabs mount every panel but expose only the selected accessible panel', async () => {
   const h = harness()
   const panels = () => h.nodes().filter(node => node.props.role === 'tabpanel')
-  assert.equal(panels().length, 8) // features, guidance, learning, decision, research, batch, image, updater
+  assert.equal(panels().length, 9) // features, guidance, learning, decision, research, batch, persona, image, updater
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-features'])
   await h.click('学习总结')
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-learning'])
@@ -273,6 +273,92 @@ test('batch settings reject an out-of-range batch size instead of clamping silen
   assert.equal(h.calls.length, 0)
   // 37 is the measured per-request ceiling, not an arbitrary cap.
   assert.match(h.text(h.render()), /1 到 37/)
+})
+
+test('作者人格页签：两档模型独立保存，留空表示回退', async () => {
+  const h = harness()
+  await h.click('作者人格')
+  // 两项都留空是合法状态：表示不指定，走会话路由。
+  await h.submit('作者人格配置')
+  assert.deepEqual(h.calls.at(-1).body.patch.persona, { provider: '', model: '', reasoningEffort: '' })
+  // 意图解析两项都留空时写 {}，而不是空串 —— 服务端把「留空」解释成
+  // 「沿用拆书模型」，写成 '' 看起来像配置过，排查时会误判。
+  assert.deepEqual(h.calls.at(-1).body.patch.personaIntent, {})
+
+  // 两档各配各的：拆书用 A，意图解析用 B。
+  h.edit('拆书提供方', 'pa')
+  h.edit('拆书模型 ID', 'ma')
+  h.edit('意图解析提供方', 'pb')
+  h.edit('意图解析模型 ID', 'mb')
+  await h.submit('作者人格配置')
+  const patch = h.calls.at(-1).body.patch
+  assert.deepEqual(patch.persona, { provider: 'pa', model: 'ma', reasoningEffort: '' })
+  assert.deepEqual(patch.personaIntent, { provider: 'pb', model: 'mb', reasoningEffort: '' })
+})
+
+test('作者人格页签：只填提供方会被拦下，不会保存成半套路由', async () => {
+  const h = harness()
+  await h.click('作者人格')
+  h.edit('拆书提供方', 'pa')
+  const before = h.calls.length
+  await h.submit('作者人格配置')
+  assert.equal(h.calls.length, before, '半套配置不该发出请求')
+  assert.match(h.text(h.render()), /必须成对填写/u)
+
+  // 意图解析那一档同样要拦。
+  h.edit('拆书模型 ID', 'ma')
+  h.edit('意图解析提供方', 'pb')
+  const before2 = h.calls.length
+  await h.submit('作者人格配置')
+  assert.equal(h.calls.length, before2)
+  assert.match(h.text(h.render()), /意图解析.*必须成对填写/u)
+})
+
+test('作者人格页签：已保存的配置会回填到输入框', async () => {
+  const h = harness({
+    document: {
+      revision: 3,
+      value: {
+        ...structuredClone(DEFAULT),
+        persona: { provider: 'pa', model: 'ma', reasoningEffort: 'high' },
+        personaIntent: { provider: 'pb', model: 'mb', reasoningEffort: '' },
+      },
+    },
+  })
+  await h.click('作者人格')
+  assert.equal(h.find('input', '拆书提供方').props.value, 'pa')
+  assert.equal(h.find('input', '拆书模型 ID').props.value, 'ma')
+  assert.equal(h.find('input', '意图解析提供方').props.value, 'pb')
+  assert.equal(h.find('input', '意图解析模型 ID').props.value, 'mb')
+})
+
+test('作者人格页签：给出可照抄的命令与优先级说明', async () => {
+  const h = harness()
+  await h.click('作者人格')
+  const text = h.text(h.render())
+  assert.match(text, /\/novel-persona-study ·*--list-models/u)
+  assert.match(text, /优先级/u)
+  // 用户最关心的回退规则要写在页面上，而不是只存在文档里。
+  assert.match(text, /留空则沿用上面的拆书模型/u)
+})
+
+test('model picker opens a searchable list and filters candidates by keyword', async () => {
+  const h = harness()
+  await h.click('AI 生图')
+  // 未展开时不渲染候选，避免长列表拖慢设置页
+  assert.doesNotMatch(h.text(h.render()), /共 \d+ 个模型/)
+
+  await h.click('从 DSH 选择模型名称')
+  assert.match(h.text(h.render()), /共 \d+ 个模型，输入关键词过滤/)
+
+  // 输入关键词后只剩匹配项
+  h.edit('模型名称搜索', 'zzz-nothing-matches')
+  const narrowed = h.text(h.render())
+  assert.match(narrowed, /匹配 0 \//)
+  assert.match(narrowed, /没有匹配的模型/)
+
+  h.edit('模型名称搜索', '')
+  assert.match(h.text(h.render()), /共 \d+ 个模型/)
 })
 
 test('model picker opens a searchable list and filters candidates by keyword', async () => {

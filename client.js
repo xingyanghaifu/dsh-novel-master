@@ -280,6 +280,9 @@ window.__ModuleLoader__.load({
     const DECISION = { enabled: false, provider: '', model: '', reasoningEffort: '', minConfidence: 0.7, timeoutMs: 30000 }
     const RESEARCH = { enabled: false, provider: '', model: '', reasoningEffort: '', storageDir: 'novel_research', maxResults: 5, maxSourceChars: 12000, timeoutMs: 60000 }
     const BATCH = { provider: '', model: '', reasoningEffort: '', chaptersPerRequest: 20 }
+    // 作者人格：拆书分析用一档，听懂自然语言用另一档。两者独立，留空各有回退。
+    const PERSONA = { provider: '', model: '', reasoningEffort: '' }
+    const PERSONA_INTENT = { provider: '', model: '', reasoningEffort: '' }
     
     const TUTORIAL_STEPS = [
       {
@@ -351,6 +354,8 @@ window.__ModuleLoader__.load({
       const [decision, setDecision] = useState({ ...DECISION, ...form?.value?.decision })
       const [research, setResearch] = useState({ ...RESEARCH, ...form?.value?.research })
       const [batchWrite, setBatchWrite] = useState({ ...BATCH, ...form?.value?.batch })
+      const [persona, setPersona] = useState({ ...PERSONA, ...form?.value?.persona })
+      const [personaIntent, setPersonaIntent] = useState({ ...PERSONA_INTENT, ...form?.value?.personaIntent })
       const [activity, setActivity] = useState(null)
       const [activityError, setActivityError] = useState('')
       const [activityBusy, setActivityBusy] = useState(false)
@@ -407,6 +412,8 @@ window.__ModuleLoader__.load({
       const editDecision = (key, next) => setDecision(current => { const draft = { ...current, [key]: next }; dirty.current.decision = changed(draft, { ...DECISION, ...form?.value?.decision }); return draft })
       const editResearch = (key, next) => setResearch(current => { const draft = { ...current, [key]: next }; dirty.current.research = changed(draft, { ...RESEARCH, ...form?.value?.research }); return draft })
       const editBatch = (key, next) => setBatchWrite(current => { const draft = { ...current, [key]: next }; dirty.current.batch = changed(draft, { ...BATCH, ...form?.value?.batch }); return draft })
+      const editPersona = (key, next) => setPersona(current => { const draft = { ...current, [key]: next }; dirty.current.persona = changed(draft, { ...PERSONA, ...form?.value?.persona }); return draft })
+      const editPersonaIntent = (key, next) => setPersonaIntent(current => { const draft = { ...current, [key]: next }; dirty.current.personaIntent = changed(draft, { ...PERSONA_INTENT, ...form?.value?.personaIntent }); return draft })
 
       const toggleTopic = id => {
         setLearning(current => {
@@ -635,6 +642,27 @@ window.__ModuleLoader__.load({
         if (!!next.provider !== !!next.model) return setError('批量写作的提供方和模型必须成对填写，或都留空使用会话模型。')
         if (!Number.isSafeInteger(next.chaptersPerRequest) || next.chaptersPerRequest < 1 || next.chaptersPerRequest > 37) return setError('每次请求章数必须为 1 到 37 之间的整数（实测单次上限约 37 章）。')
         return save({ batch: next })
+      }
+      function savePersona(event) {
+        event.preventDefault()
+        const clean = (draft, name) => {
+          const next = { provider: draft.provider.trim(), model: draft.model.trim(), reasoningEffort: draft.reasoningEffort.trim() }
+          if (!!next.provider !== !!next.model) {
+            return { error: `${name}的提供方和模型必须成对填写；两项都留空表示不启用这一档。` }
+          }
+          return { next }
+        }
+        const main = clean(persona, '拆书分析')
+        if (main.error) return setError(main.error)
+        const intent = clean(personaIntent, '意图解析')
+        if (intent.error) return setError(intent.error)
+        // 意图解析两项都留空时不要写入空串：留空在服务端表示「沿用拆书那档」，
+        // 写成 '' 会让配置看起来填过，排查时容易误判。
+        const patch = { persona: main.next }
+        patch.personaIntent = intent.next.provider && intent.next.model
+          ? intent.next
+          : {}
+        return save(patch)
       }
       const value = form?.value ?? {}
       const locked = !!busy || state?.busy || activityBusy
@@ -880,7 +908,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'nm-row' }, chip(form ? value.enabled === false ? '小说功能已关闭' : '小说功能已启用' : '配置待连接', form && value.enabled !== false), chip(form ? `已选择 ${enabledCount(commandKeys)} / ${commandKeys.length} 项功能` : '功能加载中', !!form), chip(!form ? '引导模型待连接' : value.guidance?.enabled ? value.enabled === false ? '引导模型已暂停' : '引导模型已启用' : '引导模型未启用', !!form && value.enabled !== false && value.guidance?.enabled), chip(!form ? '学习状态待连接' : value.learning?.enabled ? value.enabled === false ? '学习总结已暂停' : '学习总结已启用' : '学习总结未启用', !!form && value.enabled !== false && value.learning?.enabled), chip(!form ? '决策状态待连接' : value.decision?.enabled ? value.enabled === false ? '决策助手已暂停' : '决策助手已启用' : '决策助手未启用', !!form && value.enabled !== false && value.decision?.enabled))),
         error && h('div', { role: 'alert', className: 'nm-alert' }, h('div', null, h('strong', null, '暂时无法完成操作'), h('p', null, error)), actionButton('重试连接', refresh)),
         notice && h('div', { role: 'status', className: 'nm-alert nm-success' }, notice),
-        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['image', 'AI 生图'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
+        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['persona', '作者人格'], ['image', 'AI 生图'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
         panel('features', form && card('创作工作台', '关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。',
@@ -1006,6 +1034,35 @@ window.__ModuleLoader__.load({
              h('p', { className: 'nm-muted' }, '输出上限由模型自身决定。章数设得过大时模型可能提前截断，这种情况下该批不会写入任何文件，可调小后重试。')
            ), saveBar('batch', '保存批量写作配置')),
            h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-batch 项目名 60章 --每批20章 --auto')))),
+         panel('persona', form && h('form', { className: 'nm-stack', 'aria-label': '作者人格配置', onSubmit: savePersona },
+           card('拆书分析模型', '用 /novel-persona-study 分析参考作品，提炼成可套用的写作风格。整本参考作品都会发给这个模型，所以这一步才是真正费 token 的。',
+             h('p', { className: 'nm-muted' }, '留空时使用本会话最近一次实际路由；在命令里写 --provider/--model 优先级更高。'),
+             h('div', { className: 'nm-stack' },
+               renderModelSelect('从现有模型列表中选择拆书模型', persona.provider, persona.model, (p, m) => { editPersona('provider', p); editPersona('model', m) }, false),
+               renderReasoningSelect('拆书模型思考/推理强度 (Reasoning Effort)', persona.reasoningEffort, val => editPersona('reasoningEffort', val), persona.provider, persona.model),
+               h('div', { className: 'nm-grid' }, field('拆书提供方', 'provider', persona, editPersona, 'text', { placeholder: '留空使用会话模型' }), field('拆书模型 ID', 'model', persona, editPersona, 'text', { placeholder: '留空使用会话模型' }))
+             )),
+           card('自然语言意图解析模型', '只用来听懂 /novel-persona-study 后面那句人话，比如「这本对话写得好，拼到《某书》上」。请求很短，几百 token 就结束。',
+             h('p', { className: 'nm-muted' }, '单独配一档，是因为这件事跟拆书不是同一种能力：拆书要长文本分析，听懂一句话要的是对口语的理解，成本也差得远。留空则沿用上面的拆书模型。'),
+             h('div', { className: 'nm-stack' },
+               renderModelSelect('从现有模型列表中选择意图解析模型', personaIntent.provider, personaIntent.model, (p, m) => { editPersonaIntent('provider', p); editPersonaIntent('model', m) }, false),
+               renderReasoningSelect('意图解析思考/推理强度 (Reasoning Effort)', personaIntent.reasoningEffort, val => editPersonaIntent('reasoningEffort', val), personaIntent.provider, personaIntent.model),
+               h('div', { className: 'nm-grid' }, field('意图解析提供方', 'provider', personaIntent, editPersonaIntent, 'text', { placeholder: '留空沿用拆书模型' }), field('意图解析模型 ID', 'model', personaIntent, editPersonaIntent, 'text', { placeholder: '留空沿用拆书模型' })),
+               h('p', { className: 'nm-muted' }, '规则能认全的说法不会调用模型，所以这一档只在必要时才花一次请求。')
+             )),
+           card('用法', '两档模型都留空也能用：只靠规则识别，认不出的说法会给出参数写法。',
+             h('div', { className: 'nm-callout' }, h('code', { className: 'nm-inlinecode' }, '/novel-persona 项目名 wangyu-classic'), ' → 先建基础风格'),
+             h('div', { className: 'nm-callout' }, h('code', { className: 'nm-inlinecode' }, '/novel-persona-study 参考.txt --只取 对话 --to 项目名'), ' → 只把对话这一维拼过来'),
+             h('div', { className: 'nm-callout' }, h('code', { className: 'nm-inlinecode' }, '/novel-persona-study --list-models'), ' → 列出宿主里所有可用模型'),
+             h('details', null, h('summary', null, '优先级与回退规则'),
+               h('ul', { className: 'nm-muted' },
+                 h('li', null, '命令行 --provider/--model 最高优先，当场指定的就该生效。'),
+                 h('li', null, '意图解析：命令行 > 这一档设置 > 拆书设置 > 会话实际路由。'),
+                 h('li', null, '拆书分析：命令行 > 拆书设置 > 会话实际路由。'),
+                 h('li', null, '只填了提供方没填模型时，自动退回下一档，不会让命令失效。')
+               ))),
+           saveBar('persona', '保存作者人格配置')
+         )),
          panel('image', imageSettingsCard),
         panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),
           state?.latest && h('p', { className: 'nm-callout' }, state.updateAvailable === false ? '磁盘已是此提交。' : state.updateAvailable === null ? '本地提交未知，版本号相同不能证明代码相同。' : '发现可安装的提交。检查后拉取会锁定本次完整 SHA。'),
