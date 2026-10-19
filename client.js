@@ -497,13 +497,16 @@ window.__ModuleLoader__.load({
       const [modelQuery, setModelQuery] = useState({ llm: '', image: '' })
       const [showTutorial, setShowTutorial] = useState(false)
       const [tutorialStep, setTutorialStep] = useState(0)
+      // 系统目录选择器要两三秒才弹出来，这段时间按钮必须显示「正在唤起」，
+      // 否则用户以为没点中就反复点，最后叠出好几个文件夹窗口。
+      const [picking, setPicking] = useState(false)
       const alive = useRef(true)
       const saving = useRef(false)
       const operation = useRef(null)
       const dirty = useRef({})
+      const pickingRef = useRef(false)
       const activityRequest = useRef(null)
       const toastTimer = useRef(null)
-
       const showToast = text => {
         setToast(text)
         if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -519,20 +522,40 @@ window.__ModuleLoader__.load({
         showToast(`已复制：${cmdText}`)
       }
 
+      /**
+       * 用服务端返回的配置刷新本地状态。
+       *
+       * 这里原本无条件地连打 10 个 setState：form 一次，外加九个子配置各一次。
+       * 每个 setState 都要用展开运算符重建一个新对象，而 React 只按引用判断
+       * 变化 —— 即使服务端返回的子配置与本地完全相同，也会被判为「变了」，
+       * 触发整页重渲染。设置页有 700 多个节点，首屏打开时的卡顿主要来自这里。
+       *
+       * 现在只在真的不同时才写状态：内容相同就跳过，省掉那一轮重渲染。
+       */
       const acceptForm = (next, saved = {}) => {
         setForm(next)
         for (const key of Object.keys(saved)) delete dirty.current[key]
+        // 比较时只认自有可枚举键；子配置都是扁平的小对象，JSON 比对足够快
+        // （每个只有十几个字段），比给它写深比较划算。
+        const same = (draft, base, incoming) => {
+          const merged = { ...base, ...incoming }
+          return JSON.stringify(merged) === JSON.stringify(draft)
+        }
+        const sync = (dirtyKey, incoming, base, setter) => {
+          if (dirty.current[dirtyKey]) return
+          setter(current => (same(current, base, incoming) ? current : { ...base, ...incoming }))
+        }
         if (!dirty.current.projectsDir) setDirectory(next.value?.projectsDir ?? 'novel_projects')
         if (!dirty.current.updateProxy) setProxy(next.value?.updateProxy ?? '')
-        if (!dirty.current.guidance) setGuidance({ ...GUIDANCE, ...next.value?.guidance })
-        if (!dirty.current.learning) setLearning({ ...LEARNING, ...next.value?.learning })
-        if (!dirty.current.decision) setDecision({ ...DECISION, ...next.value?.decision })
-        if (!dirty.current.research) setResearch({ ...RESEARCH, ...next.value?.research })
-        if (!dirty.current.batch) setBatchWrite({ ...BATCH, ...next.value?.batch })
+        sync('guidance', next.value?.guidance, GUIDANCE, setGuidance)
+        sync('learning', next.value?.learning, LEARNING, setLearning)
+        sync('decision', next.value?.decision, DECISION, setDecision)
+        sync('research', next.value?.research, RESEARCH, setResearch)
+        sync('batch', next.value?.batch, BATCH, setBatchWrite)
         // 漏掉这两行时，保存作者人格后输入框仍显示旧草稿，而 dirty 标记永远
         // 清不掉 —— 界面说「已保存」，用户看到的却是没保存的那份。
-        if (!dirty.current.persona) setPersona({ ...PERSONA, ...next.value?.persona })
-        if (!dirty.current.personaIntent) setPersonaIntent({ ...PERSONA_INTENT, ...next.value?.personaIntent })
+        sync('persona', next.value?.persona, PERSONA, setPersona)
+        sync('personaIntent', next.value?.personaIntent, PERSONA_INTENT, setPersonaIntent)
       }
       const changed = (draft, original) => Object.keys(draft).some(key => String(draft[key]) !== String(original[key]))
       const editGuidance = (key, next) => setGuidance(current => { const draft = { ...current, [key]: next }; dirty.current.guidance = changed(draft, { ...GUIDANCE, ...form?.value?.guidance }); return draft })
@@ -564,6 +587,12 @@ window.__ModuleLoader__.load({
           showToast('当前 DSH 版本不提供目录选择器，请在输入框中手动填写文件夹路径。')
           return
         }
+        // 系统选择器本身要两三秒才弹出来（宿主侧的开窗开销，插件改不了），
+        // 所以点击后必须立刻给反馈 —— 否则按钮看着像没点中，用户会连点几下，
+        // 最后叠出好几个文件夹窗口。这里先把按钮置成「正在唤起」。
+        if (pickingRef.current) return
+        pickingRef.current = true
+        setPicking(true)
         try {
           const picked = await picker.pick()
           if (!picked) return
@@ -576,6 +605,9 @@ window.__ModuleLoader__.load({
           const message = String(failure?.message ?? failure ?? '')
           if (/cancel|abort|取消/iu.test(message)) return
           showToast(`无法启动系统目录选择器（${message}），请手动填写路径。`)
+        } finally {
+          pickingRef.current = false
+          if (alive.current) setPicking(false)
         }
       }
 
@@ -1046,7 +1078,7 @@ window.__ModuleLoader__.load({
               h('span', null, '项目目录'),
               h('div', { className: 'nm-path-box' },
                 h('input', { type: 'text', value: directory, disabled: locked, required: true, 'aria-label': '项目目录', placeholder: 'novel_projects', onChange: event => { dirty.current.projectsDir = event.target.value !== (value.projectsDir ?? 'novel_projects'); setDirectory(event.target.value) } }),
-                actionButton('📁 浏览…', () => pickDirectory('projectsDir', ctx), locked)
+                actionButton(picking ? '正在唤起选择器…' : '📁 浏览…', () => pickDirectory('projectsDir', ctx), locked || picking)
               )
             ),
             h('p', { className: 'nm-muted' }, '相对于工作目录保存小说项目，也可以点击“浏览”选择自定义绝对路径。'),
@@ -1108,7 +1140,7 @@ window.__ModuleLoader__.load({
               h('span', null, '学习存储目录'),
               h('div', { className: 'nm-path-box' },
                 h('input', { type: 'text', value: learning.storageDir, disabled: locked, required: true, 'aria-label': '学习存储目录', placeholder: 'novel_learning 或 C:\\MyNovels\\learning', onChange: event => editLearning('storageDir', event.target.value) }),
-                actionButton('📁 浏览目录…', () => pickDirectory('learningStorageDir', ctx), locked)
+                actionButton(picking ? '正在唤起选择器…' : '📁 浏览目录…', () => pickDirectory('learningStorageDir', ctx), locked || picking)
               )
             ),
             h('p', { className: 'nm-callout' }, '提示：点击【📁 浏览目录…】可通过桌面窗口自由挑选存储文件夹；不同目录与模型相互隔离，随时可自由更换。')

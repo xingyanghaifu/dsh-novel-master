@@ -461,3 +461,20 @@ test('activity is read only on demand and renders actual backend status and erro
   await unavailable.click('读取学习与决策活动')
   assert.match(unavailable.text(unavailable.render()), /读取活动失败：intelligence\/status · HTTP 未知：not-found/)
 })
+
+test('浏览按钮在唤起系统选择器期间必须立刻给反馈', async () => {
+  // 系统选择器要两三秒才弹出来，这是宿主开销，插件改不了。
+  // 但按钮不反馈的话，用户以为没点中，会连点几下叠出好几个窗口。
+  const h = harness({
+    remote: {
+      // 让 pick 一直挂起，模拟「正在唤起」的那两三秒
+      directoryPicker: { pick: () => new Promise(() => {}) },
+      llm: { listProviders: async () => [] },
+    },
+  })
+  assert.match(h.text(h.render()), /📁 浏览…/, '未点击时应显示正常文案')
+  // 不 await：pick 永不 resolve，正好停在「正在唤起」这一帧
+  h.click('📁 浏览…')
+  const during = h.text(h.render())
+  assert.match(during, /正在唤起选择器…/, '点击后必须立刻换成进行中的文案')
+})
