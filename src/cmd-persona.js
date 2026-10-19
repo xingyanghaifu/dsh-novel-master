@@ -341,7 +341,8 @@ export function personaStudyCommand(ctx, config) {
         const lines = models.map(item => `  ${item.provider}  ${item.model}${item.tag ? `  [${item.tag}]` : ''}`)
         return ok(formatSuccess('可用于拆书的模型', {
           '🤖 可用列表': `\n${lines.join('\n')}`,
-          '💡 用法': `/novel-persona-study 参考.txt --provider <上面第一个> --model <第二个>`,
+          '💡 临时指定': `/novel-persona-study 参考.txt --provider <上面第一个> --model <第二个>`,
+          '⚙️ 长期配置': '插件设置 → 作者人格提取（拆书）/ 自然语言意图解析（只用来听懂人话）',
         }))
       }
 
@@ -359,7 +360,7 @@ export function personaStudyCommand(ctx, config) {
       const looksLikeProse = intent.consumed || /[\u4e00-\u9fa5]{2,}/u.test(stripped)
       const incomplete = looksLikeProse && (only === undefined || to === undefined)
       if (incomplete && options.listModels !== true) {
-        const early = await resolveRoute(ctx, invocation, config, options)
+        const early = await resolveIntentRoute(ctx, invocation, config, options)
         if (early.route !== undefined) {
           const guessed = await modelIntent(ctx, early.route, options.rest, listProjects(cwd), invocation.signal)
           if (guessed !== null) {
@@ -580,4 +581,28 @@ async function resolveRoute(ctx, invocation, config, options) {
     unwrapped[key] = read(section?.[key])
   }
   return resolvePersonaRoute(ctx, invocation, unwrapped, options)
+}
+
+/**
+ * 意图解析专用的路由：`personaIntent` > 拆书设置 > 会话实际路由。
+ *
+ * 单独配一档是为了让你能给「听懂人话」这件事换个模型：便宜模型够用时
+ * 省钱，话风绕的时候换成强模型。没配就沿用拆书模型，行为与之前一致。
+ * 命令行 `--provider/--model` 仍然最高优先——用户当场指定就该听他的。
+ */
+async function resolveIntentRoute(ctx, invocation, config, options) {
+  const { resolvePersonaRoute } = await import('./author-persona.js')
+  const read = value => (value && typeof value === 'object' && typeof value.get === 'function' ? value.get() : value)
+  const section = read(config?.personaIntent) ?? {}
+  const unwrapped = {}
+  for (const key of ['provider', 'model', 'reasoningEffort']) {
+    unwrapped[key] = read(section?.[key])
+  }
+  const dedicated = await resolvePersonaRoute(ctx, invocation, unwrapped, options)
+  if (dedicated.route !== undefined) {
+    return { ...dedicated, source: dedicated.source === 'settings' ? 'intent-settings' : dedicated.source }
+  }
+  // 意图档没配全（比如只填了 provider）：退回拆书那套，别因为半套配置就
+  // 直接判成「没有可用模型」。
+  return resolveRoute(ctx, invocation, config, options)
 }

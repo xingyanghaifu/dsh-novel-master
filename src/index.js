@@ -186,6 +186,13 @@ export const Config = z.object({
     model: live(z.string().default('')).description('拆书分析模型 ID'),
     reasoningEffort: live(z.string().default('')).description('拆书分析推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
   }).description('作者人格提取（拆书）'),
+  personaIntent: z.object({
+    provider: live(z.string().default('')).description('意图解析 Provider')
+      .comment('专门用来理解 /novel-persona-study 后面的自然语言。留空则沿用「作者人格提取」的路由，再退到本会话实际路由。只认规则能认的部分时不调用模型，所以这里配的模型只在必要时才花一次请求。'),
+    model: live(z.string().default('')).description('意图解析模型 ID')
+      .comment('留空则沿用拆书模型。填一个小模型能省钱，但复杂说法用强模型更准——按你自己的话风选。'),
+    reasoningEffort: live(z.string().default('')).description('意图解析推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
+  }).description('自然语言意图解析'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
@@ -272,8 +279,7 @@ export function definitions(ctx, intelligence, config) {
     { key: 'batch', factory: () => batchCommand(ctx, readField(config, 'batch')) },
     { key: 'probe', factory: () => probeCommand(ctx, readField(config, 'batch')) },
     { key: 'persona', factory: () => personaCommand() },
-    { key: 'persona-study', factory: () => personaStudyCommand(ctx, config) },
-    ...EXTRA_COMMANDS,
+    { key: 'persona-study', factory: () => personaStudyCommand(ctx, config) },    ...EXTRA_COMMANDS,
     ...intelligenceDefinitions(intelligence),
   ]
 }
