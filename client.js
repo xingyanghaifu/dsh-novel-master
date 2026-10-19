@@ -460,6 +460,57 @@ window.__ModuleLoader__.load({
       } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort) }
     }
 
+    /**
+     * 错误边界。设置区是宿主渲染的一块独立区域，React 只要在渲染中抛错，
+     * 宿主会把那片区域整个清空 —— 用户看到一块白板，既不知道发生了什么，
+     * 也点不到任何按钮。
+     *
+     * 包一层之后，同样的错误会变成一张写着原因和堆栈的卡片，能直接念出来，
+     * 也知道该重试还是该报问题。这类兜底不该建立在「不出错」的假设上。
+     *
+     * 必须用类组件：错误边界只有 getDerivedStateFromError / componentDidCatch
+     * 两个生命周期，函数组件没有等价物。
+     * React.Component 不存在时（测试里的极简 React 就没有）不挂边界，
+     * 否则「兜底」本身会挡住所有内容。判断放在挂载处，见 settings.section。
+     */
+    const hasErrorBoundary = typeof React.Component === 'function'
+    class SettingsBoundaryClass extends (hasErrorBoundary ? React.Component : class {}) {
+      constructor(props) {
+        super(props)
+        if (!hasErrorBoundary) this.props = props ?? {}
+        this.state = { error: null }
+      }
+      static getDerivedStateFromError(error) {
+        return { error }
+      }
+      componentDidCatch(error, info) {
+        // 留一份到控制台：白屏时用户通常不会打开开发者工具，真要排查时
+        // 完整堆栈只有那里有。
+        try { console.error('[novel-master] 设置区渲染失败', error, info) } catch { /* 控制台不可用就算了 */ }
+      }
+      render() {
+        const { error } = this.state
+        if (!error) return this.props.children
+        const detail = String(error?.stack ?? error?.message ?? error)
+        return h('div', { className: 'nm-settings' }, h('style', null, CSS),
+          h('div', { className: 'nm-card nm-empty', role: 'alert' },
+            h('h3', null, '设置面板渲染出错'),
+            h('p', null, '插件本身仍在运行，只是这一块界面没能画出来。把下面的信息发给我可以更快定位。'),
+            h('pre', {
+              style: {
+                margin: '10px 0 0', padding: '10px', borderRadius: '8px',
+                background: 'color-mix(in srgb, currentColor 8%, transparent)',
+                fontSize: '11px', lineHeight: '1.5', whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word', maxHeight: '220px', overflow: 'auto',
+              },
+            }, detail),
+            h('button', {
+              type: 'button', className: 'nm-primary', style: { marginTop: '12px' },
+              onClick: () => this.setState({ error: null }),
+            }, '重试渲染')))
+      }
+    }
+
     function SettingsPage(props) {
       // 宿主上下文在这里取一次。此前只有 loadModels 内部声明了 const ctx，
       // 而三个「浏览」按钮在 render 时引用的是外层作用域里的 ctx —— 那里
@@ -595,11 +646,19 @@ window.__ModuleLoader__.load({
         setPicking(true)
         try {
           const picked = await picker.pick()
+          // 系统选择框是模态的，用户可能在这个过程中把设置弹窗关掉。
+          // await 之后组件已经卸载、却还往状态里写，正是「关掉选择器后
+          // 插件页面整块空白」的触发器 —— 所以每个 await 之后先确认还活着。
+          if (!alive.current) return
           if (!picked) return
-          if (targetField === 'storageDir') editResearch('storageDir', picked)
-          else if (targetField === 'learningStorageDir') editLearning('storageDir', picked)
-          else if (targetField === 'projectsDir') { setDirectory(picked); dirty.current.projectsDir = true }
-          showToast(`已选定目录：${picked}`)
+          // 宿主理论上返回字符串，但不同版本返回过对象形态。归一化一下，
+          // 否则 showToast 会拼出 "[object Object]"。
+          const chosen = typeof picked === 'string' ? picked : picked?.path ?? picked?.value ?? ''
+          if (!chosen) return
+          if (targetField === 'storageDir') editResearch('storageDir', chosen)
+          else if (targetField === 'learningStorageDir') editLearning('storageDir', chosen)
+          else if (targetField === 'projectsDir') { setDirectory(chosen); dirty.current.projectsDir = true }
+          showToast(`已选定目录：${chosen}`)
         } catch (failure) {
           // 用户点取消时也可能走到这里，不要报成错误
           const message = String(failure?.message ?? failure ?? '')
@@ -3256,7 +3315,11 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section', id: 'novel-master', order: 36, label: () => '小说创作大师',
-        }, props => h(SettingsPage, { ...props, ctx })))
+        // 真实 React 下包一层错误边界，避免渲染异常把整块设置区变成白板。
+        // 极简渲染环境不具备类组件能力，直接渲染。
+        }, props => (hasErrorBoundary
+          ? h(SettingsBoundaryClass, null, h(SettingsPage, { ...props, ctx }))
+          : h(SettingsPage, { ...props, ctx }))))
 
         // 设定树：右侧栏页签。类型注册（ctx.sidebarRightTabs）+ 正文/标题两个
         // 键控座位，契约与 dsh-client-ui-plan / ui-sidebar-files 完全一致。

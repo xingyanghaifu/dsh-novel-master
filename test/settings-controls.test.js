@@ -11,7 +11,7 @@ const DEFAULT = {
   research: { enabled: false, provider: '', model: '', reasoningEffort: '', storageDir: 'novel_research', maxResults: 5, maxSourceChars: 12000, timeoutMs: 60000 },
 }
 function harness(options = {}) {
-  const states = [], refs = [], calls = []
+  const states = [], refs = [], calls = [], effects = []
   let stateIndex = 0, refIndex = 0, plugin, page, document = options.document ?? { revision: 3, value: structuredClone(DEFAULT) }
   states[0] = document
   states[1] = { busy: options.serverBusy ?? false, reloadSupported: true }
@@ -23,7 +23,7 @@ function harness(options = {}) {
       return [states[i], next => { states[i] = typeof next === 'function' ? next(states[i]) : next }]
     },
     useRef(initial) { const i = refIndex++; return refs[i] ??= { current: initial } },
-    useEffect() {},
+    useEffect(fn) { effects.push(fn) },
   }
   vm.runInNewContext(readFileSync(new URL('../client.js', import.meta.url), 'utf8'), {
     window: { __ModuleLoader__: { load: bundle => { plugin = bundle.factory(() => React) } }, location: { reload() {} } },
@@ -72,7 +72,15 @@ function harness(options = {}) {
   const click = label => find('button', label).props.onClick()
   const edit = (label, value) => { const input = find('input', label); return input.props.onChange({ target: { value, checked: value } }) }
   const submit = label => find('form', label).props.onSubmit({ preventDefault() {} })
-  return { render, nodes, text, find, click, edit, submit, calls }
+  // 模拟组件卸载：跑一遍 effect 的清理函数。真实 React 里这正是
+  // 把 alive.current 置为 false 的那一步。
+  const unmount = () => {
+    for (const fn of effects.splice(0)) {
+      const cleanup = fn()
+      if (typeof cleanup === 'function') cleanup()
+    }
+  }
+  return { render, nodes, text, find, click, edit, submit, calls, unmount }
 }
 
 test('tabs mount every panel but expose only the selected accessible panel', async () => {
@@ -477,4 +485,46 @@ test('浏览按钮在唤起系统选择器期间必须立刻给反馈', async ()
   h.click('📁 浏览…')
   const during = h.text(h.render())
   assert.match(during, /正在唤起选择器…/, '点击后必须立刻换成进行中的文案')
+})
+
+test('点击浏览后再渲染不应该崩，且能恢复', async () => {
+  // 真实故障：点「浏览」唤起选择器、关掉窗口后整个插件面板空白。
+  // 这条测试盯的是「点击之后组件还能不能正常渲染」。
+  const h = harness({
+    remote: {
+      directoryPicker: { pick: () => new Promise(() => {}) },
+      llm: { listProviders: async () => [] },
+    },
+  })
+  h.click('📁 浏览…')
+  const html = h.render()
+  assert.ok(html, '渲染结果不能是空')
+  assert.match(h.text(html), /正在唤起选择器/, '应停在唤起中的状态')
+  // 再渲染若干次，模拟 React 的重复重绘
+  for (let i = 0; i < 5; i++) {
+    assert.ok(h.render(), '第 ' + i + ' 次重绘不能抛错')
+  }
+})
+
+test('选择器返回时组件已卸载就不许再写状态', async () => {
+  // 真实故障：唤起选择框后关掉它，插件设置区整块变白。
+  // 根因是 await 之后没确认组件还在 —— 用户这时可能已经关掉弹窗，
+  // 再往已卸载的组件上写状态会把宿主那块挂载点带坏。
+  let resolvePick
+  const h = harness({
+    remote: {
+      directoryPicker: { pick: () => new Promise(r => { resolvePick = r }) },
+      llm: { listProviders: async () => [] },
+    },
+  })
+  h.click('📁 浏览…')
+  // 卸载前记下目录输入框的值
+  const before = h.find('input', '项目目录').props.value
+  // 模拟组件卸载：effect 的清理函数会把它置为 false
+  h.unmount()
+  resolvePick('D:\\已卸载\\仍返回的路径')
+  await new Promise(r => setTimeout(r, 20))
+  // 卸载后宿主返回的路径绝不能写进状态 —— 这才是白屏的触发点。
+  assert.equal(h.find('input', '项目目录').props.value, before, '卸载后不得改写输入框')
+  assert.doesNotMatch(h.text(h.render()), /已卸载/, '卸载后不得把返回值展示出来')
 })

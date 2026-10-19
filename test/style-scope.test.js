@@ -11,7 +11,9 @@ import test from 'node:test'
  * 必须把「选择器优先级」本身当成可断言的对象。
  */
 const SOURCE = fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8')
-const CSS = SOURCE.match(/const CSS = `([\s\S]*?)`\n/)[1]
+// 换行可能是 LF 也可能是 CRLF —— Windows 上 git 检出会转成 CRLF，
+// 正则只写 `\n` 会在 CRLF 工作副本上整体失配，报成「找不到 CSS」。
+const CSS = SOURCE.match(/const CSS = `([\s\S]*?)`\r?\n/)[1]
 
 /** 粗略计算选择器优先级：[id, class, tag] 三元组，够用于本文件的判断。 */
 function specificity(selector) {

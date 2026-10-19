@@ -12,7 +12,8 @@ import test from 'node:test'
  * 只会「看着说不出哪里不对」，靠肉眼看图很难发现 —— 只能锁死取值来源。
  */
 const SOURCE = fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8')
-const CSS = SOURCE.match(/const CSS = `([\s\S]*?)`\n/)[1]
+// CRLF 工作副本上反引号后面是 \r\n，正则必须容错，否则整体失配。
+const CSS = SOURCE.match(/const CSS = `([\s\S]*?)`\r?\n/)[1]
 
 // 取某个选择器的声明块。这里刻意只做最简单的字面量匹配：
 // 一开始想用「正则转义再匹配」，结果转义叠加导致永远匹配不到，
