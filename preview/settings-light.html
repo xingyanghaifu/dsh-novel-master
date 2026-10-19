@@ -253,7 +253,12 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
    侧边栏宽度通常只有 300–360px，所以全部按单列竖排设计：环形总览在上，
    清单在中，批量写作在下。字号比设置页再小一号，因为这里离眼睛更远，
    而且旁边就是正文。 */
-.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+/* 关键：面板内所有直接子块一律不许收缩。
+   flex 容器的默认 flex-shrink 是 1，空间不够时每个子块按比例被压扁 ——
+   地图、环形卡、清单会一层层叠到一起，看起来像「文字插进了别处」。
+   正确做法是让它们保持自然高度，超出部分交给 .nm-prog 自己滚。 */
+.nm-prog > *{flex:0 0 auto}
 .nm-prog-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .nm-prog-auto{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--nm-muted);cursor:pointer;user-select:none;white-space:nowrap}
 .nm-prog-auto input{width:12px;height:12px;accent-color:var(--nm-accent);cursor:pointer;margin:0}
@@ -307,10 +312,16 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
 .nm-prog-batch-meta{font-size:11px;color:var(--nm-muted);display:flex;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
 .nm-prog-stale{color:color-mix(in srgb,var(--nm-error) 80%,var(--nm-muted))}
 .nm-prog-error{font-size:11px;color:var(--nm-error);line-height:1.55;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 9%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent);overflow-wrap:anywhere}
-.nm-prog-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
-/* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
-   渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
-.nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 页脚也去掉 margin-top:auto。auto 外边距在**空间不够**时并不会让位，
+   它只是把元素推到容器末尾，剩余高度为负时就会和上面的内容叠在一起。
+   内容短的时候靠面板自身的 gap 已经足够分开，不需要再顶。 */
+.nm-prog-foot{padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+/* 中间区块走自然高度，**不要** flex:1 + min-height:0。
+   这两个属性合起来会把容器压到「剩余空间」的高度，而容器内部没有自己的
+   滚动条，一旦内容比这个高度长，就会溢出到外面直接盖住页脚 —— 表现是
+   「正文 40/40 章」那行插进资产清单中间，压住「伏笔」「剧情树」。
+   整块面板本身已经是 overflow:auto，溢出交给它滚就够了。 */
+.nm-prog-sections{flex:none;display:flex;flex-direction:column;gap:16px}
 /* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
    重点是小而密的方块地图 —— 28×28 格，缝隙 1px，肉眼数不清单格，
    整体才读成「一片地形」。做成十来个大色块只会像图例表格。 */
@@ -581,7 +592,12 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
    侧边栏宽度通常只有 300–360px，所以全部按单列竖排设计：环形总览在上，
    清单在中，批量写作在下。字号比设置页再小一号，因为这里离眼睛更远，
    而且旁边就是正文。 */
-.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+.nm-prog{height:100%;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:12px 12px 18px;gap:14px;scrollbar-width:thin}
+/* 关键：面板内所有直接子块一律不许收缩。
+   flex 容器的默认 flex-shrink 是 1，空间不够时每个子块按比例被压扁 ——
+   地图、环形卡、清单会一层层叠到一起，看起来像「文字插进了别处」。
+   正确做法是让它们保持自然高度，超出部分交给 .nm-prog 自己滚。 */
+.nm-prog &gt; *{flex:0 0 auto}
 .nm-prog-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .nm-prog-auto{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--nm-muted);cursor:pointer;user-select:none;white-space:nowrap}
 .nm-prog-auto input{width:12px;height:12px;accent-color:var(--nm-accent);cursor:pointer;margin:0}
@@ -635,10 +651,16 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
 .nm-prog-batch-meta{font-size:11px;color:var(--nm-muted);display:flex;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
 .nm-prog-stale{color:color-mix(in srgb,var(--nm-error) 80%,var(--nm-muted))}
 .nm-prog-error{font-size:11px;color:var(--nm-error);line-height:1.55;padding:7px 9px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 9%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent);overflow-wrap:anywhere}
-.nm-prog-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
-/* 侧边栏比内容高时，中间那片空白会把「批量写作」和页脚拉得很远，看着像
-   渲染失败。让区块自身沿垂直方向均匀吃满剩余空间：间距变大而不是留空。 */
-.nm-prog-sections{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:16px}
+/* 页脚也去掉 margin-top:auto。auto 外边距在**空间不够**时并不会让位，
+   它只是把元素推到容器末尾，剩余高度为负时就会和上面的内容叠在一起。
+   内容短的时候靠面板自身的 gap 已经足够分开，不需要再顶。 */
+.nm-prog-foot{padding-top:10px;border-top:1px solid var(--nm-border);font-size:10.5px;color:var(--nm-muted);font-variant-numeric:tabular-nums}
+/* 中间区块走自然高度，**不要** flex:1 + min-height:0。
+   这两个属性合起来会把容器压到「剩余空间」的高度，而容器内部没有自己的
+   滚动条，一旦内容比这个高度长，就会溢出到外面直接盖住页脚 —— 表现是
+   「正文 40/40 章」那行插进资产清单中间，压住「伏笔」「剧情树」。
+   整块面板本身已经是 overflow:auto，溢出交给它滚就够了。 */
+.nm-prog-sections{flex:none;display:flex;flex-direction:column;gap:16px}
 /* 世界生成区块图：仿 Minecraft Java 版加载屏的「区块颜色图」。
    重点是小而密的方块地图 —— 28×28 格，缝隙 1px，肉眼数不清单格，
    整体才读成「一片地形」。做成十来个大色块只会像图例表格。 */

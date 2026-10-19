@@ -110,3 +110,24 @@ test('进度面板自己注入样式，不依赖设置页', () => {
   const rawReturns = [...frame.matchAll(/return h\('div', \{ className: 'nm-atlas nm-prog'/g)]
   assert.equal(rawReturns.length, 0, '不应有绕过 frame 直接返回的分支')
 })
+
+test('面板子块不许被 flex 压缩，否则会互相叠住', () => {
+  // flex 容器的 flex-shrink 默认是 1。侧边栏高度不够时，地图、环形卡、
+  // 清单会按比例一起被压扁，视觉上表现为「正文 40/40 章」那行插进清单
+  // 中间、压住「伏笔」「剧情树」。必须先钉死子块高度，再让外层滚动。
+  assert.match(CSS, /\.nm-prog > \*\{flex:0 0 auto\}/, '必须有 .nm-prog > *{flex:0 0 auto}')
+  assert.match(CSS, /\.nm-prog\{[^}]*overflow-y:auto/, '溢出交给 .nm-prog 自己滚')
+})
+
+test('中间区块与页脚都不能用 auto 外边距抢高度', () => {
+  // flex:1 + min-height:0 会把容器压到「剩余空间」，内容溢出后盖住下一个
+  // 元素；margin-top:auto 在剩余高度为负时同理。两者都会造成重叠。
+  const sections = CSS.match(/\.nm-prog-sections\{([^}]*)\}/)
+  assert.ok(sections, '必须有 .nm-prog-sections 规则')
+  assert.doesNotMatch(sections[1], /flex:1(?!\d)/, '不能再用 flex:1')
+  assert.doesNotMatch(sections[1], /min-height:0/, 'min-height:0 会允许被压到更矮')
+
+  const foot = CSS.match(/\.nm-prog-foot\{([^}]*)\}/)
+  assert.ok(foot, '必须有 .nm-prog-foot 规则')
+  assert.doesNotMatch(foot[1], /margin-top:auto/, '页脚不能用 auto 外边距')
+})
