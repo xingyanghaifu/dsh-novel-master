@@ -300,7 +300,11 @@ function worldBrief(cwd, project) {
     .filter((region) => region.climate)
     .map((region) => {
       const c = region.climate
-      return `  ${region.name}｜${c.bandLabel}｜${c.terrainLabel}｜${c.summary}`
+      // 水源跟在气候后面。气候说「干不干」，水源说「人怎么活」——
+      // 后者才是作者写聚落时真正要交代的东西。
+      const water = region.water ? `｜${region.water.label}` : ''
+      const mark = c.marks?.length ? `（设定：${c.marks.join('·')}）` : ''
+      return `  ${region.name}｜${c.bandLabel}｜${c.terrainLabel}｜${c.summary}${water}${mark}`
     })
   const lines = ['———— 世界概览（按方位推演） ————', ...rows]
   if (issues.length > 0) {

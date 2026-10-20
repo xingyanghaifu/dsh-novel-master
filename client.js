@@ -378,6 +378,10 @@ window.__ModuleLoader__.load({
    它是作者写的，不该看起来像算出来的。 */
 .nm-world-mark{font-size:9.5px;padding:1px 5px;border-radius:4px;white-space:nowrap;color:color-mix(in srgb,var(--nm-accent) 65%,var(--nm-muted));border:1px solid color-mix(in srgb,var(--nm-accent) 30%,transparent);cursor:help}
 .nm-world-climate{font-size:10.5px;color:var(--nm-accent);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 水源。跟着地名往后排，用更淡的颜色 —— 它是补充信息，不是结论。
+   无水的那一档才提亮，因为那才是需要作者动手的。 */
+.nm-world-water{grid-column:1/-1;margin-top:-2px;font-size:9.5px;color:var(--nm-muted);opacity:.6;cursor:help}
+.nm-world-water[data-kind="dry"],.nm-world-water[data-kind="none"]{color:var(--nm-error);opacity:.85}
 .nm-world-issues{display:flex;flex-direction:column;gap:5px;margin-top:3px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 7%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent)}
 .nm-world-issues-head{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:var(--nm-error)}
 .nm-world-issues-count{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;font-size:9.5px;border-radius:999px;background:color-mix(in srgb,var(--nm-error) 18%,transparent);font-variant-numeric:tabular-nums}
@@ -2979,6 +2983,8 @@ window.__ModuleLoader__.load({
           // 后端推演好的气候直接带过来。前端不重算 —— 两处各算一套，
           // 迟早会出现「图上写着湿热、侧栏写着干旱」这种自相矛盾。
           climate: region.climate ?? null,
+          // 水从哪来，同样由后端给
+          water: region.water ?? null,
           // 地区的「厚」按说明写得多细算，而不是按正文字数 —— 地区没有字数
           chars: String(region.desc ?? '').length,
         }))
@@ -3184,7 +3190,16 @@ window.__ModuleLoader__.load({
             h('span', {
               className: 'nm-world-climate',
               title: region.climate.derived ? '按方位与地形推演' : '来自设定，未参与推演',
-            }, region.climate.summary)))),
+            }, region.climate.summary),
+            // 水源单独一列：气候说「这里干不干」，水源说「人怎么活」。
+            // 两件事，作者常常只想了前一件。
+            region.water
+              ? h('span', {
+                className: 'nm-world-water',
+                'data-kind': region.water.kind,
+                title: region.water.detail,
+              }, region.water.label)
+              : null))),
         issues.length > 0
           ? h('div', { className: 'nm-world-issues' },
             h('div', { className: 'nm-world-issues-head' },

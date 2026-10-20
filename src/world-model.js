@@ -355,6 +355,110 @@ export function posToPoint(pos) {
 }
 
 /**
+ * 水系：这一带的水从哪来。
+ *
+ * 这里刻意**不**画河流。河流需要一张连续的高程面 —— 水从高处往低处连成
+ * 一条线，而这套数据只有九宫格里的若干个点加一句说明。真要硬画，画出来的
+ * 河会立刻和地形打架（「河穿过了一座山」），作者一眼就能看出来是假的。
+ * 假的比没有更糟：它会让整块推演都不可信。
+ *
+ * 所以只回答一个它能答的问题：这里有没有地表水，来源是哪一种。
+ * 四个来源对应现实里全部的内陆供水方式，答完作者就知道该补什么。
+ *
+ * 返回 { kind, label, detail }，kind 取值：
+ *   coastal  挨着海（最省事，也最不容易写错）
+ *   lake     旁边有湖沼
+ *   river    在湿润带、有山有林，推断有河（注意这是推断，不是确定）
+ *   dry      什么都没有 —— 这种地方要么靠地下水，要么根本不该有聚落
+ */
+export function waterSource(region, neighbours = []) {
+  const self = region ?? {}
+  const kind = self.terrainKind ?? detectTerrain(self.terrain, self.desc)
+  const traits = TERRAIN_TRAITS[kind]
+  const desc = String(self.desc ?? '')
+  const x = Number(self.x ?? 0.5)
+  const y = Number(self.y ?? 0.5)
+
+  // 自己就是水体，或者说明里直接写了河湖海
+  if (traits?.water) {
+    return { kind: 'self', label: senseWater(kind), detail: '本地就是水体' }
+  }
+  const named = /河|江|溪|湖|泉|井|湾|港|海岸/u.exec(desc)
+  if (named) {
+    return { kind: 'named', label: '有' + named[0], detail: `说明里写了「${named[0]}」` }
+  }
+
+  // 说明里写了超自然供水（魔法泉、圣泉之类）也认，但要标明来源是设定
+  const marks = detectMarks(desc)
+  if (marks.includes('barren')) {
+    return { kind: 'none', label: '无水', detail: '设定写明此地无源质' }
+  }
+
+  // 看邻居。海/湖/沼算水源，河不算（那需要连续地形）。
+  const wetNeighbour = neighbours
+    .filter((other) => other && String(other.name ?? '') !== String(self.name ?? ''))
+    .map((other) => ({
+      other,
+      kind: other.terrainKind ?? detectTerrain(other.terrain, other.desc),
+    }))
+    .filter(({ other, kind: k }) => {
+      if (!TERRAIN_TRAITS[k]?.water && k !== 'ocean' && k !== 'swamp' && k !== 'island') return false
+      const ox = Number(other.x ?? 0.5)
+      const oy = Number(other.y ?? 0.5)
+      return Math.hypot(ox - x, oy - y) <= NEIGHBOUR_DISTANCE
+    })
+
+  if (wetNeighbour.length > 0) {
+    const near = wetNeighbour[0]
+    const nearKind = near.other.terrainKind ?? detectTerrain(near.other.terrain, near.other.desc)
+    return {
+      kind: nearKind === 'swamp' ? 'swamp' : 'coastal',
+      label: nearKind === 'swamp' ? '近沼泽' : '近水域',
+      detail: `挨着「${String(near.other.name ?? '').trim()}」`,
+    }
+  }
+
+  // 没有水域，但足够湿、又有山（山能集水）。
+  // 自己就是高地也算 —— 山地自己就是那条河的源头，不该往外找山。
+  const selfIsHighland = kind === 'mountain' || kind === 'volcano'
+  const hasHighland = selfIsHighland || neighbours.some((other) => {
+    if (!other || String(other.name ?? '') === String(self.name ?? '')) return false
+    const k = other.terrainKind ?? detectTerrain(other.terrain, other.desc)
+    return k === 'mountain' || k === 'volcano'
+  })
+  const folded = Math.abs(latitudeRatio(y) - 0.5) * 2
+  const wet = baseHumidity(folded)
+  // 湿度门槛只管「山在别处」的情况：借别人的水要看那一带降不降水。
+  //
+  // 高地自己不需要这个门槛。原来的写法一视同仁，于是「霜脊山脉」被判成
+  // 无地表水 —— 一座横贯北境的山脉没有水，这话说出来就没人信了。
+  // 雪山靠融雪供水，与全局湿度无关；现实里干旱区的山反而是唯一的水源。
+  //
+  // 雨林带又是一类：年降水足够多，没有山也会有河，亚马逊和刚果都是这样。
+  // 原来只认「山」，于是赤道腹地被判成无地表水 —— 那是全地球水最多的地方。
+  if (hasHighland && (selfIsHighland || wet > 0.4)) {
+    return {
+      kind: 'river',
+      label: '推断有河',
+      detail: selfIsHighland ? '本地就是高地，河流该从这里发源' : '附近有山且不干旱，水会流下来',
+    }
+  }
+  if (wet > 0.7) {
+    return { kind: 'river', label: '推断有河', detail: '降水丰沛，地面自然会有水系' }
+  }
+
+  return { kind: 'dry', label: '无地表水', detail: '附近既没有水域也没有集水的山' }
+}
+
+/** 水体自身的种类说具体一点，光写「水域」等于没说。 */
+function senseWater(kind) {
+  if (kind === 'ocean') return '水体'
+  if (kind === 'swamp') return '沼泽'
+  if (kind === 'island') return '环海'
+  return '水体'
+}
+
+/**
  * 把地区列表补上坐标和推演气候。atlas 用的就是这个。
  *
  * 已经有 x/y 的（比如从地图资产读回来的）原样保留，没有的按方位词推。
@@ -369,6 +473,8 @@ export function enrichRegions(regions = []) {
       ...region,
       x: Number.isFinite(Number(region?.x)) ? Number(region.x) : point?.x ?? 0.5,
       y: Number.isFinite(Number(region?.y)) ? Number(region.y) : point?.y ?? 0.5,
+      // 水系要先知道地形，靠说明推的和写明的都得认
+      terrainKind: region?.terrainKind ?? detectTerrain(region?.terrain, region?.desc),
     }
   })
   const report = auditWorld(located)
@@ -377,6 +483,7 @@ export function enrichRegions(regions = []) {
     regions: located.map((region) => ({
       ...region,
       climate: byName.get(String(region.name ?? '').trim()) ?? null,
+      water: waterSource(region, located),
     })),
     issues: report.issues,
     climates: report.climates,
@@ -468,19 +575,18 @@ export function auditWorld(regions = []) {
     }
 
     // ③ 聚落落在又干又没水的地方。
+    //
+    //    水源判断统一交给 waterSource，不再在这里另写一份。
+    //    两处各写一套的下场是：面板说「有条河」，审计说「没水」，
+    //    作者不知道该信哪个，索性两个都不信。
     if (region.terrainKind === 'city' && base.wet < 0.42 && !explains('无源质')) {
-      const nearWater = list.some((other) => {
-        if (other === region) return false
-        const wetKind = other.terrainKind === 'ocean' || other.terrainKind === 'island'
-          || other.terrainKind === 'swamp'
-        // 阈值必须大于九宫格的相邻格距（0.32），否则「相邻格」也判成不挨着，
-        // 这条检查实际上等于关掉了 —— 实测西南的港城和内海隔着 0.32 被判成没水。
-        return wetKind && Math.hypot(other.x - region.x, other.y - region.y) <= NEIGHBOUR_DISTANCE
-      })
-      if (!nearWater) {
+      const source = waterSource(region, list)
+      // 只有确实没水才报。推断有河（river）也算有水 —— 那是「大概有」，
+      // 作者没写河不代表这条设定错了，不该判成硬伤。
+      if (source.kind === 'dry' || source.kind === 'none') {
         issues.push({
           kind: 'city-without-water',
-        research: '古代城市 选址 水源',
+          research: '古代城市 选址 水源',
           severity: 'high',
           region: region.name,
           message: `「${region.name}」是聚落，但附近没有水域，这一带基准湿度只有 ${base.wet}。`,

@@ -8,9 +8,11 @@ import {
   describeWorld,
   detectMarks,
   detectTerrain,
+  enrichRegions,
   latitudeBand,
   prevailingWind,
   TERRAIN_TRAITS,
+  waterSource,
 } from '../src/world-model.js'
 
 /** 一个典型的奇幻世界：赤道雨林、副热带沙漠、温带平原、极地冰原。 */
@@ -250,4 +252,85 @@ test('climate 标明这条结论是谁给的', () => {
   const written = climateOf({ x: 0.5, y: 0.5, terrain: '沙漠', desc: '绝对无源质' }, { neighbours: [] })
   assert.equal(written.derived, false, '有设定限定时不该说成推演')
   assert.deepEqual(written.marks, ['无源质'], '面板要能显示作者写了什么')
+})
+
+test('水系认得出四种来源', () => {
+  const world = enrichRegions([
+    { name: '内海', pos: '西', terrain: '水域', desc: '内陆海' },
+    { name: '港城', pos: '西北', terrain: '城邦', desc: '靠海吃海' },
+    { name: '霜脊山脉', pos: '东北', terrain: '山地', desc: '横贯北境' },
+    { name: '沙漠孤城', pos: '南', terrain: '城邦', desc: '要塞' },
+  ])
+  const byName = new Map(world.regions.map((r) => [r.name, r.water]))
+  assert.equal(byName.get('内海').kind, 'self', '水体自己就是水源')
+  assert.equal(byName.get('港城').kind, 'coastal', '紧挨水体应判近水域')
+  assert.equal(byName.get('霜脊山脉').kind, 'river', '山地自己就是河流源头')
+  assert.equal(byName.get('沙漠孤城').kind, 'dry', '四周无水就应承认无水')
+})
+
+test('说明里写了河湖泉，就算有水源', () => {
+  // 作者已经写了「靠河」，就不必再让模型推一遍
+  const source = waterSource(
+    { name: '河畔村', desc: '建在青石河边', x: 0.5, y: 0.5, terrain: '城邦' },
+    [],
+  )
+  assert.equal(source.kind, 'named')
+  assert.ok(source.label.includes('河'), `应说明是哪条水，实际是 ${source.label}`)
+})
+
+test('山地不靠全局湿度判断水源', () => {
+  // 霜脊山脉在亚寒带干燥带上，基准湿度只有 0.31。
+  // 原来一视同仁地卡 0.4 门槛，把一座横贯北境的山脉判成了无地表水 ——
+  // 雪山靠融雪供水，跟那一带降不降水没关系，干旱区的山往往是唯一水源。
+  const source = waterSource(
+    { name: '霜脊山脉', x: 0.82, y: 0.18, terrain: '山地', desc: '横贯北境' },
+    [],
+  )
+  assert.equal(source.kind, 'river')
+  assert.ok(source.detail.includes('发源'), '应说明它是源头')
+})
+
+test('降水丰沛的地方即使没有山也有水', () => {
+  // 亚马逊和刚果都没有雪山，但那是有史以来水最多的地方。
+  // 原来只认「山能集水」，于是赤道腹地被判成无地表水 ——
+  // 这种错比漏判更糟，它会让作者觉得整块推演都不懂地理。
+  const source = waterSource(
+    { name: '赤道腹地', x: 0.5, y: 0.5, terrain: '原野', desc: '四族共存的腹地' },
+    [],
+  )
+  assert.equal(source.kind, 'river')
+  assert.ok(source.detail.includes('降水'), '应说明是靠降水，不是靠山')
+})
+
+test('真没水的地方要老实说没水', () => {
+  // 温带干旱带上、四周没有水体也没有山的地方，就是没有地表水。
+  // 不该为了好看硬给一条河。
+  const source = waterSource(
+    { name: '干河床', x: 0.18, y: 0.82, terrain: '城邦', desc: '一座要塞' },
+    [],
+  )
+  assert.equal(source.kind, 'dry')
+})
+
+test('水系与审计不会互相打架', () => {
+  // 两处各判一套的下场：面板说「有条河」，审计说「没水」，作者两个都不信。
+  // 现在共用 waterSource，这条用例把一致性钉住。
+  const world = enrichRegions([
+    { name: '河畔镇', pos: '中', terrain: '城邦', desc: '建在河边' },
+  ])
+  const town = world.regions[0]
+  assert.equal(town.water.kind, 'named')
+  assert.equal(world.issues.some((i) => i.kind === 'city-without-water'), false,
+    '说明里写了河，审计不该再说没水')
+})
+
+test('水系不画不存在的河', () => {
+  // 河流需要连续高程面，这套数据只有离散点。硬画出来的河会穿过山，
+  // 作者一眼看穿是假的，然后整块推演都不可信了。
+  // 所以只回答「有没有水、从哪来」，不生成河道。
+  const world = enrichRegions([{ name: '某地', pos: '中', terrain: '原野', desc: '' }])
+  const water = world.regions[0].water
+  assert.ok(['self', 'named', 'coastal', 'swamp', 'river', 'dry', 'none'].includes(water.kind))
+  assert.equal('path' in water, false, '不该有河道坐标')
+  assert.equal('points' in water, false, '不该有河道坐标')
 })
