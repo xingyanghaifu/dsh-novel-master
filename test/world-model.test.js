@@ -198,6 +198,32 @@ test('气候概要是人能读的中文，不是数字', () => {
   assert.match(climate.summary, /^[炎热温暖凉爽寒冷]{2}(多雨|湿润|半干|干旱)$/u)
 })
 
+test('火山不是雪峰，不该算成寒冷', () => {
+  // 早先海拔给 0.9，海拔惩罚 -0.495 把地热那 +0.0875 完全盖住，
+  // 每座火山都被算成「寒冷干旱」。属性里写着 warmth 0.35，等于白写。
+  // 作者写「火山」想的是熔岩和地热，不是乞力马扎罗的冰盖。
+  const hot = climateOf({ x: 0.5, y: 0.5, terrain: '火山', desc: '熔岩' }, { neighbours: [] })
+  const cool = climateOf({ x: 0.5, y: 0.18, terrain: '火山', desc: '熔岩' }, { neighbours: [] })
+  assert.ok(hot.warmth > 0.7, `赤道的火山该是热的，实际 ${hot.warmth}`)
+  assert.ok(cool.warmth > 0.4, `北方的火山也不该是寒冷，实际 ${cool.warmth}`)
+  assert.ok(cool.warmth < hot.warmth, '北方还是该比赤道冷一些')
+})
+
+test('水源标签说人话', () => {
+  // 早先是 `'有' + matched[0]`，于是「港口城市」显示成「有港」——
+  // 字面上没错，但没人这么说话。面板是给人读的。
+  const cases = [
+    ['港口城市', '靠海'],
+    ['一条大河', '有河'],
+    ['湖边', '有湖'],
+    ['有泉水', '有泉'],
+  ]
+  for (const [desc, expected] of cases) {
+    const water = waterSource({ name: 'x', pos: '东', terrain: '城邦', desc }, [])
+    assert.equal(water.label, expected, `「${desc}」应显示为「${expected}」，实际「${water.label}」`)
+  }
+})
+
 test('每种地形都有完整的物理属性', () => {
   // 少一个字段，推演就会算出 NaN，而这种错会静默传到界面上
   for (const [kind, traits] of Object.entries(TERRAIN_TRAITS)) {

@@ -23,7 +23,13 @@
 
 /** 地形种类与它们的物理属性。key 与客户端的 TERRAIN_KINDS 对齐。 */
 export const TERRAIN_TRAITS = {
-  volcano: { label: '火山', altitude: 0.9, aridity: 0.55, warmth: 0.35, water: false },
+  // 火山：海拔给了 0.45 而不是山地的 0.85。
+  //
+  // 早先写 0.9，结果每一座火山都被算成「寒冷」—— 海拔惩罚 -0.495
+  // 把地热那 +0.0875 完全盖住，TERRAIN_TRAITS 里写的 warmth 0.35
+  // 等于白写。物理上「雪顶火山」确实很冷，但作者写「火山」时想的是
+  // 熔岩和地热，不是乞力马扎罗的冰盖。火山是地貌区域，不是单一峰顶。
+  volcano: { label: '火山', altitude: 0.45, aridity: 0.55, warmth: 0.35, water: false },
   snow: { label: '雪原', altitude: 0.35, aridity: 0.45, warmth: -0.75, water: false },
   desert: { label: '沙漠', altitude: 0.3, aridity: 0.95, warmth: 0.3, water: false },
   ocean: { label: '水域', altitude: 0.02, aridity: -0.6, warmth: 0, water: true },
@@ -385,7 +391,14 @@ export function waterSource(region, neighbours = []) {
   }
   const named = /河|江|溪|湖|泉|井|湾|港|海岸/u.exec(desc)
   if (named) {
-    return { kind: 'named', label: '有' + named[0], detail: `说明里写了「${named[0]}」` }
+    // 只截到单字会说出「有港」这种话 —— 读者要的是「靠海」或「有河」。
+    // 「港」和「湾」本来就意味着海，换个说法更直接。
+    const word = named[0]
+    const label = word === '港' || word === '湾' || word === '海岸' ? '靠海'
+      : word === '湖' ? '有湖'
+        : word === '泉' || word === '井' ? '有泉'
+          : '有河'
+    return { kind: 'named', label, detail: `说明里写了「${word}」` }
   }
 
   // 说明里写了超自然供水（魔法泉、圣泉之类）也认，但要标明来源是设定
