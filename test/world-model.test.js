@@ -224,6 +224,19 @@ test('水源标签说人话', () => {
   }
 })
 
+test('中文里最常见的聚落写法都要认得出来', () => {
+  // 只认「城/镇/都」的话，「李家庄」「王寨」这类全被当成无地形，
+  // 「聚落该挨着水」这条检查对大部分村子直接失效 ——
+  // 而中文小说里的村子远比城多。
+  for (const name of ['边境村', '李家庄', '王寨', '屯子', '营地', '哨所', '驿站', '邑城']) {
+    assert.equal(detectTerrain('', name), 'city', `「${name}」应识别为聚落`)
+  }
+  // 「山脚村」是村子，不是山 —— 聚落词要排在 mountain 之前
+  assert.equal(detectTerrain('', '山脚村'), 'city', '带山字的村名仍应判成聚落')
+  // 但真山不能被抢走
+  assert.equal(detectTerrain('', '青云山'), 'mountain')
+})
+
 test('每种地形都有完整的物理属性', () => {
   // 少一个字段，推演就会算出 NaN，而这种错会静默传到界面上
   for (const [kind, traits] of Object.entries(TERRAIN_TRAITS)) {
