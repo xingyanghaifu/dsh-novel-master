@@ -265,7 +265,7 @@ export function definitions(ctx, intelligence, config) {
     { key: 'review', factory: reviewCommand },
     { key: 'idea', factory: ideaCommand },
     { key: 'spark', factory: sparkCommand },
-    { key: 'world', factory: worldCommand },
+    { key: 'world', factory: () => worldCommand(ctx, config?.research) },
     { key: 'role', factory: roleCommand },
     { key: 'stats', factory: statsCommand },
     { key: 'export', factory: exportCommand },

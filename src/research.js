@@ -200,6 +200,87 @@ export function sanitizeWebContent(html) {
 }
 
 /**
+ * 检索一个问句，抓正文，交给模型核验，返回结论。
+ *
+ * 为什么抽出来：世界参照和 /novel-research 要问的是同一件事 ——
+ * 「现实里这是怎么解释的」。两条路径各写一份检索 + 抓取 + 防注入 +
+ * 可信度评估，迟早有一份忘了 strip markup，或者忘了绑定 URL 校验，
+ * 那才是最难查的那类漏洞。检索只有一个实现。
+ *
+ * 返回 { ok: true, result, documents } 或 { ok: false, reason }。
+ * 不写文件、不落盘 —— 存哪儿由调用方决定，世界参照要存进项目，
+ * 资料检索要存进 novel_research/。
+ */
+export async function runResearch(ctx, config, query, signal) {
+  if (!query || query.length > MAX_QUERY) return { ok: false, reason: `检索问题必须为 1-${MAX_QUERY} 个字符。` }
+  const provider = read(config?.provider, '')
+  const model = read(config?.model, '')
+  const reasoningEffort = read(config?.reasoningEffort, '') || undefined
+  if (!routeString(provider) || !routeString(model)) return { ok: false, reason: '资料检索已启用，但尚未配置 Provider 和 Model。' }
+  const web = ctx?.get?.('web')
+  if (!web || typeof web.search !== 'function' || typeof web.fetch !== 'function') return { ok: false, reason: '宿主没有可用的联网检索服务。' }
+  const maxResults = Math.min(MAX_RESULTS, Math.max(1, Number(read(config?.maxResults, 5)) || 5))
+  const sourceLimit = Math.min(MAX_SOURCE_CHARS, Math.max(1000, Number(read(config?.maxSourceChars, 12000)) || 12000))
+  const searched = await web.search({ query, maxResults }, signal)
+  const sources = Array.isArray(searched?.sources) ? searched.sources.slice(0, maxResults) : []
+  if (!sources.length) return { ok: false, reason: '没有检索到可用来源。' }
+  let total = 0
+  const documents = []
+  // Share the budget across every source instead of first-come-first-served:
+  // one huge page must not crowd the rest out, or the model is handed facts
+  // whose URLs never appeared in its evidence and every citation fails.
+  const perSource = Math.max(1000, Math.floor(MAX_TOTAL_CHARS / Math.max(1, sources.length)))
+  for (const source of sources) {
+    if (!source?.url || !/^https?:\/\//iu.test(source.url)) continue
+    let body = ''
+    try {
+      const fetched = await web.fetch({ url: source.url }, signal)
+      // Strip markup before the body becomes evidence; the raw bytes are
+      // attacker-controlled and must not reach the model as instructions.
+      if (fetched?.statusCode >= 200 && fetched.statusCode < 300) {
+        const raw = typeof fetched.body === 'string' ? fetched.body : fetched.body?.content
+        body = bounded(sanitizeWebContent(raw), sourceLimit)
+      }
+    } catch { /* 单个来源失败仍保留搜索摘要，并在报告中标记未抓取 */ }
+    const heading = sourceText(source, '')
+    const room = Math.min(perSource - heading.length, MAX_TOTAL_CHARS - total - heading.length)
+    if (room <= 0) continue
+    const text = sourceText(source, body.length > room ? bounded(body, room) : body)
+    if (!text.trim()) continue
+    total += text.length
+    documents.push({ ...source, fetched: Boolean(body), text })
+  }
+  if (!documents.length) return { ok: false, reason: '检索结果无法读取。' }
+  const evaluated = CredibilityEvaluator.evaluateSources(documents)
+  const evidence = evaluated.map(item => item.text).join('\n\n')
+  const system = '你是严谨的资料核验助手。只依据提供的检索来源回答，不使用未展示的记忆补全事实。区分来源明确陈述、跨来源一致结论和你的推断；每个关键数据必须绑定来源 URL。若来源不足、冲突、过时或无法核验，可信度必须降低并说明原因。不要编造 DOI、作者、数字、发布日期或引用。只返回 JSON：{"answer":"中文结论","facts":[{"claim":"可核验事实或数据","value":"具体值或说明","sourceUrls":["https://..."],"confidence":0,"confidenceLabel":"高|中|低","reason":"判断依据"}],"limitations":["限制"],"sources":[{"url":"https://...","title":"来源标题","publishedAt":"可选日期"}]}。confidence 是 0 到 1 的数值，不是客观真理概率。'
+  const prompt = `检索问题：${query}\n\n以下是检索服务返回的来源和正文：\n${evidence}`
+  const text = await callText(ctx, {
+    provider, model, reasoningEffort,
+    system, prompt, signal,
+    timeoutMs: Number(read(config?.timeoutMs, 60000)) || 60000, maxTokens: 4096, maxOutputChars: 24000,
+  })
+  const parsed = parseJson(text)
+  if (!parsed || typeof parsed.answer !== 'string' || !Array.isArray(parsed.facts) || !Array.isArray(parsed.sources)) {
+    return { ok: false, reason: '检索模型返回的数据结构不完整。' }
+  }
+  // 引用校验与可信度校验必须与 /novel-research 完全一致：
+  // 漏一条，世界参照这条路径就能被诱导编造来源。
+  const knownUrls = new Set(evaluated.map(item => item.url))
+  const validFact = fact => fact && typeof fact.claim === 'string' && typeof fact.value === 'string'
+    && Array.isArray(fact.sourceUrls) && fact.sourceUrls.length > 0 && fact.sourceUrls.every(url => knownUrls.has(url))
+    && typeof fact.confidence === 'number' && Number.isFinite(fact.confidence) && fact.confidence >= 0 && fact.confidence <= 1
+    && ['高', '中', '低'].includes(fact.confidenceLabel) && typeof fact.reason === 'string'
+  if (!Array.isArray(parsed.limitations) || parsed.limitations.some(item => typeof item !== 'string')
+    || parsed.facts.length > 100 || !parsed.facts.every(validFact)) {
+    return { ok: false, reason: '检索模型引用了未提供的来源或返回了无效可信度。' }
+  }
+  parsed.sources = evaluated.map(({ url, title, publishedAt }) => ({ url, title, ...(publishedAt ? { publishedAt } : {}) }))
+  parsed.limitations = [...parsed.limitations]
+  return { ok: true, result: parsed, documents: evaluated }
+}
+
+/**
  * 资料检索命令 - 增强版，包含可信度评估
  */
 export function researchCommand(ctx, configuredResearch) {
@@ -215,63 +296,13 @@ export function researchCommand(ctx, configuredResearch) {
       const provider = read(config.provider, '')
       const model = read(config.model, '')
       const reasoningEffort = read(config.reasoningEffort, '') || undefined
-      if (!routeString(provider) || !routeString(model)) return fail('资料检索已启用，但尚未配置 Provider 和 Model。')
-      const web = ctx?.get?.('web')
-      if (!web || typeof web.search !== 'function' || typeof web.fetch !== 'function') return fail('宿主没有可用的联网检索服务。')
-      const maxResults = Math.min(MAX_RESULTS, Math.max(1, Number(read(config.maxResults, 5)) || 5))
-      const sourceLimit = Math.min(MAX_SOURCE_CHARS, Math.max(1000, Number(read(config.maxSourceChars, 12000)) || 12000))
-      const searched = await web.search({ query, maxResults }, invocation.signal)
-      const sources = Array.isArray(searched?.sources) ? searched.sources.slice(0, maxResults) : []
-      if (!sources.length) return fail('没有检索到可用来源，未生成结论。')
-      let total = 0
-      const documents = []
-      // Share the budget across every source instead of first-come-first-served:
-      // one huge page must not crowd the rest out, or the model is handed facts
-      // whose URLs never appeared in its evidence and every citation fails.
-      const perSource = Math.max(1000, Math.floor(MAX_TOTAL_CHARS / Math.max(1, sources.length)))
-      for (const source of sources) {
-        if (!source?.url || !/^https?:\/\//iu.test(source.url)) continue
-        let body = ''
-        try {
-          const fetched = await web.fetch({ url: source.url }, invocation.signal)
-          // Strip markup before the body becomes evidence; the raw bytes are
-          // attacker-controlled and must not reach the model as instructions.
-          if (fetched?.statusCode >= 200 && fetched.statusCode < 300) {
-            const raw = typeof fetched.body === 'string' ? fetched.body : fetched.body?.content
-            body = bounded(sanitizeWebContent(raw), sourceLimit)
-          }
-        } catch { /* 单个来源失败仍保留搜索摘要，并在报告中标记未抓取 */ }
-        const heading = sourceText(source, '')
-        const room = Math.min(perSource - heading.length, MAX_TOTAL_CHARS - total - heading.length)
-        if (room <= 0) continue
-        const text = sourceText(source, body.length > room ? bounded(body, room) : body)
-        if (!text.trim()) continue
-        total += text.length
-        documents.push({ ...source, fetched: Boolean(body), text })
-      }
-      if (!documents.length) return fail('检索结果无法读取，未生成结论。')
-      
-      // 【新增】自动可信度评估
-      const evaluatedDocuments = CredibilityEvaluator.evaluateSources(documents)
-      
-      const evidence = evaluatedDocuments.map(item => item.text).join('\n\n')
-      const system = '你是严谨的资料核验助手。只依据提供的检索来源回答，不使用未展示的记忆补全事实。区分来源明确陈述、跨来源一致结论和你的推断；每个关键数据必须绑定来源 URL。若来源不足、冲突、过时或无法核验，可信度必须降低并说明原因。不要编造 DOI、作者、数字、发布日期或引用。只返回 JSON：{"answer":"中文结论","facts":[{"claim":"可核验事实或数据","value":"具体值或说明","sourceUrls":["https://..."],"confidence":0,"confidenceLabel":"高|中|低","reason":"判断依据"}],"limitations":["限制"],"sources":[{"url":"https://...","title":"来源标题","publishedAt":"可选日期"}]}。confidence 是 0 到 1 的数值，不是客观真理概率。'
-      const prompt = `检索问题：${query}\n\n以下是检索服务返回的来源和正文：\n${evidence}`
-      const text = await callText(ctx, {
-        provider, model, reasoningEffort,
-        system, prompt, signal: invocation.signal,
-        timeoutMs: Number(read(config.timeoutMs, 60000)) || 60000, maxTokens: 4096, maxOutputChars: 24000,
-      })
-      const result = parseJson(text)
-      if (!result || typeof result.answer !== 'string' || !Array.isArray(result.facts) || !Array.isArray(result.sources)) return fail('检索模型返回的数据结构不完整。')
-       const knownUrls = new Set(evaluatedDocuments.map(item => item.url))
-       const validFact = fact => fact && typeof fact.claim === 'string' && typeof fact.value === 'string'
-         && Array.isArray(fact.sourceUrls) && fact.sourceUrls.length > 0 && fact.sourceUrls.every(url => knownUrls.has(url))
-         && typeof fact.confidence === 'number' && Number.isFinite(fact.confidence) && fact.confidence >= 0 && fact.confidence <= 1
-         && ['高', '中', '低'].includes(fact.confidenceLabel) && typeof fact.reason === 'string'
-       if (!Array.isArray(result.limitations) || result.limitations.some(item => typeof item !== 'string') || result.facts.length > 100 || !result.facts.every(validFact)) return fail('检索模型引用了未提供的来源或返回了无效可信度，未保存结论。')
-       result.sources = evaluatedDocuments.map(({ url, title, publishedAt }) => ({ url, title, ...(publishedAt ? { publishedAt } : {}) }))
-       if (result.facts.some(fact => !fact || !Array.isArray(fact.sourceUrls) || fact.sourceUrls.some(url => !knownUrls.has(url)) || typeof fact.confidence !== 'number' || fact.confidence < 0 || fact.confidence > 1)) return fail('检索模型引用了未提供的来源或返回了无效可信度，未保存结论。')
+      // 检索、抓取、防注入、可信度、引用校验全在 runResearch 里，
+      // 世界参照走的是同一份实现。这里只管落盘和出报告。
+      const ran = await runResearch(ctx, config, query, invocation.signal)
+      if (!ran.ok) return fail(ran.reason.endsWith('。') ? ran.reason : `${ran.reason}，未生成结论。`)
+      const result = ran.result
+      const evaluatedDocuments = ran.documents
+      const searched = { content: '', truncated: false }
       const dir = ensureResearchStorageDirectory(agentCwd(invocation), read(config.storageDir, 'novel_research'))
       fs.mkdirSync(dir, { recursive: true })
       const stamp = new Date().toISOString().replace(/[:.]/gu, '-')

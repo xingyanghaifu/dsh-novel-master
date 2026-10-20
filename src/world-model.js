@@ -459,6 +459,52 @@ function senseWater(kind) {
 }
 
 /**
+ * 给一条审计问题生成「该搜什么」。
+ *
+ * 为什么不让模型自己想去搜什么：作者打字提问时用的词往往搜不到答案。
+ * 「赤道雪原怎么回事」返回旅游攻略，「赤道 高山 冰川 成因」才返回地质学。
+ * 检索词是这套东西和现实资料之间唯一的那根线，断了就等于没联网。
+ *
+ * 每条问题都已经带 research（见 auditWorld），这里只做拼接与去重，
+ * 不再二次判断 —— 判据只该有一个地方。
+ */
+export function researchQueryFor(issue) {
+  const base = String(issue?.research ?? '').trim()
+  if (!base) return ''
+  // 带上地区名会让搜索结果跑偏到「这个虚构地名」，搜索引擎不认识它。
+  // 只有问题是关于某个真实地貌时才加限定词。
+  //
+  // 限定词也必须和 base 去重：base 已经是「古代城市 选址 水源」，
+  // 再拼一个「选址原则」就成了「选址 水源 选址原则」，明显是机器凑的。
+  const qualifier = issue?.kind === 'city-without-water' ? '原则'
+    : issue?.kind === 'snow-too-warm' ? '低纬'
+      : ''
+  if (!qualifier || base.includes(qualifier)) return base
+  return `${base} ${qualifier}`.trim()
+}
+
+/**
+ * 地区列表 → 一组适合直接丢给检索服务的问句。
+ *
+ * 只取 high/medium，且按地区去重：同一个地点三条提示，
+ * 检索三次拿回三份高度重复的结论，纯属浪费。
+ */
+export function researchPlan(issues = []) {
+  const seen = new Set()
+  const plan = []
+  for (const issue of Array.isArray(issues) ? issues : []) {
+    if (!issue || issue.severity === 'low') continue
+    const query = researchQueryFor(issue)
+    if (!query) continue
+    const key = `${issue.region}::${query}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    plan.push({ region: issue.region, kind: issue.kind, query })
+  }
+  return plan
+}
+
+/**
  * 把地区列表补上坐标和推演气候。atlas 用的就是这个。
  *
  * 已经有 x/y 的（比如从地图资产读回来的）原样保留，没有的按方位词推。

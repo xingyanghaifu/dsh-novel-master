@@ -6,9 +6,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { leadingChapter } from './args.js'
 import { NO_PROJECT, agentCwd, fail, ok, projectExists, queueTask, resolveProject } from './context.js'
-import { CHAPTER_DIR, RULES_FILE, countChars, listChapters, projectDir, projectRelativeDir, readProjectFile, readState } from './project.js'
+import { CHAPTER_DIR, RULES_FILE, countChars, listChapters, projectDir, projectRelativeDir, readProjectFile, readState, writeProjectFile } from './project.js'
 import { regionsOf } from './atlas.js'
-import { enrichRegions } from './world-model.js'
+import { enrichRegions, researchPlan } from './world-model.js'
 
 /** Resolve the target project or return an error result. */
 function target(invocation) {
@@ -318,14 +318,95 @@ function worldBrief(cwd, project) {
   return `${lines.join('\n')}\n\n`
 }
 
-export function worldCommand() {
+/**
+ * 「世界参照」：拿审计出来的问题去联网找现实依据。
+ *
+ * 这是整套推演里唯一真正上网的地方 —— 其余全部是本地计算。它存在的理由：
+ * 模型能算出「赤道不该有雪原」，但算不出「乞力马扎罗就在赤道且山顶有冰川」。
+ * 后者是作者推翻提示、或者把破例写得可信时真正需要的东西。
+ *
+ * 结果写进 世界状态.md 的「地理参照」一节，而不是丢进 novel_research/ ——
+ * 它属于这个世界，下一个人打开项目就该看见，而不是埋在检索记录里。
+ */
+async function worldResearch(ctx, researchConfig, cwd, project, invocation) {
+  if (!researchConfig) return fail('世界参照要用到联网检索，但当前没有可用的检索配置。')
+  const { regions, issues } = enrichRegions(regionsOf(cwd, project))
+  if (regions.length === 0) return fail('《' + project + '》还没写地理，先补 世界状态.md 的「地理」一节。')
+  const plan = researchPlan(issues)
+  if (plan.length === 0) {
+    return ok(`《${project}》的世界没查出讲不通的地方，不需要参照。`)
+  }
+  const { runResearch } = await import('./research.js')
+  // 一次只查一条：作者要的是能用的答案，不是批量报告。
+  // 挑最重的那条，其余的列出来但先不动手。
+  const first = plan[0]
+  // 检索要联网、要调模型，两件都可能失败（没配路由、断网、超时）。
+  // 不接住的话整条命令直接抛异常，作者看到一堆栈，连「该搜什么」都拿不到。
+  let ran
+  try {
+    ran = await runResearch(ctx, researchConfig, first.query, invocation?.signal)
+  } catch (error) {
+    ran = { ok: false, reason: error?.message ?? '检索过程出错' }
+  }
+  if (!ran.ok) {
+    return fail(`参照检索失败：${ran.reason}\n\n可以先自己搜：${plan.map((p) => `「${p.query}」（${p.region}）`).join('、')}`)
+  }
+  const result = ran.result
+  const lines = [
+    `———— 地理参照 · ${first.region} ————`,
+    `检索词：${first.query}`,
+    '',
+    result.answer,
+    '',
+    ...(result.facts ?? []).slice(0, 5).map((fact) => `· ${fact.claim}：${fact.value}（${fact.confidenceLabel ?? '未标注'}）\n  来源：${(fact.sourceUrls ?? []).join(', ')}`),
+    '',
+    '———— 来源 ————',
+    ...(result.sources ?? []).slice(0, 5).map((source) => `- ${source.title || source.url} ${source.url}`),
+  ]
+  if (plan.length > 1) {
+    lines.push('', `还有 ${plan.length - 1} 条待查：${plan.slice(1).map((p) => p.region).join('、')}`)
+  }
+
+  // 落进项目。检索结论如果只停在聊天里，下次打开就没了 ——
+  // 而作者要拿它改设定，隔天再看才是正常节奏。
+  const section = [
+    '## 地理参照',
+    '',
+    `> 由 /novel-world 参照 生成，检索词「${first.query}」，针对「${first.region}」。`,
+    '',
+    result.answer,
+    '',
+    ...(result.researchNote ? [result.researchNote, ''] : []),
+    ...(result.facts ?? []).slice(0, 5).map((fact) => `- **${fact.claim}**：${fact.value}（可信度 ${fact.confidenceLabel ?? '未标注'}）\n  - 来源：${(fact.sourceUrls ?? []).join(', ')}`),
+    '',
+    ...(result.sources ?? []).slice(0, 5).map((source) => `- [${source.title || source.url}](${source.url})`),
+  ].join('\n')
+  try {
+    const existing = readProjectFile(cwd, project, '世界状态.md') ?? ''
+    // 重复跑就替换旧的，不叠加 —— 否则查三次，文件里躺三段同样的东西。
+    const stripped = existing.replace(/\n## 地理参照[\s\S]*?(?=\n## |\s*$)/u, '').trimEnd()
+    writeProjectFile(cwd, project, '世界状态.md', `${stripped}\n\n${section}\n`)
+    lines.push('', `已写入 世界状态.md 的「地理参照」一节。`)
+  } catch (error) {
+    // 写不进去不该让整次检索白做 —— 结论已经在返回值里了
+    lines.push('', `结论没能写进 世界状态.md（${error?.message ?? '未知原因'}），可以手动粘贴。`)
+  }
+  return ok(lines.join('\n'))
+}
+
+export function worldCommand(ctx, researchConfig) {
   return {
     name: 'novel-world',
     description: '世界：查看世界时钟、势力动向和剧情分岔树；带要求则推演世界',
-    input: { hint: '[项目名] [推演要求，如：推进一个月]' },
-    handler: (invocation) => {
+    input: { hint: '[项目名] [推演要求 | 参照]' },
+    handler: async (invocation) => {
       const t = target(invocation)
       if (t.error) return t.error
+      // 「参照」不做世界推演，而是拿审计出来的问题去联网找现实依据。
+      // 这是这套东西唯一真正上网的地方 —— 其余全是本地推演。
+      if (/^参照/u.test(t.note)) {
+        return worldResearch(ctx, researchConfig ?? invocation?.config?.research, t.cwd, t.project, invocation)
+      }
       if (t.note.length > 0) {
         return queueTask({ ...invocation, novelProject: t.project ?? null }, `【世界推演】项目 ${t.dir}。读 设定.md、角色.md、世界状态.md、大纲.md。
 要求：${t.note}
