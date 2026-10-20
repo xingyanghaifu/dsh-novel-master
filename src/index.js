@@ -48,6 +48,7 @@ import { researchCommand, trendAnalysisCommand } from './research.js'
 import { batchCommand, batchTool } from './cmd-batch.js'
 import { probeCommand, probeTool } from './cmd-probe.js'
 import { personaCommand, personaStudyCommand } from './cmd-persona.js'
+import { powerCommand } from './power-system.js'
 
 export const name = 'novel-master'
 
@@ -89,6 +90,7 @@ const COMMAND_KEYS = [
   ['probe', '输出上限实测 (/novel-probe)'],
   ['persona', '作者风格 (/novel-persona)'],
   ['persona-study', '拆书提取人格 (/novel-persona-study)'],
+  ['power', '力量体系 (/novel-power)'],
   ...EXTRA_COMMANDS.map(({ key, title }) => [key, title]),
   ...INTELLIGENCE_KEYS,
 ]
@@ -280,7 +282,8 @@ export function definitions(ctx, intelligence, config) {
     { key: 'batch', factory: () => batchCommand(ctx, readField(config, 'batch')) },
     { key: 'probe', factory: () => probeCommand(ctx, readField(config, 'batch')) },
     { key: 'persona', factory: () => personaCommand() },
-    { key: 'persona-study', factory: () => personaStudyCommand(ctx, config) },    ...EXTRA_COMMANDS,
+    { key: 'persona-study', factory: () => personaStudyCommand(ctx, config) },
+    { key: 'power', factory: () => powerCommand(config) },    ...EXTRA_COMMANDS,
     ...intelligenceDefinitions(intelligence),
   ]
 }

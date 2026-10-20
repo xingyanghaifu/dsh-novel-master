@@ -121,6 +121,7 @@ github:xingyanghaifu/dsh-novel-master
 | `/novel-study <参考文件> [--to 项目]` | 统计参考文本并请求风格分析 |
 | `/novel-persona [项目] [风格id]` | 查看或套用作者风格（5 种内置，也可用拆书结果） |
 | `/novel-persona-study <参考文件> [--to 项目] [--只取 维度] [--provider X --model Y --effort Z] [--list-models]` | 拆书提取结构化作者人格，可指定分析模型与只取某几个维度 |
+| `/novel-power [项目] [想法] [--mode ideas\|build\|challenge]` | 设计力量体系：给方向、展开成规则、或追问已有体系的漏洞 |
 | `/novel-review [项目] [章号\|最近N章] [--deep]` | 请求基础或深度审校 |
 | `/novel-conflict [项目] [章号\|N-M]` | 请求冲突分析 |
 | `/novel-pace [项目]` | 请求节奏分析和文字图示 |
