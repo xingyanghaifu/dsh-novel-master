@@ -2712,6 +2712,145 @@ window.__ModuleLoader__.load({
       return `rgb(${r} ${g} ${bl})`
     }
 
+    /**
+     * 地形块（Voronoi 单元）。
+     *
+     * 和服务端 src/terrain-cells.js 是同一份算法，必须保持一致 ——
+     * 界面上的图和后端存进资产的图如果算得不一样，作者按界面认路、
+     * 打开资产却对不上，这张图就没有价值了。
+     *
+     * 为什么是 Voronoi 而不是等高线：等高线是连续场，读起来像气象图；
+     * 地图集都是「一块一块拼起来」的，块与块有明确边界。Azgaar、
+     * Watabou 那类生成器也是这个骨架。
+     */
+    function terrainCells(sites, options) {
+      const opts = options ?? {}
+      const width = Number(opts.width) > 0 ? Number(opts.width) : 84
+      const height = Number(opts.height) > 0 ? Number(opts.height) : 84
+      const seedText = String(opts.seed ?? 'nm')
+      const perSite = Number(opts.filler) >= 0 ? Number(opts.filler) : 8
+
+      const hash01 = (text, salt) => {
+        let acc = 2166136261 ^ (salt | 0)
+        for (let i = 0; i < text.length; i++) {
+          acc ^= text.charCodeAt(i)
+          acc = Math.imul(acc, 16777619) >>> 0
+        }
+        return (acc >>> 8) / 16777216
+      }
+
+      const seeds = []
+      const list = Array.isArray(sites) ? sites : []
+      for (const site of list) {
+        const x = Number(site?.x)
+        const y = Number(site?.y)
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+        seeds.push({
+          key: String(site.name ?? site.key ?? `s${seeds.length}`),
+          x: Math.min(width, Math.max(0, x * width)),
+          y: Math.min(height, Math.max(0, y * height)),
+          terrainKind: site.terrainKind,
+          height: Number(site.height) || 0.3,
+          filler: false,
+        })
+      }
+
+      // 填充块继承最近真实地点的地形 —— 荒野也有地形，只是没名字
+      const nearestKind = (x, y) => {
+        let best
+        let bestD = Infinity
+        for (const s of seeds) {
+          if (s.filler) continue
+          const d = (s.x - x) ** 2 + (s.y - y) ** 2
+          if (d < bestD) { bestD = d; best = s }
+        }
+        return best?.terrainKind
+      }
+
+      const count = list.length * perSite
+      if (count > 0) {
+        const cols = Math.ceil(Math.sqrt(count * (width / height)))
+        const rows = Math.ceil(count / cols)
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const corner = (r + c) % 2 === 0
+            const jx = (hash01(`${seedText}:${r}:${c}:x`, r * 7919 + c) - 0.5) * 1.6
+            const jy = (hash01(`${seedText}:${r}:${c}:y`, r * 104729 + c) - 0.5) * 1.6
+            const x = ((c + 0.5 + (corner ? 0.18 : -0.18) + jx * 0.5) / cols) * width
+            const y = ((r + 0.5 + jy * 0.5) / rows) * height
+            const sx = Math.min(width - 0.01, Math.max(0.01, x))
+            const sy = Math.min(height - 0.01, Math.max(0.01, y))
+            seeds.push({
+              key: `~${r}.${c}`,
+              x: sx,
+              y: sy,
+              terrainKind: nearestKind(sx, sy),
+              height: 0.12 + hash01(`${seedText}:${r}:${c}:h`, 31) * 0.2,
+              filler: true,
+            })
+          }
+        }
+      }
+
+      // 半平面裁剪：每个种子的地盘 = 所有「离它比离别人近」的半平面之交
+      const clip = (points, dx, dy, c) => {
+        const out = []
+        const inside = (p) => dx * p[0] + dy * p[1] <= c + 1e-9
+        for (let i = 0; i < points.length; i++) {
+          const a = points[i]
+          const b = points[(i + 1) % points.length]
+          const ina = inside(a)
+          const inb = inside(b)
+          if (ina) out.push(a)
+          if (ina !== inb) {
+            const fa = dx * a[0] + dy * a[1] - c
+            const fb = dx * b[0] + dy * b[1] - c
+            const t = fa / (fa - fb)
+            out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
+          }
+        }
+        return out.filter((p, i) => {
+          const q = out[(i + out.length - 1) % out.length]
+          return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-6
+        })
+      }
+
+      const cells = seeds.map((seedCell) => {
+        let polygon = [[0, 0], [width, 0], [width, height], [0, height]]
+        for (const other of seeds) {
+          if (other === seedCell) continue
+          const dx = other.x - seedCell.x
+          const dy = other.y - seedCell.y
+          const d2 = dx * dx + dy * dy
+          if (d2 < 1e-9) continue
+          const c = (other.x * other.x + other.y * other.y - seedCell.x * seedCell.x - seedCell.y * seedCell.y) / 2
+          polygon = clip(polygon, dx, dy, c)
+          if (polygon.length < 3) break
+        }
+        return {
+          key: seedCell.key,
+          x: seedCell.x,
+          y: seedCell.y,
+          points: polygon.map((p) => [
+            Math.min(width, Math.max(0, p[0])),
+            Math.min(height, Math.max(0, p[1])),
+          ]),
+          terrainKind: seedCell.terrainKind,
+          height: seedCell.height,
+          filler: seedCell.filler,
+        }
+      })
+
+      return { cells, width, height }
+    }
+
+    function cellPath(cell) {
+      const points = cell?.points ?? []
+      if (points.length < 3) return ''
+      const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ')
+      return `${d}Z`
+    }
+
     function terraColor(t) {
       const stops = TERRA_RAMP
       for (let i = 1; i < stops.length; i++) {
@@ -3135,6 +3274,23 @@ window.__ModuleLoader__.load({
       const hills = placeLike.length ? placeLike : list
       const layers = terraLayers(hills)
 
+      // 地形块。种子用项目名，同一个项目每次打开都是同一张图；
+      // 换项目就换一张 —— 名字变了，地块的形状跟着变是合理的。
+      //
+      // 必须和后端存资产时算的一致，所以传的参数（宽度、种子、填充密度）
+      // 要和 saveMapAsset 里那份保持一致。
+      const cellSeed = String(project?.name ?? project?.title ?? 'nm')
+      const cells = terrainCells(
+        sites.map((site) => ({
+          name: site.key,
+          x: site.x,
+          y: site.y,
+          terrainKind: site.terrainKind,
+          height: site.height,
+        })),
+        { width: S, height: S, seed: cellSeed },
+      ).cells
+
       // 揭示半径：进度从中心向外扩张，把已经「写出来」的那一块显影。
       //
       // 之前两版的语义都错了：一版按高程水位（低处先出），一版 slice 前 N 层
@@ -3171,12 +3327,19 @@ window.__ModuleLoader__.load({
               cwd: project?.cwd ?? '',
               size: S,
               layers: layers.map((layer) => layer.d),
-              sites: labelPlan.map((plan) => ({
-                name: plan.label,
-                x: plan.cx / S,
-                y: plan.cy / S,
-                height: (sites.find((site) => site.key === plan.key)?.height ?? 0.3),
-              })),
+              // 种子要和界面上那份一致，否则存下来的地形块和作者看到的是两张图
+              seed: String(project?.name ?? project?.title ?? 'nm'),
+              sites: labelPlan.map((plan) => {
+                const site = sites.find((s) => s.key === plan.key)
+                return {
+                  name: plan.label,
+                  x: plan.cx / S,
+                  y: plan.cy / S,
+                  height: site?.height ?? 0.3,
+                  // 地形种类要传，否则后端只能从名字猜，猜错就上错色
+                  terrainKind: site?.terrainKind ?? null,
+                }
+              }),
             },
           })
           if (!alive.current) return
@@ -3252,7 +3415,35 @@ window.__ModuleLoader__.load({
             // 仍然压在上面读得清。再高就盖住等高线了。
             opacity: 0.85,
           }) : null,
-          // ---- 未探明的地形：极淡，只作为「还没长出来」的暗示 ----
+          // ---- 地形块：一块一块拼起来的地 --------
+          //
+          // 底下那层渐变是连续的（像气象图），这层是 Voronoi 单元 ——
+          // 每个地区占一块，边界落在两个地区的正中间，读起来才像地图。
+          //
+          // 关键：不是每块都描边。早先给每块都画 0.34 的边，结果整张图
+          // 布满网格线，像行政区划图 —— 而真实地貌的边界只出现在
+          // 「两种地形交界」的地方，同色相邻的两块不该有缝。
+          // 所以填充块完全不描边，真实地区只在它和不同地形的邻居之间
+          // 才看得出边界（靠 fillOpacity 差异和下面那条细线表现）。
+          h('g', { className: 'nm-terra-cells' },
+            cells.filter((cell) => cell.filler
+              || Math.hypot(cell.x / S - 0.5, cell.y / S - 0.5) * S <= reach + 1).map((cell) => {
+              const palette = TERRAIN_TINTS[cell.terrainKind]
+              // 认不出地形就不铺色，只留一块描边的空地 —— 猜颜色更误导
+              if (!palette) return null
+              return h('path', {
+                key: `c${cell.key}`,
+                d: cellPath(cell),
+                fill: tintAt(palette, 0.42 + cell.height * 0.3),
+                // 填充块淡一些，表示「没名字的地带」，但仍有地形
+                fillOpacity: cell.filler ? 0.3 : 0.6,
+                // 只有真实地区描边，且很细 —— 它标出的是「这块地属于谁」，
+                // 不是网格。填充块完全无描边，避免整张图变回网格纸。
+                stroke: cell.filler ? 'none' : '#080d12',
+                strokeWidth: cell.filler ? 0 : 0.22,
+                strokeLinejoin: 'round',
+              })
+            })),
           h('g', { opacity: 0.16 },
             layers.map((layer) => h('path', {
               key: `u${layer.t.toFixed(3)}`,

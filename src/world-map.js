@@ -17,6 +17,7 @@
 import { regionsOf } from './atlas.js'
 import { readProjectFile, writeProjectFile } from './project.js'
 import { detectTerrain } from './world-model.js'
+import { terrainCells, cellPath } from './terrain-cells.js'
 
 const SVG_FILE = '地图.svg'
 const DOC_FILE = '地图.md'
@@ -68,33 +69,37 @@ export function renderWorldMap(input) {
 
   const px = (v) => (v * size).toFixed(2)
 
-  // 地貌色斑：每个地点按地形种类晕开一片颜色。
+  // 地形块：和界面上同一套 Voronoi 单元。
   //
-  // 界面上那张图是用 canvas 逐像素混色，服务端这里不能那么干 ——
-  // PNG 塞进 SVG 会让文件体积翻几十倍，而且没有 canvas 可用。
-  // 改用 radialGradient 色斑：纯 SVG、体积小、任何看图工具都认。
-  // 效果和界面不完全一致，界面上是连续场，这里是几团柔光叠在一起 ——
-  // 但地形差异看得出来，这才是这一层要传的信息。
+  // 界面上那层是 canvas 逐像素渐变，这里不能那么干 —— PNG 塞进 SVG 会让
+  // 文件体积翻几十倍，服务端也没有 canvas。但地形块的几何是纯向量，
+  // 两边算出来完全一致（有测试盯着），所以这里直接画多边形，
+  // 存下来的资产和作者在界面上看到的形状是同一张。
   const TINTS = {
     volcano: '#8c3a26', snow: '#c8dbea', desert: '#b89a62', ocean: '#2f6a94',
     swamp: '#42603c', cave: '#3a3c42', island: '#4a8a7e', city: '#8a8072',
     forest: '#4a7440', mountain: '#6e7480', plain: '#7d8850',
   }
-  const gradients = []
-  const washes = []
-  sites.forEach((site, index) => {
-    const kind = site.terrainKind ?? detectTerrain(site.name, site.desc)
-    const color = TINTS[kind]
+  const grid = terrainCells(
+    sites.map((site) => ({
+      name: site.name,
+      x: site.x,
+      y: site.y,
+      // 客户端没传地形就从名字和说明推，和服务端别处用的是同一个函数
+      terrainKind: site.terrainKind ?? detectTerrain(site.name, site.desc),
+      height: site.height,
+    })),
+    { width: size, height: size, seed: String(input?.seed ?? project) },
+  )
+  const cellShapes = grid.cells.map((cell) => {
+    const color = TINTS[cell.terrainKind]
     // 认不出地形就不铺色 —— 猜一个颜色比不涂更误导
-    if (!color) return
-    const id = `w${index}`
-    gradients.push(`    <radialGradient id="${id}" cx="${px(site.x)}" cy="${px(site.y)}" r="${(size * 0.34).toFixed(1)}" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="${color}" stop-opacity="0.5"/>
-      <stop offset="0.55" stop-color="${color}" stop-opacity="0.22"/>
-      <stop offset="1" stop-color="${color}" stop-opacity="0"/>
-    </radialGradient>`)
-    washes.push(`    <rect width="${size}" height="${size}" fill="url(#${id})"/>`)
-  })
+    if (!color) return ''
+    // 填充块完全不描边。都描边的话整张图会布满网格线，像行政区划图；
+    // 真实地貌的边界只在「两个地区交界」处出现。
+    const stroke = cell.filler ? '' : ' stroke="#080d12" stroke-width=".22"'
+    return `    <path class="cell${cell.filler ? ' filler' : ''}" d="${cellPath(cell)}" fill="${color}" fill-opacity="${cell.filler ? 0.3 : 0.55}"${stroke}/>`
+  }).filter(Boolean).join('\n')
 
   // 等高线：每层描两遍（暗底 + 亮线），和界面上看到的一致。
   // 只保留 path 数据，不信任客户端给的其他属性。
@@ -130,11 +135,8 @@ export function renderWorldMap(input) {
     .site text { fill: #cfe6f5; font-size: 3.1px; font-family: "PingFang SC","Microsoft YaHei",system-ui,sans-serif; letter-spacing: .1px; }
   </style>
   <rect class="ocean" x="0" y="0" width="${size}" height="${size}"/>
-  <defs>
-${gradients.join('\n')}
-  </defs>
-  <g class="tints">
-${washes.join('\n')}
+  <g class="cells">
+${cellShapes}
   </g>
   <g class="contours">
 ${contours}
