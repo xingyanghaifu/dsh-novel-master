@@ -6,6 +6,7 @@ import {
   baselineOf,
   climateOf,
   describeWorld,
+  detectMarks,
   detectTerrain,
   latitudeBand,
   prevailingWind,
@@ -110,7 +111,10 @@ test('审计抓得到「热带沙漠」，但只判 medium', () => {
   // 奇幻世界里「源质被抽干的荒原」是成立的设定，作者常常已经写明原因。
   // 判成 high 会让整个世界显得处处是错，作者反而不再看提示。
   // 所以这条能报出来，但不算「讲不通」。
-  const report = auditWorld([{ name: '热带沙漠', desc: '寸草不生', x: 0.5, y: 0.5, terrain: '沙漠' }])
+  //
+  // 注意说明用词：写「寸草不生」会被认成枯萎限定，那属于作者已解释，
+  // 反而不该报。这里要的是一个没给理由的沙漠。
+  const report = auditWorld([{ name: '热带沙漠', desc: '一片黄沙', x: 0.5, y: 0.5, terrain: '沙漠' }])
   const issue = report.issues.find((i) => i.kind === 'desert-too-wet')
   assert.ok(issue, '应报出 desert-too-wet')
   assert.equal(issue.severity, 'medium', '沙漠在湿处只提示，不判死')
@@ -203,4 +207,47 @@ test('每种地形都有完整的物理属性', () => {
     }
     assert.equal(typeof traits.water, 'boolean', `${kind} 缺 water`)
   }
+})
+
+test('说明里的超自然限定能被认出来', () => {
+  assert.deepEqual(detectMarks('绝对无源质，末影龙的全盛之所'), ['barren'])
+  assert.deepEqual(detectMarks('被诅咒的永冬之地'), ['eternal-winter', 'cursed'])
+  assert.deepEqual(detectMarks('普通的平原村落'), [])
+  assert.deepEqual(detectMarks(undefined), [])
+})
+
+test('作者写了原因的异常，审计不再追问', () => {
+  // 审计的价值在于「你没想到的地方」，不在于「你没写的地方」。
+  // 他写了原因，就不是疏漏；重复提示只会训练他无视面板。
+  const explained = auditWorld([
+    { name: '深渊裂谷', desc: '绝对无源质', x: 0.5, y: 0.5, terrain: '沙漠' },
+  ])
+  assert.equal(explained.issues.some((i) => i.kind === 'desert-too-wet'), false,
+    '已写明「无源质」的沙漠不该再被点名')
+
+  // 同样的位置和地形，但没写原因，就该报
+  const unexplained = auditWorld([
+    { name: '无名沙海', desc: '一片沙地', x: 0.5, y: 0.5, terrain: '沙漠' },
+  ])
+  assert.equal(unexplained.issues.some((i) => i.kind === 'desert-too-wet'), true)
+})
+
+test('限定只解释它管得着的问题', () => {
+  // 「永冬」能解释赤道雪原，解释不了城邦没水 —— 别一竿子全放过
+  const report = auditWorld([
+    { name: '诅咒雪原', desc: '被诅咒的永冬', x: 0.5, y: 0.5, terrain: '雪原' },
+    { name: '无水城', desc: '一座城', x: 0.5, y: 0.3, terrain: '城邦' },
+  ])
+  assert.equal(report.issues.some((i) => i.kind === 'snow-too-warm'), false, '永冬应能解释雪原')
+  assert.equal(report.issues.some((i) => i.kind === 'city-without-water'), true, '永冬解释不了没水')
+})
+
+test('climate 标明这条结论是谁给的', () => {
+  const derived = climateOf({ x: 0.5, y: 0.5, terrain: '原野', desc: '一片平原' }, { neighbours: [] })
+  assert.equal(derived.derived, true, '普通地点应标为推演所得')
+  assert.deepEqual(derived.marks, [])
+
+  const written = climateOf({ x: 0.5, y: 0.5, terrain: '沙漠', desc: '绝对无源质' }, { neighbours: [] })
+  assert.equal(written.derived, false, '有设定限定时不该说成推演')
+  assert.deepEqual(written.marks, ['无源质'], '面板要能显示作者写了什么')
 })

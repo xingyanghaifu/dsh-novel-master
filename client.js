@@ -370,10 +370,13 @@ window.__ModuleLoader__.load({
 .nm-world-title{font-size:10.5px;font-weight:600;letter-spacing:.4px;color:var(--nm-muted);text-transform:uppercase}
 .nm-world-hint{font-size:10px;color:var(--nm-muted);opacity:.6}
 .nm-world-list{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
-.nm-world-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5}
+.nm-world-row{display:grid;grid-template-columns:1fr auto auto auto auto;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5}
 .nm-world-name{color:var(--nm-text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nm-world-band,.nm-world-terrain{font-size:10.5px;color:var(--nm-muted);white-space:nowrap}
 .nm-world-terrain{opacity:.8}
+/* 设定级限定（无源质/永冬）。用描边小标签，和右侧的推演结论区分开 ——
+   它是作者写的，不该看起来像算出来的。 */
+.nm-world-mark{font-size:9.5px;padding:1px 5px;border-radius:4px;white-space:nowrap;color:color-mix(in srgb,var(--nm-accent) 65%,var(--nm-muted));border:1px solid color-mix(in srgb,var(--nm-accent) 30%,transparent);cursor:help}
 .nm-world-climate{font-size:10.5px;color:var(--nm-accent);white-space:nowrap;font-variant-numeric:tabular-nums}
 .nm-world-issues{display:flex;flex-direction:column;gap:5px;margin-top:3px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--nm-error) 7%,transparent);border:1px solid color-mix(in srgb,var(--nm-error) 22%,transparent)}
 .nm-world-issues-head{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:var(--nm-error)}
@@ -3173,7 +3176,15 @@ window.__ModuleLoader__.load({
             h('span', { className: 'nm-world-name' }, region.name),
             h('span', { className: 'nm-world-band' }, region.climate.bandLabel),
             h('span', { className: 'nm-world-terrain' }, region.climate.terrainLabel),
-            h('span', { className: 'nm-world-climate' }, region.climate.summary)))),
+            // 作者自己写的设定（无源质、永冬）要跟推演结论区分开。
+            // 混在一起会让人以为这些也是算出来的，反而没人去看原文。
+            region.climate.marks?.length
+              ? h('span', { className: 'nm-world-mark', title: '来自你的设定，不是推出来的' }, region.climate.marks.join('·'))
+              : null,
+            h('span', {
+              className: 'nm-world-climate',
+              title: region.climate.derived ? '按方位与地形推演' : '来自设定，未参与推演',
+            }, region.climate.summary)))),
         issues.length > 0
           ? h('div', { className: 'nm-world-issues' },
             h('div', { className: 'nm-world-issues-head' },

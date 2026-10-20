@@ -64,3 +64,14 @@ test('问题行能换行，检索词不会被挤成一行', () => {
   assert.ok(SOURCE.includes('flex-wrap:wrap;gap:2px 5px'), '问题行应允许换行')
   assert.ok(SOURCE.includes('.nm-world-research{display:block'), '检索词应独占一行')
 })
+
+test('作者写的设定与推演结论在视觉上分开', () => {
+  // 「无源质」是作者写的，「炎热多雨」是算出来的。混在一起看，
+  // 读者会以为全都是推的，反而没人回去看原文。
+  assert.ok(SOURCE.includes('nm-world-mark'), '缺少设定限定的标签样式')
+  assert.ok(SOURCE.includes('region.climate.marks?.length'), '应只在这些限定存在时渲染标签')
+  assert.ok(SOURCE.includes("title: '来自你的设定，不是推出来的'"), '标签要说明来源')
+  assert.ok(SOURCE.includes('region.climate.derived'), '推演结论的 title 要区分来源')
+  // 五列：名字、纬度带、地形、设定标签、气候
+  assert.ok(SOURCE.includes('grid-template-columns:1fr auto auto auto auto'), '行布局应为五列')
+})

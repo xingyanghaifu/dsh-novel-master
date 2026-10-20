@@ -52,6 +52,31 @@ const TERRAIN_WORDS = [
 ]
 
 /**
+ * 说明里的「超自然限定」。
+ *
+ * 作者写「绝对无源质」「被诅咒的永冬」「死地」的时候，是在明确告诉你：
+ * 这个地方不遵守常理。模型如果照常推演出「温暖干旱」，等于把他写的
+ * 那句话当耳旁风 —— 而那句话往往才是这个世界最好玩的地方。
+ *
+ * 认出这些词之后，不再硬推一个正常气候，而是把设定本身摆出来，
+ * 并标注「此地的气候来自设定，不来自位置」。这样面板既没有撒谎，
+ * 也不会去审计一个本来就不打算讲道理的地点。
+ */
+export const SUPERNATURAL_MARKS = [
+  { key: 'barren', label: '无源质', re: /无源质|绝源|源质抽离|源质稀薄|死地|不毛/u },
+  { key: 'eternal-winter', label: '永冬', re: /永冬|永冻|终年冰封|不化的冰|寒冬不止/u },
+  { key: 'eternal-summer', label: '永夏', re: /永夏|四季如夏|终年酷热|不落的太阳/u },
+  { key: 'cursed', label: '受诅咒', re: /诅咒|封印|禁忌|被神弃|神罚/u },
+  { key: 'blight', label: '枯萎', re: /枯萎|枯死|腐化|衰败|寸草不生/u },
+]
+
+/** 从说明里认出超自然限定。可能有多条（既有诅咒又终年冰封）。 */
+export function detectMarks(desc = '') {
+  const text = String(desc ?? '')
+  return SUPERNATURAL_MARKS.filter((mark) => mark.re.test(text)).map((mark) => mark.key)
+}
+
+/**
  * 从一路文字里认出地形种类。
  *
  * 先看 `terrain` 列（作者明确写了），没有再扫说明。
@@ -225,6 +250,14 @@ export function climateOf(region, context = {}) {
   const shadow = rainShadow(region, context.neighbours ?? [], context)
   const wet = clamp01(baseWet - traits.aridity * 0.62 - shadow * 0.4)
 
+  // 作者在说明里写了超自然限定时，不要硬推一个正常气候。
+  //
+  // 「深渊裂谷：绝对无源质」原先被算成「温暖干旱」—— 温暖？那是个
+  // 连源质都没有的地方。模型只认地形词，把人写的那句话当耳旁风。
+  // 这里改成：认出限定后，气候就照设定说，并标明来源是设定而非位置。
+  const marks = detectMarks(region?.desc)
+  const supernatural = marks.map((key) => SUPERNATURAL_MARKS.find((m) => m.key === key)).filter(Boolean)
+
   return {
     kind,
     terrainLabel: traits.label,
@@ -237,6 +270,10 @@ export function climateOf(region, context = {}) {
     rainShadow: round2(shadow),
     // 一句话概括，面板和审计都用它
     summary: climateSummary(warmth, wet),
+    // 设定级限定：有值时面板要显示它们，审计要放过这个地点。
+    marks: supernatural.map((mark) => mark.label),
+    // 这条气候是推出来的还是作者写死的。面板据此决定要不要说「不是你写的」。
+    derived: supernatural.length === 0,
   }
 }
 
@@ -391,10 +428,18 @@ export function auditWorld(regions = []) {
     const base = baselineOf(region, { x: region.x, y: region.y })
     const band = latitudeBand(region.y)
 
+    // 作者已经用「无源质」「永冬」「受诅咒」这类话解释了异常，就别再问他一遍。
+    //
+    // 审计的价值在于「你没想到的地方」，不在于「你没写的地方」。
+    // 他写了原因，这条就不是疏漏；重复提示只会训练他把面板当真空气。
+    // 但限定要真的覆盖问题：永冬能解释雪原不该在赤道，解释不了城邦没水。
+    const marks = climate.marks ?? []
+    const explains = (...keys) => marks.length > 0 && keys.some((key) => marks.includes(key))
+
     // ① 雪原出现在基准温度还很高的地方。
     //    用基准温度而不是推演温度：推演里雪原自身带了 -0.75 的温度修正，
     //    会把自己算冷，于是永远「冷暖相符」。
-    if (region.terrainKind === 'snow' && base.warmth > 0.55) {
+    if (region.terrainKind === 'snow' && base.warmth > 0.55 && !explains('永冬', '受诅咒')) {
       issues.push({
         kind: 'snow-too-warm',
         research: '赤道 高山 冰川 成因',
@@ -411,7 +456,7 @@ export function auditWorld(regions = []) {
     //    完全成立的设定，作者往往已经写明了原因（比如「绝对无源质」）。
     //    判成 high 会让整个世界显得「处处是错」，作者反而不再看提示。
     //    high 只留给真正没救的冲突 —— 比如赤道上的雪原。
-    if (region.terrainKind === 'desert' && base.wet > 0.55) {
+    if (region.terrainKind === 'desert' && base.wet > 0.55 && !explains('无源质', '枯萎', '受诅咒')) {
       issues.push({
         kind: 'desert-too-wet',
         research: '沿海沙漠 成因 寒流',
@@ -423,7 +468,7 @@ export function auditWorld(regions = []) {
     }
 
     // ③ 聚落落在又干又没水的地方。
-    if (region.terrainKind === 'city' && base.wet < 0.42) {
+    if (region.terrainKind === 'city' && base.wet < 0.42 && !explains('无源质')) {
       const nearWater = list.some((other) => {
         if (other === region) return false
         const wetKind = other.terrainKind === 'ocean' || other.terrainKind === 'island'
