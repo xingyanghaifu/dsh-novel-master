@@ -172,8 +172,16 @@ function takeOptions(raw) {
  * `{known, provider, model, ...}`，直接展开会多塞一个 known 字段进去，
  * callText 的 routeOf 校验会因此判成无效路由。
  */
-async function resolveRoute(ctx, invocation) {
+async function resolveRoute(ctx, invocation, section = {}) {
   const { actualModelOf } = await import('./model-intelligence.js')
+  // 设置里配全了就直接用，省掉一次会话检查
+  if (section.provider && section.model) {
+    return {
+      provider: section.provider,
+      model: section.model,
+      ...(section.reasoningEffort ? { reasoningEffort: section.reasoningEffort } : {}),
+    }
+  }
   // known 为 false 时没有 provider/model，不能当路由用
   const observed = await actualModelOf(invocation?.agent, ctx, {
     signal: invocation?.signal,
@@ -185,13 +193,13 @@ async function resolveRoute(ctx, invocation) {
       ...(observed.reasoningEffort ? { reasoningEffort: observed.reasoningEffort } : {}),
     }
   }
-  throw new Error('没有可用的模型路由：当前会话还没用过模型，插件设置里也没配')
+  throw new Error('没有可用的模型路由：插件设置里没配，当前会话也还没用过模型')
 }
 
 /** 调模型。用宿主 llm 服务，与会话同一条路由。 */
-async function askModel(ctx, invocation, { system, prompt }) {
+async function askModel(ctx, invocation, { system, prompt, section }) {
   const { callText } = await import('./model-intelligence.js')
-  const route = await resolveRoute(ctx, invocation)
+  const route = await resolveRoute(ctx, invocation, section)
   return callText(ctx, {
     ...route,
     system,
@@ -203,12 +211,26 @@ async function askModel(ctx, invocation, { system, prompt }) {
   })
 }
 
+/** 四档模式。设置页和命令行共用这一份，避免两边写出不一样的值。 */
+export const POWER_MODES = ['show', 'ideas', 'build', 'challenge']
+
 /**
  * `/novel-power [项目名] [想法] [--mode ideas|build|challenge]`
  *
- * 不给 `--mode` 时只显示现状，不花 token —— 光给想法不会自动写进项目。
+ * 不给 `--mode` 时用设置页里选的默认档（初始是 show，只看现状不花 token）。
  */
 export function powerCommand(config = {}) {
+  // 配置项可能是 volatile 包装的，逐字段取一次值
+  const read = (value) => (value && typeof value === 'object' && typeof value.get === 'function' ? value.get() : value)
+  const section = read(config?.power) ?? {}
+  const configured = String(read(section.mode) ?? '').trim()
+  const defaults = {
+    // 设置里存了个认不出的值时退回 show，而不是让命令整个失效
+    mode: POWER_MODES.includes(configured) ? configured : 'show',
+    provider: String(read(section.provider) ?? '').trim(),
+    model: String(read(section.model) ?? '').trim(),
+    reasoningEffort: String(read(section.reasoningEffort) ?? '').trim(),
+  }
   return {
     name: 'novel-power',
     description: '设计力量体系：给方向、展开成规则、或追问漏洞（开新书时用）',
@@ -234,10 +256,10 @@ export function powerCommand(config = {}) {
       }
 
       const settingFile = readProjectFile(cwd, project, '设定.md') ?? ''
-      // 不带 --mode 时一律只显示现状。早先按「有想法就展开」判断，
-      // 结果 `/novel-power 力量来自记忆` 这种最自然的写法会直接把体系写进项目，
-      // 而作者可能只是想看看它会怎么答。展开必须显式要求。
-      const mode = opts.mode ?? 'show'
+      // 命令行 --mode 最高优先，没写就用设置页里选的那一档。
+      // 不再按「有想法就展开」判断：那句最自然的写法会直接把体系写进项目，
+      // 而作者可能只是想看看它会怎么答。
+      const mode = opts.mode ?? defaults.mode
 
       // ---- 只看现状，不花 token ----
       if (mode === 'show') {
@@ -256,6 +278,7 @@ export function powerCommand(config = {}) {
           const text = await askModel(ctx, invocation, {
             system: IDEAS_SYSTEM,
             prompt: `想法：${idea}\n\n给 4 个不同的方向。`,
+            section: defaults,
           })
           const list = parseJson(text, { array: true })
           const rows = list.slice(0, 6).map((item, i) => ({
@@ -277,6 +300,7 @@ export function powerCommand(config = {}) {
           const text = await askModel(ctx, invocation, {
             system: BUILD_SYSTEM,
             prompt: `方向：${idea}`,
+            section: defaults,
           })
           const system = parseJson(text)
           const block = systemMarkdown(system)
@@ -309,6 +333,7 @@ export function powerCommand(config = {}) {
           const text = await askModel(ctx, invocation, {
             system: CHALLENGE_SYSTEM,
             prompt: `以下是作者写的力量体系：\n\n${body.trim()}\n\n找出问题。`,
+            section: defaults,
           })
           const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('-'))
           return ok(formatSuccess(`《${project}》力量体系的漏洞`, {

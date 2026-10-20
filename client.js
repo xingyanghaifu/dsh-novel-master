@@ -441,6 +441,15 @@ window.__ModuleLoader__.load({
     // 作者人格：拆书分析用一档，听懂自然语言用另一档。两者独立，留空各有回退。
     const PERSONA = { provider: '', model: '', reasoningEffort: '' }
     const PERSONA_INTENT = { provider: '', model: '', reasoningEffort: '' }
+    // 力量体系：默认模式决定 /novel-power 不带 --mode 时做哪一档。
+    // 初始是 show —— 只看现状，不花 token，也不会往项目里写东西。
+    const POWER = { mode: 'show', provider: '', model: '', reasoningEffort: '' }
+    const POWER_MODES = [
+      ['show', '只看现状', '显示项目里有没有力量体系，给出下一步命令。不调用模型。'],
+      ['ideas', '给四个方向', '按你的一句话想法给四条不同的路，各带代价。不写进项目。'],
+      ['build', '展开成体系', '把一句方向展开成来源/获得/代价/上限/铁律/弱点，追加到 设定.md。'],
+      ['challenge', '挑漏洞', '读回已有的体系，只提问、不改写。写得对不对由你判断。'],
+    ]
     
     const TUTORIAL_STEPS = [
       {
@@ -570,6 +579,7 @@ window.__ModuleLoader__.load({
       const [batchWrite, setBatchWrite] = useState({ ...BATCH, ...form?.value?.batch })
       const [persona, setPersona] = useState({ ...PERSONA, ...form?.value?.persona })
       const [personaIntent, setPersonaIntent] = useState({ ...PERSONA_INTENT, ...form?.value?.personaIntent })
+      const [power, setPower] = useState({ ...POWER, ...form?.value?.power })
       const [activity, setActivity] = useState(null)
       const [activityError, setActivityError] = useState('')
       const [activityBusy, setActivityBusy] = useState(false)
@@ -655,6 +665,7 @@ window.__ModuleLoader__.load({
         // 清不掉 —— 界面说「已保存」，用户看到的却是没保存的那份。
         sync('persona', next.value?.persona, PERSONA, setPersona)
         sync('personaIntent', next.value?.personaIntent, PERSONA_INTENT, setPersonaIntent)
+        sync('power', next.value?.power, POWER, setPower)
       }
       const changed = (draft, original) => Object.keys(draft).some(key => String(draft[key]) !== String(original[key]))
       const editGuidance = (key, next) => setGuidance(current => { const draft = { ...current, [key]: next }; dirty.current.guidance = changed(draft, { ...GUIDANCE, ...form?.value?.guidance }); return draft })
@@ -664,6 +675,7 @@ window.__ModuleLoader__.load({
       const editBatch = (key, next) => setBatchWrite(current => { const draft = { ...current, [key]: next }; dirty.current.batch = changed(draft, { ...BATCH, ...form?.value?.batch }); return draft })
       const editPersona = (key, next) => setPersona(current => { const draft = { ...current, [key]: next }; dirty.current.persona = changed(draft, { ...PERSONA, ...form?.value?.persona }); return draft })
       const editPersonaIntent = (key, next) => setPersonaIntent(current => { const draft = { ...current, [key]: next }; dirty.current.personaIntent = changed(draft, { ...PERSONA_INTENT, ...form?.value?.personaIntent }); return draft })
+      const editPower = (key, next) => setPower(current => { const draft = { ...current, [key]: next }; dirty.current.power = changed(draft, { ...POWER, ...form?.value?.power }); return draft })
 
       const toggleTopic = id => {
         setLearning(current => {
@@ -929,6 +941,17 @@ window.__ModuleLoader__.load({
           : {}
         return save(patch)
       }
+      function savePower(event) {
+        event.preventDefault()
+        const next = {
+          mode: POWER_MODES.some(([id]) => id === power.mode) ? power.mode : 'show',
+          provider: power.provider.trim(),
+          model: power.model.trim(),
+          reasoningEffort: power.reasoningEffort.trim(),
+        }
+        if (!!next.provider !== !!next.model) return setError('力量体系的提供方和模型必须成对填写，或都留空使用会话模型。')
+        return save({ power: next })
+      }
       const value = form?.value ?? {}
       const locked = !!busy || state?.busy || activityBusy
       const commandKeys = Object.keys(value?.commands ?? {}).filter(key => key !== 'update' && key !== 'novel-update')
@@ -1179,7 +1202,7 @@ window.__ModuleLoader__.load({
         // 空提示不占位：`notice` 可能是空串或只有空白，truthy 判断会把
         // 一条只有边框的绿色空条渲染出来，看着像布局坏了。
         (notice && String(notice).trim() ? h('div', { role: 'status', className: 'nm-alert nm-success' }, notice) : null),
-        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['persona', '作者人格'], ['image', 'AI 生图'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
+        h('nav', { role: 'tablist', 'aria-label': '小说设置导航', className: 'nm-tabs' }, ...[['features', '功能选择'], ['guidance', '引导模型'], ['learning', '学习总结'], ['decision', '决策助手'], ['research', '资料检索'], ['batch', '批量写作'], ['persona', '作者人格'], ['power', '力量体系'], ['image', 'AI 生图'], ['updates', '更新维护']].map(([id, label], index, tabs) => h('button', { type: 'button', role: 'tab', id: `nm-tab-${id}`, 'aria-controls': `nm-panel-${id}`, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1, onClick: () => setTab(id), onKeyDown: event => { const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1; if (next >= 0) { event.preventDefault(); setTab(tabs[next][0]); event.currentTarget.parentElement?.querySelector(`#nm-tab-${tabs[next][0]}`)?.focus() } } }, label))),
         !form && loading && h('div', { className: 'nm-grid', role: 'status', 'aria-label': '正在加载设置' }, ...[0, 1, 2, 3].map(key => h('div', { className: 'nm-skeleton', key }))),
         !form && !loading && h('div', { className: 'nm-card nm-empty' }, h('h3', null, '配置服务尚未连接'), h('p', null, '请确认插件已启用；安装或更新后可重启 DSH 再连接。'), actionButton('重新读取配置', refresh)),
         panel('features', form && card('创作工作台', '关闭总开关会移除功能命令并停止智能处理，配置和更新入口仍保留。',
@@ -1333,6 +1356,37 @@ window.__ModuleLoader__.load({
                  h('li', null, '只填了提供方没填模型时，自动退回下一档，不会让命令失效。')
                ))),
            saveBar('persona', '保存作者人格配置')
+         )),
+         panel('power', form && h('form', { className: 'nm-stack', 'aria-label': '力量体系配置', onSubmit: savePower },
+           card('默认模式', '决定 /novel-power 不写 --mode 时做哪一档。命令里临时写 --mode 仍然可以覆盖这里。',
+             h('p', { className: 'nm-muted' }, '四档的差别不只是详略：只有「展开成体系」会往 设定.md 里写东西，其余三档都不碰项目文件。'),
+             h('div', { className: 'nm-quick-grid' },
+               ...POWER_MODES.map(([id, label, hint]) => h('label', { className: 'nm-quick-card', key: id },
+                 h('span', null, h('strong', null, label), h('br'), h('small', { className: 'nm-muted' }, hint)),
+                 h('input', {
+                   type: 'radio',
+                   name: 'nm-power-mode',
+                   value: id,
+                   checked: power.mode === id,
+                   disabled: locked,
+                   onChange: () => editPower('mode', id),
+                 })
+               ))
+             )),
+           card('生成模型', '用于「给四个方向」「展开成体系」「挑漏洞」这三档。只看现状不调用模型，所以不受这里影响。',
+             h('p', { className: 'nm-muted' }, '留空时使用本会话最近一次实际路由。只有这两项都填了才生效，填一半会拦下来。'),
+             h('div', { className: 'nm-stack' },
+               renderModelSelect('从现有模型列表中选择力量体系模型', power.provider, power.model, (p, m) => { editPower('provider', p); editPower('model', m) }, false),
+               renderReasoningSelect('力量体系思考/推理强度 (Reasoning Effort)', power.reasoningEffort, val => editPower('reasoningEffort', val), power.provider, power.model),
+               h('div', { className: 'nm-grid' }, field('力量体系提供方', 'provider', power, editPower, 'text', { placeholder: '留空使用会话模型' }), field('力量体系模型 ID', 'model', power, editPower, 'text', { placeholder: '留空使用会话模型' }))
+             )),
+           card('用法', '命令里写 --mode 可以临时换一档，不改这里保存的默认值。',
+             h('div', { className: 'nm-callout' }, h('code', { className: 'nm-inlinecode' }, '/novel-power 项目名 力量来自记忆 --mode ideas'), ' → 只给方向，不写盘'),
+             h('div', { className: 'nm-callout' }, h('code', { className: 'nm-inlinecode' }, '/novel-power 项目名 力量来自记忆 --mode build'), ' → 展开并写进 设定.md'),
+             h('div', { className: 'nm-callout' }, h('code', { className: 'nm-inlinecode' }, '/novel-power 项目名 --mode challenge'), ' → 读回已有体系挑漏洞'),
+             h('p', { className: 'nm-muted' }, '「挑漏洞」只提问，不改写。它找出来的问题需要你自己回答——答不上来的那几条才是要改的。')
+           ),
+           saveBar('power', '保存力量体系配置')
          )),
          panel('image', imageSettingsCard),
         panel('updates', card('版本与更新', '按完整提交 SHA 安装，保留安装结果与代码重载结果。', h('div', { className: 'nm-three' }, ...[['当前运行', state?.running], ['磁盘安装', state?.disk], ['main 最新', state?.latest]].map(([label, info]) => h('div', { className: 'nm-metric', key: label }, h('span', null, label), h('strong', null, info?.version ?? (label === 'main 最新' ? '尚未检查' : '未知')), h('code', null, short(info?.commit))))),

@@ -2,302 +2,309 @@
  {
   "file": "args-tolerant.test.js",
   "runs": 6,
-  "avgMs": 513,
-  "worstMs": 554,
+  "avgMs": 642,
+  "worstMs": 755,
   "fails": {}
  },
  {
   "file": "assets.test.js",
   "runs": 6,
-  "avgMs": 674,
-  "worstMs": 810,
+  "avgMs": 806,
+  "worstMs": 961,
   "fails": {}
  },
  {
   "file": "atlas.test.js",
   "runs": 6,
-  "avgMs": 820,
-  "worstMs": 958,
+  "avgMs": 927,
+  "worstMs": 1149,
   "fails": {}
  },
  {
   "file": "analysis.test.js",
   "runs": 6,
-  "avgMs": 972,
-  "worstMs": 1002,
-  "fails": {}
- },
- {
-  "file": "author-persona.test.js",
-  "runs": 6,
-  "avgMs": 793,
-  "worstMs": 893,
+  "avgMs": 999,
+  "worstMs": 1085,
   "fails": {}
  },
  {
   "file": "batch-write.test.js",
   "runs": 6,
-  "avgMs": 677,
-  "worstMs": 784,
+  "avgMs": 622,
+  "worstMs": 698,
   "fails": {}
  },
  {
-  "file": "cmd-batch.test.js",
+  "file": "author-persona.test.js",
   "runs": 6,
   "avgMs": 790,
   "worstMs": 847,
   "fails": {}
  },
  {
+  "file": "cmd-batch.test.js",
+  "runs": 6,
+  "avgMs": 746,
+  "worstMs": 811,
+  "fails": {}
+ },
+ {
   "file": "cmd-probe.test.js",
   "runs": 6,
-  "avgMs": 662,
-  "worstMs": 750,
+  "avgMs": 632,
+  "worstMs": 675,
   "fails": {}
  },
  {
   "file": "cmd-persona.test.js",
   "runs": 6,
-  "avgMs": 1161,
-  "worstMs": 1224,
+  "avgMs": 1167,
+  "worstMs": 1217,
   "fails": {}
  },
  {
   "file": "composition.test.js",
   "runs": 6,
-  "avgMs": 572,
-  "worstMs": 590,
+  "avgMs": 598,
+  "worstMs": 671,
   "fails": {}
  },
  {
   "file": "e2e.test.js",
   "runs": 6,
-  "avgMs": 555,
-  "worstMs": 644,
+  "avgMs": 571,
+  "worstMs": 593,
   "fails": {}
  },
  {
   "file": "followup-contract.test.js",
   "runs": 6,
-  "avgMs": 632,
-  "worstMs": 713,
+  "avgMs": 716,
+  "worstMs": 827,
   "fails": {}
  },
  {
   "file": "commands.test.js",
   "runs": 6,
-  "avgMs": 1550,
-  "worstMs": 1674,
+  "avgMs": 1577,
+  "worstMs": 1694,
   "fails": {}
  },
  {
   "file": "guidance-integration.test.js",
   "runs": 6,
-  "avgMs": 728,
-  "worstMs": 821,
+  "avgMs": 709,
+  "worstMs": 768,
   "fails": {}
  },
  {
   "file": "guidance.test.js",
   "runs": 6,
-  "avgMs": 645,
-  "worstMs": 678,
+  "avgMs": 708,
+  "worstMs": 745,
   "fails": {}
  },
  {
   "file": "model-intelligence.test.js",
   "runs": 6,
-  "avgMs": 684,
-  "worstMs": 711,
+  "avgMs": 788,
+  "worstMs": 867,
   "fails": {}
  },
  {
   "file": "extra.test.js",
   "runs": 6,
-  "avgMs": 2421,
-  "worstMs": 2542,
+  "avgMs": 2396,
+  "worstMs": 2674,
   "fails": {}
  },
  {
   "file": "observability.test.js",
   "runs": 6,
-  "avgMs": 488,
-  "worstMs": 527,
+  "avgMs": 523,
+  "worstMs": 564,
   "fails": {}
  },
  {
   "file": "intelligence.test.js",
   "runs": 6,
-  "avgMs": 2276,
-  "worstMs": 2407,
+  "avgMs": 1994,
+  "worstMs": 2135,
   "fails": {}
  },
  {
   "file": "learning-store.test.js",
   "runs": 6,
-  "avgMs": 1996,
-  "worstMs": 2064,
+  "avgMs": 1981,
+  "worstMs": 2165,
   "fails": {}
  },
  {
   "file": "persona-intent-route.test.js",
   "runs": 6,
-  "avgMs": 743,
-  "worstMs": 907,
+  "avgMs": 926,
+  "worstMs": 1100,
   "fails": {}
  },
  {
   "file": "persona-merge.test.js",
   "runs": 6,
-  "avgMs": 894,
+  "avgMs": 949,
+  "worstMs": 1035,
+  "fails": {}
+ },
+ {
+  "file": "persona-model-intent.test.js",
+  "runs": 6,
+  "avgMs": 922,
+  "worstMs": 997,
+  "fails": {}
+ },
+ {
+  "file": "power-system.test.js",
+  "runs": 6,
+  "avgMs": 581,
+  "worstMs": 643,
+  "fails": {}
+ },
+ {
+  "file": "persona-natural-language.test.js",
+  "runs": 6,
+  "avgMs": 878,
   "worstMs": 954,
   "fails": {}
  },
  {
   "file": "progress-panel.test.js",
   "runs": 6,
-  "avgMs": 789,
-  "worstMs": 896,
-  "fails": {}
- },
- {
-  "file": "persona-model-intent.test.js",
-  "runs": 6,
-  "avgMs": 927,
-  "worstMs": 1024,
-  "fails": {}
- },
- {
-  "file": "persona-natural-language.test.js",
-  "runs": 6,
-  "avgMs": 917,
-  "worstMs": 1000,
-  "fails": {}
- },
- {
-  "file": "project-directory.test.js",
-  "runs": 6,
-  "avgMs": 787,
-  "worstMs": 846,
-  "fails": {}
- },
- {
-  "file": "project-tools.test.js",
-  "runs": 6,
-  "avgMs": 687,
-  "worstMs": 847,
+  "avgMs": 782,
+  "worstMs": 1114,
   "fails": {}
  },
  {
   "file": "region-parse.test.js",
   "runs": 6,
-  "avgMs": 707,
-  "worstMs": 824,
+  "avgMs": 826,
+  "worstMs": 1036,
+  "fails": {}
+ },
+ {
+  "file": "project-tools.test.js",
+  "runs": 6,
+  "avgMs": 916,
+  "worstMs": 1112,
+  "fails": {}
+ },
+ {
+  "file": "project-directory.test.js",
+  "runs": 6,
+  "avgMs": 1003,
+  "worstMs": 1184,
   "fails": {}
  },
  {
   "file": "reload.test.js",
   "runs": 6,
-  "avgMs": 667,
-  "worstMs": 746,
-  "fails": {}
- },
- {
-  "file": "research.test.js",
-  "runs": 6,
-  "avgMs": 694,
-  "worstMs": 893,
+  "avgMs": 703,
+  "worstMs": 1103,
   "fails": {}
  },
  {
   "file": "style-scope.test.js",
   "runs": 6,
-  "avgMs": 643,
-  "worstMs": 753,
+  "avgMs": 822,
+  "worstMs": 932,
   "fails": {}
  },
  {
-  "file": "terrain-cells.test.js",
+  "file": "research.test.js",
   "runs": 6,
-  "avgMs": 718,
-  "worstMs": 817,
-  "fails": {}
- },
- {
-  "file": "terrain-world.test.js",
-  "runs": 6,
-  "avgMs": 617,
-  "worstMs": 705,
+  "avgMs": 872,
+  "worstMs": 1071,
   "fails": {}
  },
  {
   "file": "settings-controls.test.js",
   "runs": 6,
-  "avgMs": 1063,
-  "worstMs": 1148,
+  "avgMs": 1419,
+  "worstMs": 1715,
+  "fails": {}
+ },
+ {
+  "file": "terrain-cells.test.js",
+  "runs": 6,
+  "avgMs": 685,
+  "worstMs": 718,
+  "fails": {}
+ },
+ {
+  "file": "terrain-world.test.js",
+  "runs": 6,
+  "avgMs": 628,
+  "worstMs": 742,
   "fails": {}
  },
  {
   "file": "tool-lifecycle.test.js",
   "runs": 6,
-  "avgMs": 464,
-  "worstMs": 503,
+  "avgMs": 602,
+  "worstMs": 743,
   "fails": {}
  },
  {
   "file": "validators.test.js",
   "runs": 6,
-  "avgMs": 559,
-  "worstMs": 656,
+  "avgMs": 637,
+  "worstMs": 683,
   "fails": {}
  },
  {
   "file": "visual-tokens.test.js",
   "runs": 6,
-  "avgMs": 565,
-  "worstMs": 653,
+  "avgMs": 665,
+  "worstMs": 769,
   "fails": {}
  },
  {
   "file": "world-map-tint.test.js",
   "runs": 6,
-  "avgMs": 590,
-  "worstMs": 682,
+  "avgMs": 760,
+  "worstMs": 836,
   "fails": {}
  },
  {
   "file": "updater.test.js",
   "runs": 6,
-  "avgMs": 962,
-  "worstMs": 1040,
+  "avgMs": 1042,
+  "worstMs": 1085,
   "fails": {}
  },
  {
   "file": "world-model.test.js",
   "runs": 6,
-  "avgMs": 583,
-  "worstMs": 665,
-  "fails": {}
- },
- {
-  "file": "world-map.test.js",
-  "runs": 6,
-  "avgMs": 650,
-  "worstMs": 697,
+  "avgMs": 791,
+  "worstMs": 917,
   "fails": {}
  },
  {
   "file": "world-notes.test.js",
   "runs": 6,
-  "avgMs": 534,
-  "worstMs": 638,
+  "avgMs": 648,
+  "worstMs": 711,
+  "fails": {}
+ },
+ {
+  "file": "world-map.test.js",
+  "runs": 6,
+  "avgMs": 871,
+  "worstMs": 979,
   "fails": {}
  },
  {
   "file": "world-research.test.js",
   "runs": 6,
-  "avgMs": 612,
-  "worstMs": 752,
+  "avgMs": 661,
+  "worstMs": 828,
   "fails": {}
  }
 ]

@@ -86,7 +86,7 @@ function harness(options = {}) {
 test('tabs mount every panel but expose only the selected accessible panel', async () => {
   const h = harness()
   const panels = () => h.nodes().filter(node => node.props.role === 'tabpanel')
-  assert.equal(panels().length, 9) // features, guidance, learning, decision, research, batch, persona, image, updater
+  assert.equal(panels().length, 10) // features, guidance, learning, decision, research, batch, persona, power, image, updater
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-features'])
   await h.click('学习总结')
   assert.deepEqual(panels().filter(node => !node.props.hidden).map(node => node.props.id), ['nm-panel-learning'])
@@ -527,4 +527,55 @@ test('选择器返回时组件已卸载就不许再写状态', async () => {
   // 卸载后宿主返回的路径绝不能写进状态 —— 这才是白屏的触发点。
   assert.equal(h.find('input', '项目目录').props.value, before, '卸载后不得改写输入框')
   assert.doesNotMatch(h.text(h.render()), /已卸载/, '卸载后不得把返回值展示出来')
+})
+
+/* ---- 力量体系页签 ---- */
+
+test('力量体系页签：四档模式可选，默认是只看现状', async () => {
+  const h = harness()
+  await h.click('力量体系')
+  // 默认必须是 show：新建配置不该因为默认值就把体系写进项目
+  const radios = h.nodes().filter(node => node.props?.type === 'radio')
+  assert.equal(radios.length, 4, '四档都要能选')
+  assert.equal(radios.filter(node => node.props.checked).length, 1)
+  assert.equal(radios.find(node => node.props.checked).props.value, 'show')
+  // 每一档都要说明会不会写盘，否则用户选错了才发现
+  assert.match(h.text(h.render()), /展开成体系/u)
+})
+
+test('力量体系页签：选一档后保存的是单选值，不是整个对象越权', async () => {
+  const h = harness()
+  await h.click('力量体系')
+  const build = h.nodes().find(node => node.props?.type === 'radio' && node.props.value === 'build')
+  build.props.onChange()
+  await h.submit('力量体系配置')
+  assert.equal(h.calls.at(-1).body.patch.power.mode, 'build')
+  assert.deepEqual(h.calls.at(-1).body.patch.power, { mode: 'build', provider: '', model: '', reasoningEffort: '' })
+})
+
+test('力量体系页签：只填提供方会被拦下，不会保存成半套路由', async () => {
+  const h = harness()
+  await h.click('力量体系')
+  h.edit('力量体系提供方', 'pa')
+  await h.submit('力量体系配置')
+  // 拦下时不该发出保存请求，只报错
+  assert.match(h.text(h.render()), /成对填写/u)
+})
+
+test('力量体系页签：已保存的模式与路由会回填', async () => {
+  const h = harness({
+    document: {
+      revision: 1,
+      value: {
+        enabled: true,
+        commands: {},
+        power: { mode: 'challenge', provider: 'px', model: 'mx', reasoningEffort: '' },
+      },
+    },
+  })
+  await h.click('力量体系')
+  assert.equal(h.find('input', '力量体系提供方').props.value, 'px')
+  assert.equal(h.find('input', '力量体系模型 ID').props.value, 'mx')
+  const checked = h.nodes().find(node => node.props?.type === 'radio' && node.props.checked)
+  assert.equal(checked.props.value, 'challenge')
 })

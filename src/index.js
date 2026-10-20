@@ -196,6 +196,16 @@ export const Config = z.object({
       .comment('留空则沿用拆书模型。填一个小模型能省钱，但复杂说法用强模型更准——按你自己的话风选。'),
     reasoningEffort: live(z.string().default('')).description('意图解析推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
   }).description('自然语言意图解析'),
+  power: z.object({
+    // 这里不能写 z.enum：这个版本的 schemastery 没有该方法，模块求值时会直接抛。
+    // 取值由 power-system 兜底（认不出的模式退回 show），设置页也给的是单选。
+    mode: live(z.string().default('show')).description('默认模式')
+      .comment('不写 --mode 时用这一档：show 只看现状不花 token；ideas 给四个方向；build 展开成体系并写进 设定.md；challenge 读回已有体系挑漏洞。'),
+    provider: live(z.string().default('')).description('力量体系 Provider')
+      .comment('用于 /novel-power 的生成与追问。留空则使用本会话实际路由；命令行 --provider 优先级更高。'),
+    model: live(z.string().default('')).description('力量体系模型 ID'),
+    reasoningEffort: live(z.string().default('')).description('力量体系推理强度').comment('留空使用模型默认值；填写值须由该模型支持。'),
+  }).description('力量体系设计'),
   updateProxy: live(z.string().default(''))
     .description('更新检查代理')
     .comment('可填 http://127.0.0.1:7897；留空使用 HTTPS_PROXY / HTTP_PROXY 环境变量或直连。只影响版本检查，安装沿用 DSH 插件管理器设置。'),
