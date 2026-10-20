@@ -10,6 +10,7 @@ import {
   detectTerrain,
   enrichRegions,
   latitudeBand,
+  posToPoint,
   prevailingWind,
   TERRAIN_TRAITS,
   waterSource,
@@ -235,6 +236,60 @@ test('中文里最常见的聚落写法都要认得出来', () => {
   assert.equal(detectTerrain('', '山脚村'), 'city', '带山字的村名仍应判成聚落')
   // 但真山不能被抢走
   assert.equal(detectTerrain('', '青云山'), 'mountain')
+})
+
+test('同一方位的多个地点不会叠在同一个点上', () => {
+  // 这是「地图怎么都对不上」的根因。末影龙那个项目九个地区里七个写「西」，
+  // 早先每个方位只返回一个坐标，七块地完全重合，名字糊成一团。
+  const regions = ['甲', '乙', '丙', '丁', '戊', '己', '庚']
+    .map((name) => ({ name, pos: '西', terrain: '城邦', desc: '' }))
+  const { regions: out } = enrichRegions(regions)
+  const points = new Set(out.map((r) => `${r.x},${r.y}`))
+  assert.equal(points.size, regions.length, `7 个地区应得 7 个不同坐标，实际 ${points.size} 个`)
+})
+
+test('同一方位的地点在方位那一侧排开', () => {
+  // 「西」就该全在左半侧，不能因为散开而跑到东边去 —— 方位是作者写的
+  const regions = ['甲', '乙', '丙', '丁', '戊'].map((name) => ({ name, pos: '西', terrain: '城邦', desc: '' }))
+  const { regions: out } = enrichRegions(regions)
+  for (const r of out) {
+    assert.ok(r.x < 0.4, `「西」的地点跑到了 x=${r.x}`)
+    assert.ok(r.y > 0 && r.y < 1, `y=${r.y} 越界`)
+  }
+  // 而且是沿带铺开的，不该全挤在一小段
+  const ys = out.map((r) => r.y).sort((a, b) => a - b)
+  assert.ok(ys[ys.length - 1] - ys[0] > 0.5, `5 个「西」的地点只铺开了 ${(ys[ys.length - 1] - ys[0]).toFixed(2)}`)
+})
+
+test('四个正方位各自的位置正确', () => {
+  const at = (pos) => posToPoint(pos, 0, 3)
+  assert.ok(at('西').x < 0.2, '西应在左侧')
+  assert.ok(at('东').x > 0.8, '东应在右侧')
+  assert.ok(at('北').y < 0.2, '北应在顶部')
+  assert.ok(at('南').y > 0.8, '南应在底部')
+  // 复合方位是角落，保持单点，不展开
+  const sw = posToPoint('西南', 0, 5)
+  assert.ok(sw.x < 0.2 && sw.y > 0.8, `西南应在左下角，实际 ${sw.x},${sw.y}`)
+})
+
+test('单个地点留在带的中部，不因展开而偏移', () => {
+  // 只有一个「西」时不该被推到带的端点，否则只有一个地区的项目地图会偏
+  const p = posToPoint('西', 0, 1)
+  assert.equal(p.x, 0.16)
+  assert.ok(Math.abs(p.y - 0.5) < 0.06, `单个地点应在中部，实际 y=${p.y}`)
+})
+
+test('散开后的坐标都在画布内', () => {
+  // 出画布的块会被裁掉，看着像地图缺了一块
+  for (const pos of ['西', '东', '北', '南', '中', '西北', '东南']) {
+    for (let n = 1; n <= 12; n++) {
+      for (let s = 0; s < n; s++) {
+        const p = posToPoint(pos, s, n)
+        assert.ok(p.x >= 0.02 && p.x <= 0.98, `${pos} 第 ${s}/${n} 个 x=${p.x} 越界`)
+        assert.ok(p.y >= 0.02 && p.y <= 0.98, `${pos} 第 ${s}/${n} 个 y=${p.y} 越界`)
+      }
+    }
+  }
 })
 
 test('每种地形都有完整的物理属性', () => {

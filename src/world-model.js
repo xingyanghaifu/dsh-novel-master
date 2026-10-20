@@ -350,21 +350,68 @@ function round2(v) {
  * 而纬度带的划分（极地→热带→极地）本来就是为全球剖面设计的，
  * 两者混用会自相矛盾。所以坐标回到九宫格，靠调整纬度带边界来表达尺度。
  */
-export function posToPoint(pos) {
+export function posToPoint(pos, slot = 0, total = 1) {
   const text = String(pos ?? '')
   // 先认复合方位：西南/东北这些要先于单字判断，否则「西南」会被当成南
   const south = /南/u.test(text)
   const north = /北/u.test(text)
   const west = /西/u.test(text)
   const east = /东/u.test(text)
-  if (!south && !north && !west && !east) {
-    return text.includes('中') ? { x: 0.5, y: 0.5 } : undefined
+
+  // 复合方位（西南/东北…）是角落，本来就是一个点，不做展开
+  if ((south || north) && (west || east)) {
+    const toRatio = (n) => (n - 1) * 0.32 + 0.18
+    return { x: toRatio(west ? 1 : 3), y: toRatio(north ? 1 : 3) }
   }
-  // 九宫格中心：1→0.18，2→0.5，3→0.82（与客户端 toRatio 一致）
-  const row = north ? 1 : south ? 3 : 2
-  const col = west ? 1 : east ? 3 : 2
-  const toRatio = (n) => (n - 1) * 0.32 + 0.18
-  return { x: toRatio(col), y: toRatio(row) }
+
+  // 四个正方位 + 中。每个对应「一条带」，不是「一个点」。
+  //
+  // 这是这次重写的核心。早先「西」只给一个坐标 (0.18, 0.50)，于是
+  // 写了七个「西」的项目（末影龙就是：灰烬边境、下城区、废弃矿洞、
+  // 白石城、裁决队营地、裂隙带、门缝全在西）七块地完全重合，
+  // 名字叠成一团，怎么摆都「对不上」。
+  //
+  // 作者写「西」时想的是「西边那一带」，不是「正西方向那一个点」。
+  // 所以方位要展开成区域：西是左侧一条竖直的带，北是顶部一条横带。
+  // 同一方位的 N 个地点沿这条带均匀排开，既守住方位，又彼此分开。
+  //
+  // 例外：方位是空的（旧项目没写方位）时不分带，一律落回正中。
+  // 「没写方位」和「写在中部」不是一回事 —— 前者是未标注，后者是作者的判断。
+  // 旧项目的测试明确要求未标注地点坐标是 (0.5, 0.5)，不能悄悄挪走。
+  if (!west && !east && !north && !south) {
+    if (!text.includes('中')) return undefined
+    return { x: 0.5, y: 0.5 }
+  }
+  const band = bearingBand(west ? 'west' : east ? 'east' : north ? 'north' : 'south')
+  const f = total > 1 ? slot / (total - 1) : 0.5
+  // 沿带的走向排列。竖直带（东西）按 y 走，横带（南北）按 x 走。
+  // 两端各留一点余量，免得贴到画布边上被裁掉。
+  const t = 0.06 + f * 0.88
+  if (band.vertical) {
+    return { x: round3(band.at), y: round3(0.06 + t * 0.88) }
+  }
+  return { x: round3(0.06 + t * 0.88), y: round3(band.at) }
+}
+
+/**
+ * 每个方位对应的「带」。at 是带的轴线位置，vertical 表示带是竖的还是横的。
+ *
+ * 为什么正方位用一个坐标而不是格子中心：九宫格的中心在 0.18/0.50/0.82，
+ * 那是给「相对方位」用的。但一条带需要离边缘近一些才有「边陲」的感觉 ——
+ * 0.16 比 0.18 更贴边，同时给自己留出不被裁掉的余量。
+ */
+function bearingBand(key) {
+  switch (key) {
+    case 'west': return { at: 0.16, vertical: true }
+    case 'east': return { at: 0.84, vertical: true }
+    case 'north': return { at: 0.16, vertical: false }
+    case 'south': return { at: 0.84, vertical: false }
+    default: return { at: 0.5, vertical: true }
+  }
+}
+
+function round3(v) {
+  return Math.round(v * 1000) / 1000
 }
 
 /**
@@ -533,8 +580,21 @@ export function researchPlan(issues = []) {
  */
 export function enrichRegions(regions = []) {
   const list = Array.isArray(regions) ? regions : []
+  // 同一个方位上排第几个。方位是作者写的「大方向」，同一方位里的多个地点
+  // 需要在格子里散开，否则坐标完全相同、地图上叠成一块。
+  const bearingSeen = new Map()
+  const bearingTotal = new Map()
+  for (const region of list) {
+    if (Number.isFinite(Number(region?.x)) && Number.isFinite(Number(region?.y))) continue
+    const key = String(region?.pos ?? '').trim()
+    bearingTotal.set(key, (bearingTotal.get(key) ?? 0) + 1)
+  }
   const located = list.map((region) => {
-    const point = posToPoint(region?.pos)
+    const key = String(region?.pos ?? '').trim()
+    const fixed = Number.isFinite(Number(region?.x)) && Number.isFinite(Number(region?.y))
+    const slot = fixed ? 0 : (bearingSeen.get(key) ?? 0)
+    if (!fixed) bearingSeen.set(key, slot + 1)
+    const point = posToPoint(region?.pos, slot, bearingTotal.get(key) ?? 1)
     return {
       ...region,
       x: Number.isFinite(Number(region?.x)) ? Number(region.x) : point?.x ?? 0.5,

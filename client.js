@@ -2574,9 +2574,18 @@ window.__ModuleLoader__.load({
         // 按序号均匀铺等于把这层信息扔掉，然后再由哈希随机决定 —— 图上是
         // 散的，读者却对不上原文。方位词只用 9 个格子，同格内的地点再按
         // 序号在格子里散开，既守住语义又不会重叠。
-        const cell = posCell(item.pos)
+        //
+        // 但后端推演气候时用的是它自己算的 x/y。前端若另算一套，就会出现
+        // 「图上在西边、气候却按中部推」这种自相矛盾 —— 而且同一方位的
+        // 多个地区在后端已经沿带排开了，前端再用九宫格会把它们又叠回一点。
+        // 所以后端给了坐标就直接用，只有拿不到时才退回方位词。
+        const hasPoint = Number.isFinite(Number(item.x)) && Number.isFinite(Number(item.y))
+        const cell = hasPoint ? null : posCell(item.pos)
         let x; let y
-        if (cell) {
+        if (hasPoint) {
+          x = Math.min(1, Math.max(0, Number(item.x)))
+          y = Math.min(1, Math.max(0, Number(item.y)))
+        } else if (cell) {
           // posCell 给的是 1..3 的格号：1=北/西，2=中，3=南/东。
           // 换算成画布比例时，1→0.18、2→0.5、3→0.82，
           // 让地点落在格子中部而不是贴着画布边缘。
@@ -3263,6 +3272,10 @@ window.__ModuleLoader__.load({
           // 「雪」「沙漠」这类词，后端那份还会看说明和地形字段，认得准。
           // 着色时优先用它，前端那份是兜底。
           terrainKind: region.terrainKind ?? null,
+          // 坐标由后端推演。前端不再自己按方位词算一遍 —— 两处各算一套，
+          // 迟早出现「图上在西边、气候按中部推」这种自相矛盾。
+          x: Number.isFinite(Number(region.x)) ? Number(region.x) : undefined,
+          y: Number.isFinite(Number(region.y)) ? Number(region.y) : undefined,
           // 地区的「厚」按说明写得多细算，而不是按正文字数 —— 地区没有字数
           chars: String(region.desc ?? '').length,
         }))
