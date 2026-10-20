@@ -50,11 +50,17 @@ test('世界概览的 CSS 全部存在，且不用不存在的变量', () => {
     'nm-world-list', 'nm-world-row', 'nm-world-name', 'nm-world-band',
     'nm-world-terrain', 'nm-world-climate', 'nm-world-issues',
     'nm-world-issues-head', 'nm-world-issues-count', 'nm-world-issue-list',
-    'nm-world-issue', 'nm-world-more',
+    'nm-world-issue', 'nm-world-more', 'nm-world-research',
   ]) {
     assert.ok(block.includes(`.${cls}`), `CSS 缺少 .${cls}`)
   }
   // --nm-bad 这个变量根本不存在，写了也不会生效
   assert.ok(!block.includes('--nm-bad'), 'CSS 里用了不存在的 --nm-bad')
   assert.ok(block.includes('var(--nm-border-soft)'), '分隔线应使用已有的软边框变量')
+})
+
+test('问题行能换行，检索词不会被挤成一行', () => {
+  // .nm-world-issue 原本是 flex 单行，把检索词加进去会横着挤出容器
+  assert.ok(SOURCE.includes('flex-wrap:wrap;gap:2px 5px'), '问题行应允许换行')
+  assert.ok(SOURCE.includes('.nm-world-research{display:block'), '检索词应独占一行')
 })

@@ -379,9 +379,13 @@ window.__ModuleLoader__.load({
 .nm-world-issues-head{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:var(--nm-error)}
 .nm-world-issues-count{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;font-size:9.5px;border-radius:999px;background:color-mix(in srgb,var(--nm-error) 18%,transparent);font-variant-numeric:tabular-nums}
 .nm-world-issue-list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
-.nm-world-issue{display:flex;gap:5px;font-size:11px;line-height:1.5;color:var(--nm-muted);cursor:help}
+.nm-world-issue{display:flex;flex-wrap:wrap;gap:2px 5px;font-size:11px;line-height:1.5;color:var(--nm-muted);cursor:help}
 .nm-world-issue b{flex:none;font-weight:600;color:var(--nm-text)}
 .nm-world-issue span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* 检索词：一行灰字，跟着问题走。它的作用是「想查的时候不用自己想关键词」，
+   所以不能做成按钮 —— 这是提示，不是入口。 */
+.nm-world-research{display:block;flex:none;margin-top:2px;font-size:9.5px;font-style:normal;letter-spacing:.2px;color:var(--nm-muted);opacity:.55}
+.nm-world-issue:hover .nm-world-research{opacity:.85}
 .nm-world-issue-high b{color:var(--nm-error)}
 .nm-world-issue-mid b{color:color-mix(in srgb,var(--nm-accent) 70%,var(--nm-text))}
 .nm-world-issue-low b{color:var(--nm-muted)}
@@ -3185,7 +3189,12 @@ window.__ModuleLoader__.load({
                 title: `${issue.message}\n\n建议：${issue.suggestion}`,
               },
               h('b', null, issue.region),
-              h('span', null, issue.message)))),
+              h('span', null, issue.message),
+              // 想知道现实里怎么解释，得知道搜什么。给个现成的检索词，
+              // 比让他自己想「赤道雪山叫什么」靠谱 —— 后者会搜到旅游攻略。
+              issue.research
+                ? h('i', { className: 'nm-world-research', title: `可搜索：${issue.research}` }, issue.research)
+                : null))),
             issues.length > 5
               ? h('div', { className: 'nm-world-more' }, `还有 ${issues.length - 5} 条，见 /novel-world`)
               : null)

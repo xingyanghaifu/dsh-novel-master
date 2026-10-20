@@ -397,6 +397,7 @@ export function auditWorld(regions = []) {
     if (region.terrainKind === 'snow' && base.warmth > 0.55) {
       issues.push({
         kind: 'snow-too-warm',
+        research: '赤道 高山 冰川 成因',
         severity: 'high',
         region: region.name,
         message: `「${region.name}」写成雪原，但只看位置与海拔，这里本该有 ${base.warmth} 的热量，不足以常年积雪。`,
@@ -413,6 +414,7 @@ export function auditWorld(regions = []) {
     if (region.terrainKind === 'desert' && base.wet > 0.55) {
       issues.push({
         kind: 'desert-too-wet',
+        research: '沿海沙漠 成因 寒流',
         severity: 'medium',
         region: region.name,
         message: `「${region.name}」写成沙漠，但只看位置，这一带本该有 ${base.wet} 的湿度，空气里有水可降。`,
@@ -433,6 +435,7 @@ export function auditWorld(regions = []) {
       if (!nearWater) {
         issues.push({
           kind: 'city-without-water',
+        research: '古代城市 选址 水源',
           severity: 'high',
           region: region.name,
           message: `「${region.name}」是聚落，但附近没有水域，这一带基准湿度只有 ${base.wet}。`,
@@ -445,6 +448,7 @@ export function auditWorld(regions = []) {
     if (region.terrainKind === 'ocean' && base.warmth < 0.3 && /温暖|炎热|热浪|四季如春/u.test(String(region.desc ?? ''))) {
       issues.push({
         kind: 'warm-polar-water',
+        research: '北大西洋暖流 不冻港',
         severity: 'medium',
         region: region.name,
         message: `「${region.name}」在寒冷区域（基准温度 ${base.warmth}），说明里却写它是温暖的水域。`,
@@ -461,6 +465,7 @@ export function auditWorld(regions = []) {
     if (region.terrainKind === 'forest' && base.wet < 0.28 && /雨林|密林|丛林/u.test(String(region.desc ?? ''))) {
       issues.push({
         kind: 'rainforest-too-dry',
+        research: '温带雨林 分布 降水',
         severity: 'medium',
         region: region.name,
         message: `「${region.name}」被描述成雨林，但这一带的基准湿度只有 ${base.wet}，撑不起那种植被密度。`,
@@ -473,6 +478,7 @@ export function auditWorld(regions = []) {
     if (region.terrainKind === 'volcano' && /城|镇|都|村|居民|人/u.test(String(region.desc ?? ''))) {
       issues.push({
         kind: 'volcano-town',
+        research: '火山 聚落 火山灰 农业',
         severity: 'low',
         region: region.name,
         message: `「${region.name}」是火山，说明里提到居民。这在现实里有先例，但值得交代一句。`,
