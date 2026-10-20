@@ -58,28 +58,23 @@ test('地貌画布有底色与内边框，不是透明浮在面板上', () => {
   assert.match(m[1], /aspect-ratio:1/, '画布要接近正方，地形图不能是窄条')
 })
 
-test('等高线只描边，不能整片填充', () => {
-  // 试过给每层做半透明填充：11 层同色叠起来，中间糊成一坨实心圆饼，
-  // 等高线全被盖住。高程的观感必须来自「线的疏密」—— 地形图本来就是
-  // 靠间距读坡度的。这条测试锁住「只画线」这个决定。
-  assert.match(SOURCE, /fill: 'none'/, '等高线路径必须是 fill:none')
-  assert.doesNotMatch(SOURCE, /fill: terraColor/, '不能拿高程色整片填充')
+test('地图不再画高程场和等高线', () => {
+  // 这一整块是用程序噪声编出来的地形，和作者的设定无关。
+  // 删掉之后不许再悄悄长回来 —— 伪造的地形比空白更糟，
+  // 空白表示「这里还没设定」，编出来的山会被当成设定的一部分。
+  for (const gone of ['terraLayers', 'terraContour', 'terraNoise', 'terraColor']) {
+    assert.doesNotMatch(SOURCE, new RegExp(`function ${gone}\\(`), `不该再有 ${gone}`)
+  }
+  assert.doesNotMatch(SOURCE, /domain warp|域扭曲/u, '不该再有域扭曲')
+  // 只认这条具体表达式。`const coast = []` 在别处还有一个无关的
+  // 同名局部变量，按 /const coast = / 断言会误伤。
+  assert.doesNotMatch(SOURCE, /const r = Math\.hypot\(nx, ny\) \+ coast/u, '不该再有海岸线扰动')
 })
 
-test('地形场必须有域扭曲，否则等高线会收成同心环', () => {
-  // 前几版都是洋葱：一圈套一圈的规整环。根源是高度场以径向掩膜为主。
-  // 必须先扭曲采样坐标再取噪声，山脊才会弯、会分叉、会出现鞍部。
-  assert.match(SOURCE, /domain warp|域扭曲/, '需要域扭曲')
-  const warp = SOURCE.match(/const wx = x \+ ([\d.]+) \* \(terraNoise/)
-  assert.ok(warp, '采样点必须被噪声推开')
-  assert.ok(Number(warp[1]) >= 20, `扭曲幅度需 ≥20 格才打散得开，当前 ${warp[1]}`)
-})
-
-test('海岸线不能被纯径向收缩，否则外圈仍是同心圆', () => {
-  // 掩膜一旦是纯 r，等值线收到边界必然收成圆。必须把半径本身推歪，
-  // 形成半岛与海湾，边界那一圈才跟着歪。
-  assert.match(SOURCE, /const coast = /, '需要海岸线扰动项')
-  assert.match(SOURCE, /const r = Math\.hypot\(nx, ny\) \+ coast/, '半径要叠加海岸扰动')
+test('地图只画地区多边形和地名', () => {
+  // 图上每一样东西都必须对应 『地区.md』 里的一行
+  assert.match(SOURCE, /className: 'nm-terra-cells'/, '要画地貌块')
+  assert.match(SOURCE, /className: 'nm-terra-sites'/, '要画地名')
 })
 
 test('揭示范围随进度扩张，且用面积映射', () => {

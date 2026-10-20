@@ -38,17 +38,17 @@ test('认不出地形的地点不涂颜色，但地块还在', () => {
 })
 
 test('地形能从名字推出来，不必等前端传', () => {
-  const out = build([{ name: '无声之地', desc: '一片沙漠', x: 0.18, y: 0.5, height: 0.6 }])
-  assert.ok(out.svg.includes('fill="#b89a62"'), '名字或说明里写了沙漠就该用沙漠色')
+  const out = build([{ name: '无声之地', desc: '一片沙漠', x: 0.18, y: 0.5 }])
+  assert.ok(out.svg.includes('fill="#b0914f"'), '名字或说明里写了沙漠就该用沙漠色')
 })
 
-test('地形块画在等高线下面', () => {
-  // 顺序错了颜色会盖住等高线，整张图糊掉
-  const out = build([{ name: '背面', terrainKind: 'snow', x: 0.82, y: 0.18, height: 0.7 }])
-  const cells = out.svg.indexOf('<g class="cells">')
-  const contours = out.svg.indexOf('<g class="contours">')
-  assert.ok(cells >= 0, '应有地形块组')
-  assert.ok(cells < contours, '地形块要在等高线下')
+test('导出的图里没有等高线', () => {
+  // 等高线是用程序噪声编的，和作者的设定无关。存下来的资产里
+  // 留着它，等于把伪造的地形固化进项目，比不画更糟。
+  const out = build([{ name: '背面', terrainKind: 'snow', x: 0.82, y: 0.18 }])
+  assert.ok(!out.svg.includes('class="contours"'), '不该有等高线组')
+  assert.ok(!out.svg.includes('class="line"'), '不该有等高线路径')
+  assert.ok(out.svg.includes('<g class="cells">'), '应有地形块组')
 })
 
 test('配色不会把文件撑大', () => {

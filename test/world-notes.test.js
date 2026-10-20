@@ -8,7 +8,7 @@ test('WorldNotes 存在且接在存为地图资产之后', () => {
   assert.ok(SOURCE.includes('function WorldNotes('), '缺 WorldNotes 组件')
   // 顺序：先动作后解释。反过来会让人以为那段文字是保存的附带品
   const save = SOURCE.indexOf('存为地图资产')
-  const notes = SOURCE.indexOf('WorldNotes(h, { regions: placeLike')
+  const notes = SOURCE.indexOf('WorldNotes(h, { regions: places')
   assert.ok(save > 0 && notes > save, 'WorldNotes 应渲染在存为地图资产之后')
 })
 

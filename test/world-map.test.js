@@ -15,41 +15,50 @@ function tempProject() {
   return { cwd, root, cleanup: () => fs.rmSync(cwd, { recursive: true, force: true }) }
 }
 
-const LAYERS = ['M10 10L20 20', 'M12 12L22 22']
 const SITES = [
-  { name: '艾尔登维尔大陆', desc: '主舞台', x: 0.45, y: 0.3, height: 0.8 },
-  { name: '白塔', desc: '圣教总部', x: 0.7, y: 0.55, height: 0.6 },
+  { name: '艾尔登维尔大陆', desc: '主舞台', terrain: '原野', terrainKind: 'plain', x: 0.45, y: 0.3 },
+  { name: '白塔', desc: '圣教总部', terrain: '城邦', terrainKind: 'city', x: 0.7, y: 0.55 },
 ]
 
-test('地图 SVG 带地名、等高线与站点标记', () => {
-  const { svg } = renderWorldMap({ project: '测试小说', layers: LAYERS, sites: SITES, size: 84 })
+test('地图 SVG 带地名、地形块与站点标记', () => {
+  const { svg } = renderWorldMap({ project: '测试小说', sites: SITES, size: 84 })
   assert.match(svg, /<svg[^>]+viewBox="0 0 84 84"/, '必须有正确的 viewBox')
   assert.ok(svg.includes('艾尔登维尔大陆'), '地名要出现在图里')
   assert.ok(svg.includes('白塔'))
-  assert.equal((svg.match(/<path/g) ?? []).length, 4, '每层等高线描两遍')
   assert.equal((svg.match(/class="site"/g) ?? []).length, 2, '每个地点一个标记')
+  assert.ok(svg.includes('<g class="cells">'), '应有地形块')
+  assert.ok((svg.match(/class="cell/g) ?? []).length >= 2, '每个地区至少一块')
 })
 
-test('地图文档列出地点、方位与说明', () => {
-  const { doc } = renderWorldMap({ project: '测试小说', layers: LAYERS, sites: SITES, size: 84 })
+test('地图里不含程序生成的地形', () => {
+  // 等高线是用噪声编的，和作者设定无关。存进项目等于把伪造的地形固化下来。
+  const { svg, doc } = renderWorldMap({ project: '测试小说', sites: SITES, size: 84 })
+  assert.ok(!svg.includes('class="contours"'), '不该有等高线')
+  assert.ok(!svg.includes('class="line"'), '不该有等高线路径')
+  assert.doesNotMatch(doc, /等高线/u, '文档不该再提高等高线')
+})
+
+test('地图文档列出地点、方位、地形与说明', () => {
+  const { doc } = renderWorldMap({ project: '测试小说', sites: SITES, size: 84 })
   assert.match(doc, /## 地点（2 处）/)
   assert.match(doc, /艾尔登维尔大陆/)
   assert.match(doc, /主舞台/)
+  assert.match(doc, /地形：原野/)
   // 方位用九宫格中文，而不是裸坐标
   assert.match(doc, /方位：偏北/)
   assert.doesNotMatch(doc, /方位：0\./, '不该把裸露的坐标写给作者看')
 })
 
 test('没有地点时给出可执行的下一步，而不是留空', () => {
-  const { doc } = renderWorldMap({ project: '空项目', layers: [], sites: [], size: 84 })
+  const { doc } = renderWorldMap({ project: '空项目', sites: [], size: 84 })
   assert.match(doc, /还没有可识别的地点/)
-  assert.match(doc, /世界状态\.md/, '要告诉作者去哪儿补')
+  assert.match(doc, /地区\.md/, '要告诉作者去哪儿补')
 })
 
 test('地名里的尖括号被转义，不能注入', () => {
   const { svg } = renderWorldMap({
-    project: 'x', layers: ['M0 0'], size: 40,
-    sites: [{ name: '<script>alert(1)</script>', x: 0.5, y: 0.5, height: 0.5 }],
+    project: 'x', size: 40,
+    sites: [{ name: '<script>alert(1)</script>', x: 0.5, y: 0.5 }],
   })
   assert.ok(!svg.includes('<script>'), '地名不能原样成为标签')
   assert.ok(svg.includes('&lt;script&gt;'), '应当转义而不是丢弃')
@@ -57,13 +66,12 @@ test('地名里的尖括号被转义，不能注入', () => {
 
 test('坐标越界会被夹回画布内', () => {
   const { svg } = renderWorldMap({
-    project: 'x', layers: [], size: 80,
+    project: 'x', size: 80,
     sites: [
-      { name: '左上', x: -5, y: -5, height: 2 },
-      { name: '右下', x: 99, y: 99, height: -3 },
+      { name: '左上', x: -5, y: -5 },
+      { name: '右下', x: 99, y: 99 },
     ],
   })
-  // 夹回后圆心必须落在 0..80
   for (const m of svg.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)"/g)) {
     const [, cx, cy] = m
     assert.ok(Number(cx) >= 0 && Number(cx) <= 80, `cx ${cx} 越界`)
@@ -71,10 +79,17 @@ test('坐标越界会被夹回画布内', () => {
   }
 })
 
+test('同一份输入导出的图完全相同', () => {
+  // 换种子会让每次保存画出不同的形状，作者按图认路就会失效
+  const a = renderWorldMap({ project: '测试小说', sites: SITES }).svg
+  const b = renderWorldMap({ project: '测试小说', sites: SITES }).svg
+  assert.equal(a, b)
+})
+
 test('保存会在项目里生成 地图.svg 与 地图.md', () => {
   const { cwd, root, cleanup } = tempProject()
   try {
-    const result = saveWorldMap(cwd, '测试小说', { layers: LAYERS, sites: SITES, size: 84 })
+    const result = saveWorldMap(cwd, '测试小说', { sites: SITES, size: 84 })
     assert.equal(result.ok, true)
     assert.deepEqual(result.files.sort(), ['地图.svg', '地图.md'].sort())
     assert.ok(fs.existsSync(path.join(root, '地图.svg')))
@@ -89,9 +104,9 @@ test('保存会在项目里生成 地图.svg 与 地图.md', () => {
 test('重复保存覆盖旧文件而不是追加', () => {
   const { cwd, root, cleanup } = tempProject()
   try {
-    saveWorldMap(cwd, '测试小说', { layers: LAYERS, sites: SITES, size: 84 })
+    saveWorldMap(cwd, '测试小说', { sites: SITES, size: 84 })
     const first = fs.readFileSync(path.join(root, '地图.svg'), 'utf8')
-    saveWorldMap(cwd, '测试小说', { layers: LAYERS, sites: [SITES[0]], size: 84 })
+    saveWorldMap(cwd, '测试小说', { sites: [SITES[0]], size: 84 })
     const second = fs.readFileSync(path.join(root, '地图.svg'), 'utf8')
     assert.notEqual(first, second, '第二次保存要覆盖')
     assert.ok(!second.includes('白塔'), '被移除的地点不该还留在图里')
@@ -102,8 +117,8 @@ test('重复保存覆盖旧文件而不是追加', () => {
 test('存到不存在的项目会被拒绝，不能凭空建目录', () => {
   const { cwd, cleanup } = tempProject()
   try {
-    assert.throws(() => saveWorldMap(cwd, '不存在的项目', { layers: LAYERS, sites: SITES }), /找不到项目/)
-    assert.throws(() => saveWorldMap(cwd, '', { layers: LAYERS, sites: SITES }), /缺少项目名/)
+    assert.throws(() => saveWorldMap(cwd, '不存在的项目', { sites: SITES }), /找不到项目/)
+    assert.throws(() => saveWorldMap(cwd, '', { sites: SITES }), /缺少项目名/)
     assert.ok(!fs.existsSync(path.join(cwd, 'novel_projects', '不存在的项目')))
   } finally { cleanup() }
 })
@@ -112,7 +127,7 @@ test('项目名里的路径穿越被拒绝', () => {
   const { cwd, cleanup } = tempProject()
   try {
     for (const bad of ['../evil', '..', 'a/../../b']) {
-      assert.throws(() => saveWorldMap(cwd, bad, { layers: LAYERS, sites: SITES }), /找不到项目/)
+      assert.throws(() => saveWorldMap(cwd, bad, { sites: SITES }), /找不到项目/)
     }
   } finally { cleanup() }
 })
@@ -132,12 +147,13 @@ test('writeProjectFile 挡住目录穿越', () => {
 })
 
 test('地图内容不依赖客户端提交的 SVG', () => {
-  // 客户端若塞一个 d 属性以外的字段，服务端只认 layers/sites/size
+  // 客户端塞什么额外字段都不该生效，服务端只认 sites/size/seed
   const { svg } = renderWorldMap({
-    project: 'x', layers: ['M0 0L5 5'], size: 40,
-    sites: [{ name: '甲', x: 0.5, y: 0.5, height: 0.5 }],
+    project: 'x', size: 40,
+    sites: [{ name: '甲', x: 0.5, y: 0.5 }],
     svg: '<svg onload="alert(1)"/>',
     doc: '# 被劫持',
   })
   assert.ok(!svg.includes('onload'), '客户端给的 svg 字段必须被忽略')
+  assert.ok(!svg.includes('被劫持'), '客户端给的 doc 字段必须被忽略')
 })

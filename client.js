@@ -342,17 +342,6 @@ window.__ModuleLoader__.load({
    保证压在最亮的等高线上也读得出来 —— 这是地图标注的通用做法，
    比加半透明底板干净，也不会挡住地形。 */
 .nm-terra-site-label{font-size:2.9px;font-family:var(--nm-font,ui-sans-serif,system-ui,"PingFang SC","Microsoft YaHei",sans-serif);font-weight:600;letter-spacing:.02px;fill:#d8ecfa;paint-order:stroke fill;stroke:#060a0f;stroke-width:.42px;stroke-linejoin:round}
-/* 前沿那一条要能「呼吸」，但不能抢戏：慢速脉冲，幅度极小。 */
-.nm-terra-front{animation:nm-terra-pulse 3.6s var(--nm-ease-std) infinite}
-@keyframes nm-terra-pulse{0%,100%{opacity:.95}50%{opacity:.62}}
-.nm-terra-glow{animation:nm-terra-glow 5s var(--nm-ease-std) infinite}
-@keyframes nm-terra-glow{0%,100%{opacity:.34}50%{opacity:.6}}
-/* 高程色标：横条把配色说清楚，不需要额外图例文字。
-   <i> 是行内元素，直接给 height 不生效 —— 必须 display:block，
-   否则整条塌成 0 高，只剩文字旁边一片空白。 */
-.nm-terra-scale{display:flex;align-items:center;gap:8px}
-.nm-terra-scale-label{flex:none;font-size:9.5px;letter-spacing:.5px;color:var(--nm-muted);opacity:.75}
-.nm-terra-scale-bar{display:block;flex:1;height:4px;border-radius:999px;background:linear-gradient(90deg,rgb(36 52 70) 0%,rgb(58 88 112) 28%,rgb(104 143 172) 55%,rgb(168 200 222) 78%,rgb(226 240 250) 100%)}
 .nm-terra-bar{display:block;height:3px;border-radius:2px;background:color-mix(in srgb,#8fd3ff 14%,transparent);overflow:hidden}
 .nm-terra-bar-fill{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#3d7ea6,#8fd3ff);transition:width 420ms var(--nm-ease-std)}
 /* 存为地图资产。放在进度条下面一行，和「高程」图例同区域 —— 
@@ -2501,28 +2490,6 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * 世界地貌 —— 用真实等高线渲一张地形图。
-     *
-     * 前面几版都在追「像不像 Minecraft 的加载屏」，越追越糟：方块地图的
-     * 表达力全在「像素密度」上，一旦画布只有三百来像素宽，密不起来就只剩
-     * 彩色方格子。换个思路 —— 加载屏之所以好看，不是因为方块，是因为它
-     * 把「世界正在成形」这件事变成了空间上的推进。
-     *
-     * 这里用地图学的正统做法：等高线 + 高程配色（hypsometric tint）。
-     * 一条等值线代表一个高程，线越密坡度越陡，这是地形图一百多年没变的
-     * 语言，天然带有「精确」的观感，而且矢量绘制不受分辨率限制。
-     *
-     * 进度语义换成「水位下降」：想象这块陆地原来沉在水下，随着内容写完，
-     * 水位一点点退，地形逐层浮出水面。当前水面高度的等值线就是「世界已经
-     * 长到哪儿」的前沿，用亮色描出来。
-     *
-     * 等高线用 marching squares 逐格求等值点再串成折线 —— 不是贴图，是算
-     * 出来的。整张地形只算一次并缓存：它由确定性噪声决定，与进度无关，
-     * 进度只决定「露出哪些层」。
-     */
-    const TERRA = { size: 84, levels: 12, cache: null, seed: '' }
-
-    /**
      * 把设定资产摆到地图上，形成地形骨架。
      *
      * 之前的地形完全由噪声决定 —— 好看，但和这部小说没有任何关系：换个项目
@@ -2638,90 +2605,24 @@ window.__ModuleLoader__.load({
       return sites
     }
 
-    /** 高斯隆起：距离中心越近越高，到 reach 处衰减到 0。 */
-    function terraBump(site, u, v) {
-      const dx = u - site.x
-      const dy = v - site.y
-      const d2 = (dx * dx + dy * dy) / (site.reach * site.reach)
-      if (d2 >= 1) return 0
-      // (1-d²)² 在边缘一阶导为零，接缝不会出现折痕
-      const falloff = 1 - d2
-      return site.height * falloff * falloff
-    }
-
-    /** 确定性哈希。面板每 4 秒轮询，非确定性的场会让整张图每次刷新都重排。 */
-    function terraHash(x, y) {
-      const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
-      return s - Math.floor(s)
-    }
-    function terraSmooth(t) { return t * t * (3 - 2 * t) }
-    function terraNoise(x, y) {
-      const xi = Math.floor(x); const yi = Math.floor(y)
-      const u = terraSmooth(x - xi); const v = terraSmooth(y - yi)
-      const a = terraHash(xi, yi); const b = terraHash(xi + 1, yi)
-      const c = terraHash(xi, yi + 1); const d = terraHash(xi + 1, yi + 1)
-      return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
-    }
-
-    /** 高程色阶：低处冷而暗（水下/滩涂），高处提亮偏白（山脊），整体压低饱和度。 */
-    const TERRA_RAMP = [
-      [0.00, [36, 52, 70]],
-      [0.28, [58, 88, 112]],
-      [0.55, [104, 143, 172]],
-      [0.78, [168, 200, 222]],
-      [1.00, [226, 240, 250]],
-    ]
+        /** 画布边长。坐标一律用 0–1 的比例，乘以它得到像素。 */
+    const MAP = { size: 84 }
 
     /**
-     * 地形配色：每种地貌一组「低处 → 高处」的颜色。
+     * 地形配色：一种地貌一个颜色。
      *
-     * 为什么用程序化渐变而不是贴图：贴图得有网络、有版权、还得跟等高线对齐，
-     * 而这张图的高程是每次实时算出来的 —— 贴上去必然对不上，看着像有人把
-     * 一张卫星图糊在了别的地形上。用渐变，颜色跟着我们自己算的高程走，
-     * 永远吻合。
+     * 这是**标记色**，不是高程色 —— 它只回答「这是沙漠还是森林」，
+     * 不假装表达高度。所以每种种只给一个颜色，不再有低处到高处的渐变：
+     * 那套渐变需要一张高程面，而这个项目的数据里没有高程。
      *
-     * 每组给 3 个色标：水里/低地、典型、高处。渲染时按该点的归一化高程取。
-     * 颜色刻意压低饱和度 —— 面板是深色底，鲜艳色块会把地名和等高线吃掉。
+     * 认不出的地形不在表里 —— 调用方据此画成空心块。
      */
-    const TERRAIN_TINTS = {
-      // 火山：从暗红岩到橙红熔岩
-      volcano: [[46, 24, 22], [96, 40, 30], [168, 74, 46]],
-      // 雪原：冷灰到近乎纯白
-      snow: [[46, 58, 72], [120, 142, 162], [232, 242, 250]],
-      // 沙漠：暗赭到浅金
-      desert: [[58, 46, 30], [122, 98, 58], [204, 176, 118]],
-      // 水域：深海到浅滩
-      ocean: [[18, 34, 54], [30, 62, 96], [58, 108, 148]],
-      // 沼泽：暗绿到浑浊黄绿
-      swamp: [[26, 38, 30], [48, 70, 48], [86, 112, 70]],
-      // 地下：近黑到石灰
-      cave: [[22, 24, 28], [46, 48, 54], [92, 96, 104]],
-      // 岛屿：与水域同系但偏亮
-      island: [[24, 44, 58], [58, 96, 108], [122, 168, 154]],
-      // 城邦：暖灰石色，像建起来的城
-      city: [[48, 44, 42], [92, 86, 80], [156, 146, 134]],
-      // 森林：深绿到林冠
-      forest: [[24, 40, 30], [46, 78, 48], [86, 126, 70]],
-      // 山地：冷岩到雪线
-      mountain: [[42, 46, 54], [96, 102, 112], [186, 194, 204]],
-      // 原野：橄榄到干草
-      plain: [[40, 44, 32], [86, 96, 58], [148, 156, 104]],
+    const MAP_TINTS = {
+      volcano: '#8c3a26', snow: '#a8c4dc', desert: '#b0914f', ocean: '#2f6a94',
+      swamp: '#42603c', cave: '#4a4d55', island: '#3f7d72', city: '#8a8072',
+      forest: '#41692f', mountain: '#6e7480', plain: '#6f7d3f',
     }
-
-    /** 在一条色标上取色。t 是 0–1 的归一化高程。 */
-    function tintAt(stops, t) {
-      const v = Math.max(0, Math.min(1, t))
-      const scaled = v * (stops.length - 1)
-      const i = Math.min(stops.length - 2, Math.floor(scaled))
-      const k = scaled - i
-      const a = stops[i]; const b = stops[i + 1]
-      const r = Math.round(a[0] + (b[0] - a[0]) * k)
-      const g = Math.round(a[1] + (b[1] - a[1]) * k)
-      const bl = Math.round(a[2] + (b[2] - a[2]) * k)
-      return `rgb(${r} ${g} ${bl})`
-    }
-
-    /**
+/**
      * 地形块（Voronoi 单元）。
      *
      * 和服务端 src/terrain-cells.js 是同一份算法，必须保持一致 ——
@@ -2860,317 +2761,6 @@ window.__ModuleLoader__.load({
       return `${d}Z`
     }
 
-    function terraColor(t) {
-      const stops = TERRA_RAMP
-      for (let i = 1; i < stops.length; i++) {
-        if (t <= stops[i][0]) {
-          const [t0, c0] = stops[i - 1]; const [t1, c1] = stops[i]
-          const k = t1 === t0 ? 0 : (t - t0) / (t1 - t0)
-          const rgb = c0.map((v, j) => Math.round(v + (c1[j] - v) * k))
-          return `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`
-        }
-      }
-      const last = stops[stops.length - 1][1]
-      return `rgb(${last[0]} ${last[1]} ${last[2]})`
-    }
-
-    /**
-     * 对一层高程求等值线，返回 SVG path 的 d 串。
-     *
-     * marching squares：每个小方格的四个角与等值比较，得出 16 种穿越形态，
-     * 在边上线性插值求出交点。相邻格共用同一条边，插值参数完全相同，
-     * 所以端点能逐位相等 —— 后面才能用字符串键把线段接成折线。
-     */
-    function terraContour(field, n, level) {
-      const at = (x, y) => field[y * n + x]
-      const segs = []
-      for (let y = 0; y < n - 1; y++) {
-        for (let x = 0; x < n - 1; x++) {
-          const v0 = at(x, y); const v1 = at(x + 1, y)
-          const v2 = at(x + 1, y + 1); const v3 = at(x, y + 1)
-          let idx = 0
-          if (v0 >= level) idx |= 1
-          if (v1 >= level) idx |= 2
-          if (v2 >= level) idx |= 4
-          if (v3 >= level) idx |= 8
-          if (idx === 0 || idx === 15) continue
-          // 四条边上的交点。分母为 0（两侧等高）时取边中点，避免 NaN。
-          //
-          // 这四条插值必须严格对称，否则相邻格在公共边上算出的交点对不齐，
-          // 线段就接不起来。此前 left 写成
-          //   [x, y + 1 + (level - v3) / (v0 - v3)]
-          // 既多加了 +1 又把斜率方向用反了，左侧交点整体下偏一格：
-          // 实测 344 个端点里 216 个是孤立的，等高线全断成短笔。
-          // 左边正确的参数化是从 (x, y+1) 沿 y 负方向走 t，
-          //   t = (level - v3) / (v0 - v3)  ⇒  y = y + 1 - t
-          const top = [x + (v1 === v0 ? 0.5 : (level - v0) / (v1 - v0)), y]
-          const right = [x + 1, y + (v2 === v1 ? 0.5 : (level - v1) / (v2 - v1))]
-          const bottom = [x + (v2 === v3 ? 0.5 : (level - v3) / (v2 - v3)), y + 1]
-          const left = [x, y + 1 - (v0 === v3 ? 0.5 : (level - v3) / (v0 - v3))]
-          const push = (a, b) => segs.push([a[0], a[1], b[0], b[1]])
-          switch (idx) {
-            case 1: case 14: push(left, top); break
-            case 2: case 13: push(top, right); break
-            case 3: case 12: push(left, right); break
-            case 4: case 11: push(right, bottom); break
-            case 6: case 9: push(top, bottom); break
-            case 7: case 8: push(left, bottom); break
-            // 5 与 10 是鞍点，两条线可能交叉，需要用中心值决定连法。
-            case 5: {
-              const mid = (v0 + v1 + v2 + v3) / 4
-              if (mid >= level) { push(left, bottom); push(top, right) }
-              else { push(left, top); push(right, bottom) }
-              break
-            }
-            case 10: {
-              const mid = (v0 + v1 + v2 + v3) / 4
-              if (mid >= level) { push(left, top); push(right, bottom) }
-              else { push(left, bottom); push(top, right) }
-              break
-            }
-            default: break
-          }
-        }
-      }
-      if (segs.length === 0) return ''
-
-      // 把散线段按端点接成折线。
-      //
-      // 这里有个必须做对的地方：marching squares 产出的线段是无向的，
-      // 同一条等值线上的相邻两段，可能一段是 A→B、另一段是 B→A。
-      // 早先的版本只用「当前段终点」去找下一段，遇到反向的那一半就断了 ——
-      // 结果是 788 条折线里有 705 条只有 2 个点（89.5% 碎线），
-      // 等高线渲出来全是短促的断笔。必须两个方向都能接。
-      //
-      // 端点键取到千分位：相邻格共用同一条边，插值参数逐位相同，
-      // 所以能精确对上；用 toFixed 反而会被浮点数格式化截断。
-      const key = (x, y) => `${Math.round(x * 1000)}:${Math.round(y * 1000)}`
-      const endsAt = new Map()
-      const link = (k, i) => {
-        if (!endsAt.has(k)) endsAt.set(k, [])
-        endsAt.get(k).push(i)
-      }
-      for (let i = 0; i < segs.length; i++) {
-        link(key(segs[i][0], segs[i][1]), i)
-        link(key(segs[i][2], segs[i][3]), i)
-      }
-      const other = (i, k) => {
-        // 取同一段线段的另一个端点，用于「反向续接」
-        const s = segs[i]
-        return key(s[0], s[1]) === k ? [s[2], s[3]] : [s[0], s[1]]
-      }
-      const used = new Uint8Array(segs.length)
-      const parts = []
-
-      for (let i = 0; i < segs.length; i++) {
-        if (used[i]) continue
-        used[i] = 1
-        // 以线段 i 为种子，向两端各长一次，最后整体反转前半段拼起来。
-        const forward = [[segs[i][0], segs[i][1]], [segs[i][2], segs[i][3]]]
-        let tail = key(segs[i][2], segs[i][3])
-        const head = [segs[i][0], segs[i][1]]
-        for (;;) {
-          const next = (endsAt.get(tail) ?? []).find((j) => !used[j])
-          if (next === undefined) break
-          used[next] = 1
-          const p = other(next, tail)
-          forward.push(p)
-          tail = key(p[0], p[1])
-        }
-        // 再往种子起点那侧长
-        let backKey = key(head[0], head[1])
-        const backward = []
-        for (;;) {
-          const prev = (endsAt.get(backKey) ?? []).find((j) => !used[j])
-          if (prev === undefined) break
-          used[prev] = 1
-          const p = other(prev, backKey)
-          backward.push(p)
-          backKey = key(p[0], p[1])
-        }
-        const pts = backward.reverse().concat(forward)
-        if (pts.length < 2) continue
-        parts.push('M' + pts.map((p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join('L'))
-      }
-      return parts.join('')
-    }
-
-    /** 一次性算出地形与全部高程层，之后只按进度决定露哪些层。 */
-    function terraLayers(items) {
-      // 缓存必须把「资产指纹」算进去。地形现在由 items 决定，只按空缓存判断
-      // 的话，写完一章再回来山还是旧形状 —— 那正是这次要修的问题。
-      const sites = terraSites(items)
-      const seed = sites.map(s => `${s.key}:${s.height.toFixed(2)}`).join('|') || 'bare'
-      if (TERRA.cache && TERRA.seed === seed) return TERRA.cache
-      TERRA.seed = seed
-      const n = TERRA.size
-      const field = new Float32Array(n * n)
-      let peak = 0
-      let peakAt = n * n >> 1
-      for (let y = 0; y < n; y++) {
-        for (let x = 0; x < n; x++) {
-          // 域扭曲（domain warp）：先把采样点本身用两层低频噪声推开，再取
-          // 高程。不做这一步，fBm 出来的等高线是一圈套一圈的洋葱 —— 前两版
-          // 都是同心环。推一下之后山脊会弯、会分叉、会出现鞍部，才有地形感。
-          const wx = x + 34 * (terraNoise(x / 19 + 5.2, y / 19 + 1.3) - 0.5)
-          const wy = y + 34 * (terraNoise(x / 19 + 9.7, y / 19 + 4.8) - 0.5)
-          // 五层八度。振幅衰减要慢（0.58）—— 衰减太快时高频几乎不出力，
-          // 地形就成了一个大缓坡；衰减太慢又会变成满屏椒盐。0.58 配五次
-          // 叠加，山体上既有大起伏也有支脉。
-          let amp = 1; let freq = 1 / 34; let sum = 0; let norm = 0
-          for (let o = 0; o < 5; o++) {
-            sum += amp * terraNoise(wx * freq + o * 17.3, wy * freq + o * 31.7)
-            norm += amp
-            amp *= 0.58
-            freq *= 2.11
-          }
-          // 边缘软掩膜。陆地必须收在画面内，等高线才全是闭合环。
-          //
-          // 但掩膜本身不能用纯径向 —— 那等于把整个场乘上一个圆锥，等值线
-          // 收到边界时必然收成同心圆，外围看着像洋葱。前三版都是这个毛病。
-          // 解法是先把半径本身用噪声推歪：r 不再等于到中心的距离，而是一条
-          // 被扰动的「海岸线半径」，于是陆地边缘呈半岛与海湾状，边界那一圈
-          // 等高线自然跟着歪。
-          const nx = (x / (n - 1)) * 2 - 1
-          const ny = (y / (n - 1)) * 2 - 1
-          const ang = Math.atan2(ny, nx)
-          // 极坐标下取两层噪声，形成连续但不重复的海岸形状。
-          const coast = 0.20 * (terraNoise(Math.cos(ang) * 1.9 + 11, Math.sin(ang) * 1.9 + 7) - 0.5) * 2
-            + 0.12 * (terraNoise(Math.cos(ang) * 4.1 + 23, Math.sin(ang) * 4.1 + 19) - 0.5) * 2
-          const r = Math.hypot(nx, ny) + coast * 0.42
-          const edge = 1 - terraSmooth(Math.min(1, Math.max(0, (r - 0.52) / 0.46)))
-          const raw = sum / norm
-          // 把噪声归一到 0–1 后再乘掩膜，幅度才稳定。幂次略大于 1，
-          // 低处（浅滩）因此更平缓，等高线在岸边疏、在山腰密。
-          let h = Math.pow(Math.max(0, Math.min(1, (raw - 0.16) / 0.66)), 1.15) * edge
-          // 叠加资产隆起。
-          //
-          // 这一步前后试错三次，值得记下来：
-          // ① 权重 0.66 —— 浅资产的隆起（0.18–0.44）压不过底噪的峰（0.84），
-          //    「空项目」和「写了三项」画出来一模一样，看着像没生效。
-          // ② Math.min(1, ...) 硬截断 —— 几个山头一起顶到 1.0，中间成为
-          //    一片高程相同的平地，顶层等值线全挤到边缘，正中裂出巨大空洞。
-          // ③ 软饱和（1-e^-x）—— 空洞小了一点，但还是平台，还是空洞。
-          //
-          // 症结在于「只要出现平台，等值线就会绕着平台走，平台内部空掉」。
-          // 所以根本不该截断：先按无上限累加，循环结束后整场归一化。
-          // 这样每一处都保留原本的起伏，量级问题交给最后那一次缩放解决。
-          if (sites.length) {
-            let lift = 0
-            for (let s = 0; s < sites.length; s++) lift += terraBump(sites[s], x / (n - 1), y / (n - 1))
-            if (lift > 0) h += lift * 1.6 * edge
-          }
-          field[y * n + x] = h
-          if (h > peak) { peak = h; peakAt = y * n + x }
-        }
-      }
-
-      // 整场归一到 0–1。隆起不设上限，最后统一缩放 —— 这样任何一处都
-      // 不会因为「顶到天花板」而变成平台。
-      if (peak > 1) {
-        const scale = 1 / peak
-        for (let i = 0; i < field.length; i++) field[i] *= scale
-        peak = 1
-      }
-
-      // 高程层用「等面积分位」定阈值，而不是固定步长。
-      // 固定步长在噪声分布上一头密一头疏；按分位取，每层覆盖的面积相当，
-      // 等高线的疏密只反映坡度本身 —— 这才是地形图的读法。
-      const sorted = Array.from(field).sort((a, b) => a - b)
-      const nth = (q) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * sorted.length)))]
-      const levels = []
-      for (let i = 1; i <= TERRA.levels; i++) {
-        const q = i / (TERRA.levels + 1)
-        const t = nth(q)
-        if (!(t > 0)) continue
-        const d = terraContour(field, n, t)
-        if (d) levels.push({ t, frac: q, d })
-      }
-      TERRA.peak = { x: peakAt % n, y: Math.floor(peakAt / n), h: peak }
-      // 着色网格：每个格子的地形颜色。
-      //
-      // 做法是「最靠近哪个地点，就染那个地形的颜色」，按距离做加权混色。
-      // 不是把整块地按行政边界切开 —— 那会在交界处留下生硬的色块边，
-      // 而真实地貌的过渡本来就是渐变的（草原慢慢变成沙漠）。
-      //
-      // 权重用 1/(d²+ε) 的软化版本，再叠上「高处更亮」的明暗，
-      // 让山脉的亮面和坡面看得出来，不至于涂成一张平色卡。
-      const tints = new Uint8ClampedArray(n * n * 4)
-      for (let y = 0; y < n; y++) {
-        for (let x = 0; x < n; x++) {
-          const u = x / (n - 1)
-          const v = y / (n - 1)
-          const h = field[y * n + x]
-          let r = 0; let g = 0; let bl = 0; let wsum = 0
-          for (const site of sites) {
-            const palette = TERRAIN_TINTS[site.terrainKind]
-            if (!palette) continue
-            const dx = u - site.x
-            const dy = v - site.y
-            const d2 = dx * dx + dy * dy
-            // 影响半径外衰减得很快，但不断崖 —— 断了就会露出底色方块
-            const w = 1 / (d2 * 42 + 0.06)
-            // 同一地形内，按高程取色标：低处深、高处亮。
-            //
-            // 取值范围是 0.34–0.76 而不是 0–1：绝大多数地块都是低地，
-            // 从 0 取起的话整张图会落在每个色板最暗的那一端，看着像没上色。
-            // 窄一点的区间让地形种类本身主导颜色，高程只负责明暗层次。
-            const local = tintAt(palette, 0.34 + h * 0.42)
-            const m = /(\d+)\D+(\d+)\D+(\d+)/u.exec(local)
-            if (!m) continue
-            r += Number(m[1]) * w
-            g += Number(m[2]) * w
-            bl += Number(m[3]) * w
-            wsum += w
-          }
-          const idx = (y * n + x) * 4
-          // 中性高程色打底，地形色按「离地名多近」连续混上去。
-          //
-          // 关键是混一条公式，不能写成「近处用 A、远处用 B」——
-          // 那样分界线上会出现一道硬边。这里的 k 随 wsum 从 0 平滑升到
-          // 0.72，任何位置都是同一个式子，底色和地形色之间没有断层。
-          //
-          // 底色本身也要插值：直接拿 TERRA_RAMP 的档位色会让高程每跨一格
-          // 就跳一次色（实测 434 个相邻格跳变），看着像色带。走 terraRampAt
-          // 才是连续的。
-          const rampBase = TERRA_RAMP
-          let br = rampBase[0][1]; let bg = rampBase[0][1]; let bb = rampBase[0][1]
-          {
-            const tt = Math.max(0, Math.min(1, h))
-            let i = 0
-            while (i < TERRA_RAMP.length - 2 && tt > TERRA_RAMP[i + 1][0]) i++
-            const [t0, c0] = TERRA_RAMP[i]
-            const [t1, c1] = TERRA_RAMP[i + 1]
-            const kk = t1 === t0 ? 0 : (tt - t0) / (t1 - t0)
-            br = c0[0] + (c1[0] - c0[0]) * kk
-            bg = c0[1] + (c1[1] - c0[1]) * kk
-            bb = c0[2] + (c1[2] - c0[2]) * kk
-          }
-          const k = wsum > 0 ? Math.min(0.92, wsum / (wsum + 1.1)) : 0
-          tints[idx] = br + ((wsum > 0 ? r / wsum : br) - br) * k
-          tints[idx + 1] = bg + ((wsum > 0 ? g / wsum : bg) - bg) * k
-          tints[idx + 2] = bb + ((wsum > 0 ? bl / wsum : bb) - bb) * k
-          tints[idx + 3] = 255
-        }
-      }
-      TERRA.tints = tints
-      TERRA.cache = levels
-      return levels
-    }
-
-    /**
-     * 地名标注的避让。
-     *
-     * 山头位置由资产序号决定，两个相邻序号本来就挨得不远，标签一长就直接
-     * 压在一起 —— 实测「世界状态」把「大纲」盖掉了，两个名字都读不出来。
-     *
-     * 做法是沿径向把过近的标签往外推：标签相对自己那个山头往外挪，
-     * 挪到与已放置的标签都不冲突为止。只推标签不推标杆，标杆位置始终
-     * 忠实反映山头 —— 那是数据，不能被排版挪动。
-     *
-     * 推不动了（推到画布边缘）就放弃这个标签，而不是硬挤着画。
-     * 少一个名字，好过两个名字糊成一团。
-     */
     function terraLabelLayout(sites, size, reach) {
       const placed = []
       const out = []
@@ -3241,91 +2831,85 @@ window.__ModuleLoader__.load({
       const list = items ?? []
       const total = list.length
       const done = list.filter((i) => i.exists).length
-      // 完成度：资产数与百分比取较大者，中途刷新时地貌不会倒退。
       const p = total > 0 ? Math.max(done / total, (percent ?? 0) / 100) : (percent ?? 0) / 100
       const pct = Math.min(1, Math.max(0, p))
       const complete = total > 0 && done >= total
-      const peak = TERRA.peak ?? { x: TERRA.size / 2, y: TERRA.size / 2 }
-      const S = TERRA.size
-      // ---- 造山用的「地点」从哪来 ----
+      const S = MAP.size
+
+      // ---- 地图上画什么 ----
       //
-      // 优先用项目里真实的地理设定（地区.md / 设定.md「地理」/ 世界状态.md「地理」）。
-      // 没有地理设定时才退回按资产分山头。
+      // 只画项目里真实写过的东西：地区名、方位、地形。不多画一笔。
       //
-      // 之前一直用的是后者，于是地图上标的是「设定」「角色」「大纲」——
-      // 那是文档名，不是地名。作者写了「白塔在源质最浓的平原中央」，
-      // 图上却只会写「设定」，这张图就白画了。
+      // 这张图之前画的是等高线，由程序噪声生成 —— 好看，但和这部小说没有
+      // 任何关系：换个项目山形一样，写没写世界观也一样。作者看着它觉得
+      // 「怎么都对不上」，是对的，因为那确实不是他的世界。
+      //
+      // 现在改成：有写「西」的地区就在西边，写了「沙漠」就是沙色。图上
+      // 每一块都对应『地区.md』里的一行。没写的地方就是空的 —— 空白是
+      // 诚实的，它表示「这里还没设定」，比编一座山好。
       const regions = Array.isArray(project?.regions) ? project.regions : []
-      const placeLike = regions
+      const places = regions
         .filter((region) => region && String(region.name ?? '').trim())
         .map((region) => ({
-          name: String(region.name).trim(),
+          key: String(region.name).trim(),
           desc: String(region.desc ?? '').trim(),
           pos: String(region.pos ?? '').trim(),
           terrain: String(region.terrain ?? '').trim(),
-          // 后端推演好的气候直接带过来。前端不重算 —— 两处各算一套，
-          // 迟早会出现「图上写着湿热、侧栏写着干旱」这种自相矛盾。
+          // 气候和水系由后端推演，前端不重算 —— 两处各算一套迟早自相矛盾
           climate: region.climate ?? null,
-          // 水从哪来，同样由后端给
           water: region.water ?? null,
-          // 地形种类也由后端给。前端那份 terrainKindOf 只认名字里有没有
-          // 「雪」「沙漠」这类词，后端那份还会看说明和地形字段，认得准。
-          // 着色时优先用它，前端那份是兜底。
           terrainKind: region.terrainKind ?? null,
-          // 坐标由后端推演。前端不再自己按方位词算一遍 —— 两处各算一套，
-          // 迟早出现「图上在西边、气候按中部推」这种自相矛盾。
           x: Number.isFinite(Number(region.x)) ? Number(region.x) : undefined,
           y: Number.isFinite(Number(region.y)) ? Number(region.y) : undefined,
-          // 地区的「厚」按说明写得多细算，而不是按正文字数 —— 地区没有字数
-          chars: String(region.desc ?? '').length,
         }))
-      const sites = terraSites(placeLike.length ? placeLike : list).map((site) => ({
-        ...site,
-        label: String(site.key).replace(/\.(md|txt|json)$/iu, ''),
-      }))
-      // 地形与标注必须用同一组地点，否则山和名字会错位
-      const hills = placeLike.length ? placeLike : list
-      const layers = terraLayers(hills)
 
-      // 地形块。种子用项目名，同一个项目每次打开都是同一张图；
-      // 换项目就换一张 —— 名字变了，地块的形状跟着变是合理的。
-      //
-      // 必须和后端存资产时算的一致，所以传的参数（宽度、种子、填充密度）
-      // 要和 saveMapAsset 里那份保持一致。
-      const cellSeed = String(project?.name ?? project?.title ?? 'nm')
+      // 没有地区设定时退回资产名。地图上至少标出「写了哪些文档」，
+      // 但这仍然不是地名 —— 所以横条标题会写明「尚未设定地区」。
+      const fallback = places.length === 0 && list.length > 0
+      const paint = fallback
+        ? terraSites(list).map((site) => ({
+          key: String(site.label ?? site.key).replace(/\.(md|txt|json)$/iu, ''),
+          desc: '',
+          pos: '',
+          terrain: '',
+          climate: null,
+          water: null,
+          terrainKind: null,
+          x: site.x,
+          y: site.y,
+        }))
+        : places
+
+      // 位置：后端已经按方位算好 x/y（同一方位会沿带排开）。
+      // 前端拿不到坐标时才退回占位环 —— 那种情况只在旧数据里出现。
+      const sites = paint.map((place, index) => ({
+        ...place,
+        x: Number.isFinite(place.x) ? place.x : (Math.cos(index) + 1) / 2,
+        y: Number.isFinite(place.y) ? place.y : (Math.sin(index) + 1) / 2,
+      }))
+
+      // 地貌块：每个地区占一块，边界落在两点正中间。
+      // 种子用项目名 —— 同一个项目每次打开都是同一张图。
       const cells = terrainCells(
         sites.map((site) => ({
           name: site.key,
           x: site.x,
           y: site.y,
           terrainKind: site.terrainKind,
-          height: site.height,
         })),
-        { width: S, height: S, seed: cellSeed },
+        { width: S, height: S, seed: String(project?.name ?? project?.title ?? 'nm') },
       ).cells
 
-      // 揭示半径：进度从中心向外扩张，把已经「写出来」的那一块显影。
-      //
-      // 之前两版的语义都错了：一版按高程水位（低处先出），一版 slice 前 N 层
-      // （同样把最高的几层切掉）。两者都会在画面正中留下一个大空洞 —— 因为
-      // 山峰恰恰是最高那层，最先被砍掉的就是它。
-      //
-      // 正确的心智模型是「一块已探明的地域在扩大」：地形本身完整存在，
-      // 进度决定其中多大的范围被清楚地看见。半径用 sqrt 映射，让面积的
-      // 增长与百分比同步 —— 线性映射半径时，前 20% 才覆盖 4% 的面积，
-      // 观感上会显得「卡住不动」。
+      // 揭示半径：进度从中心向外扩张。这是「写了多少」的唯一视觉编码 ——
+      // 它不假装是地理信息，就是一个进度指示，所以可以放心保留。
       const reach = Math.sqrt(pct) * S * 0.80
-      // 标注的最终位置：避让、边界裁剪、未探明过滤都在这个函数里做
-      const labelPlan = terraLabelLayout(sites, S, reach)
+      const labelPlan = terraLabelLayout(
+        sites.map((site) => ({ ...site, label: site.key })),
+        S,
+        reach,
+      )
 
-      /**
-       * 把当前地形与地名交给后端落盘。
-       *
-       * 客户端只发「地名、位置、高度、等高线路径」，SVG 由服务端拼 ——
-       * 让前端提交成品文件等于给这个接口开了个通用写文件口子。
-       *
-       * 只发已经探明的地名：没写完的资产在界面上没标，存下来也不该有。
-       */
+      /** 把当前地图交给后端落盘。只发地名、位置、地形 —— 不发任何路径。 */
       async function saveMapAsset() {
         if (saving) return
         setSaving(true)
@@ -3338,9 +2922,7 @@ window.__ModuleLoader__.load({
             body: {
               project: projectName,
               cwd: project?.cwd ?? '',
-              size: S,
-              layers: layers.map((layer) => layer.d),
-              // 种子要和界面上那份一致，否则存下来的地形块和作者看到的是两张图
+              // 种子要和界面上那份一致，否则存下来的图和看到的是两张
               seed: String(project?.name ?? project?.title ?? 'nm'),
               sites: labelPlan.map((plan) => {
                 const site = sites.find((s) => s.key === plan.key)
@@ -3348,9 +2930,8 @@ window.__ModuleLoader__.load({
                   name: plan.label,
                   x: plan.cx / S,
                   y: plan.cy / S,
-                  height: site?.height ?? 0.3,
-                  // 地形种类要传，否则后端只能从名字猜，猜错就上错色
                   terrainKind: site?.terrainKind ?? null,
+                  terrain: site?.terrain ?? '',
                 }
               }),
             },
@@ -3365,148 +2946,45 @@ window.__ModuleLoader__.load({
         }
       }
 
-      // 着色网格 → data URI，作为等高线底下的地貌底色。
-      //
-      // 为什么转成一张图而不是画 7056 个 <rect>：每个格子一个节点会让
-      // SVG 节点数暴涨，而这张图只需要一个节点。canvas 在这里只是
-      // 「把像素网格编码成 PNG」的工具，不是绘图区。
-      //
-      // 拿不到 canvas 时返回空串 —— 隐私模式或没有 GPU 的环境下，
-      // 底图可以不出现，等高线和地名必须照常。
-      let tintUrl = ''
-      try {
-        if (TERRA.tints && typeof document !== 'undefined') {
-          if (TERRA.tintSeed !== seed) {
-            const canvas = document.createElement('canvas')
-            canvas.width = S
-            canvas.height = S
-            const context = canvas.getContext('2d')
-            if (context) {
-              const image = context.createImageData(S, S)
-              image.data.set(TERRA.tints)
-              context.putImageData(image, 0, 0)
-              TERRA.tintUrl = canvas.toDataURL('image/png')
-              TERRA.tintSeed = seed
-            }
-          }
-          tintUrl = TERRA.tintUrl ?? ''
-        }
-      } catch { tintUrl = '' }
+      const label = `${percent ?? 0}%`
+      const aria = fallback
+        ? `尚未设定地区，当前显示 ${total} 项基础资产`
+        : `世界地图，${sites.length} 个地区，已完成 ${done}/${total} 项基础资产`
 
       return h('div', { className: 'nm-terra', 'data-complete': complete ? '1' : '0' },
         h('div', { className: 'nm-terra-head' },
-          h('span', { className: 'nm-terra-title' }, complete ? '世界已成形' : '世界生成中'),
-          h('span', { className: 'nm-terra-pct' }, `${percent ?? 0}%`)),
-        h('div', { className: 'nm-terra-canvas', role: 'img', 'aria-label': `地貌生成 ${percent ?? 0}%，${total} 项基础资产已完成 ${done} 项` },
+          h('span', { className: 'nm-terra-title' },
+            fallback ? '世界地图 · 尚未设定地区' : '世界地图'),
+          h('span', { className: 'nm-terra-pct' }, label)),
+        h('div', { className: 'nm-terra-canvas', role: 'img', 'aria-label': aria },
           h('svg', {
             viewBox: `0 0 ${S} ${S}`,
-            preserveAspectRatio: 'none',
+            preserveAspectRatio: 'xMidYMid meet',
             className: 'nm-terra-svg', 'aria-hidden': true,
           },
-          // 遮罩：一块以画面中心为心、半径随进度扩张的圆。
-          //
-          // 这里踩过一个坑：最初把渐变放在遮罩内部（radialGradient 配
-          // userSpaceOnUse 的圆），指望边缘有软过渡。但 radialGradient 给的是
-          // objectBoundingBox 时，它的参照是那个小圆本身，半径越小渐变越失效，
-          // 低进度下画布四角会冒出奇怪弧线。改成纯色圆 + 单独一层柔边圆环，
-          // 行为跟半径无关，任何进度都稳定。
-          h('mask', { id: 'nm-terra-reveal', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: S, height: S },
-            h('circle', { cx: S / 2, cy: S / 2, r: Math.max(0.01, reach), fill: '#fff' })),
-          // ---- 地貌底色 ----
-          //
-          // 垫在等高线底下。不走进度遮罩 —— 底色是「这块地长什么样」的
-          // 背景信息，不是「探明了多少」。真按进度遮的话，低进度下会是
-          // 一片黑，作者反而看不出世界在长。
-          //
-          // 用整张图而不是逐格画，节点数只有 1。image-rendering 交给
-          // CSS 做平滑，84×84 撑满画布本来就会插值成柔和的色斑。
-          tintUrl ? h('image', {
-            href: tintUrl,
-            x: 0, y: 0, width: S, height: S,
-            preserveAspectRatio: 'none',
-            // 0.85 而不是 0.5：底色要能看出地形差异，但薄一点让等高线
-            // 仍然压在上面读得清。再高就盖住等高线了。
-            opacity: 0.85,
-          }) : null,
-          // ---- 地形块：一块一块拼起来的地 --------
-          //
-          // 底下那层渐变是连续的（像气象图），这层是 Voronoi 单元 ——
-          // 每个地区占一块，边界落在两个地区的正中间，读起来才像地图。
-          //
-          // 关键：不是每块都描边。早先给每块都画 0.34 的边，结果整张图
-          // 布满网格线，像行政区划图 —— 而真实地貌的边界只出现在
-          // 「两种地形交界」的地方，同色相邻的两块不该有缝。
-          // 所以填充块完全不描边，真实地区只在它和不同地形的邻居之间
-          // 才看得出边界（靠 fillOpacity 差异和下面那条细线表现）。
+          // 地貌块。只在地形认得出时上色 —— 认不出就只画轮廓，
+          // 因为猜一个颜色会把「沙漠」涂成「森林」，那是错的信息。
           h('g', { className: 'nm-terra-cells' },
-            cells.filter((cell) => cell.filler
+            cells.filter((cell) => !cell.filler
               || Math.hypot(cell.x / S - 0.5, cell.y / S - 0.5) * S <= reach + 1).map((cell) => {
-              const palette = TERRAIN_TINTS[cell.terrainKind]
-              // 认不出地形就不铺色，只留一块描边的空地 —— 猜颜色更误导
-              if (!palette) return null
+              const palette = MAP_TINTS[cell.terrainKind]
               return h('path', {
                 key: `c${cell.key}`,
                 d: cellPath(cell),
-                fill: tintAt(palette, 0.42 + cell.height * 0.3),
-                // 填充块淡一些，表示「没名字的地带」，但仍有地形
-                fillOpacity: cell.filler ? 0.3 : 0.6,
-                // 只有真实地区描边，且很细 —— 它标出的是「这块地属于谁」，
-                // 不是网格。填充块完全无描边，避免整张图变回网格纸。
-                stroke: cell.filler ? 'none' : '#080d12',
+                fill: palette ?? 'transparent',
+                fillOpacity: cell.filler ? 0.34 : 0.62,
+                stroke: cell.filler ? 'none' : 'var(--nm-border-soft)',
                 strokeWidth: cell.filler ? 0 : 0.22,
                 strokeLinejoin: 'round',
               })
             })),
-          h('g', { opacity: 0.16 },
-            layers.map((layer) => h('path', {
-              key: `u${layer.t.toFixed(3)}`,
-              d: layer.d, fill: 'none',
-              stroke: terraColor(layer.frac * 0.6),
-              strokeWidth: 0.2, strokeLinejoin: 'round',
-            }))),
-          // ---- 已探明的地形：走遮罩，两遍描出厚度 ----
-          h('g', { mask: 'url(#nm-terra-reveal)' },
-            layers.map((layer) => h('path', {
-              key: `b${layer.t.toFixed(3)}`,
-              d: layer.d, fill: 'none',
-              stroke: terraColor(layer.frac * 0.5),
-              strokeWidth: 0.66 - 0.3 * layer.frac,
-              strokeLinejoin: 'round',
-              opacity: 0.2 + 0.18 * layer.frac,
-            })),
-            layers.map((layer) => h('path', {
-              key: `l${layer.t.toFixed(3)}`,
-              d: layer.d, fill: 'none',
-              stroke: terraColor(Math.min(1, layer.frac * 1.12 + 0.14)),
-              strokeWidth: 0.28 - 0.13 * layer.frac,
-              strokeLinejoin: 'round',
-              opacity: 0.5 + 0.46 * layer.frac,
-            }))),
-          // 揭示边界本身：一圈亮环，就是「世界已经长到哪儿」。
-          !complete && reach > 0.5 ? h('circle', {
-            cx: S / 2, cy: S / 2, r: reach,
-            fill: 'none', stroke: '#9adcff', strokeWidth: 0.5,
-            opacity: 0.5, className: 'nm-terra-front',
-          }) : null,
-          // 完稿后在最高峰点一个极小的光点，收束视线。
-          // 用同心双环而不是实心圆：实心小圆在深底上读起来像一粒灰尘或
-          // 渲染瑕疵，双环加柔光才像「山顶的光」，也才配得上地形图的气质。
-          complete ? h('g', { className: 'nm-terra-glow' },
-            h('circle', { cx: peak.x, cy: peak.y, r: 4.2, fill: 'none', stroke: '#9adcff', strokeWidth: 0.35, opacity: 0.45 }),
-            h('circle', { cx: peak.x, cy: peak.y, r: 1.5, fill: '#dff3ff', opacity: 0.95 })) : null,
-          // ---- 地名标注 ----
-          //
-          // 只标「已经探明」的那几个：地名跟着资产走，没写完的资产本来就
-          // 还没定名，提前把名字钉在地图上属于剧透自己。
-          // 揭示遮罩不作用于文字 —— 文字半透明压在等高线上会看不清，
-          // 而看不清的地图等于没有地图。这里改用 opacity 直接控制。
-          // 位置由 terraLabelLayout 统一避让，见那个函数的注释。
-          labelPlan.length ? h('g', { className: 'nm-terra-sites' },
-            labelPlan.map((plan) => h('g', { key: plan.key, opacity: 0.86 },
-              // 标杆固定在山头真实位置，只有文字被推开
-              h('circle', { cx: plan.cx, cy: plan.cy, r: 0.85, fill: '#dff3ff', opacity: 0.9 }),
-              h('circle', { cx: plan.cx, cy: plan.cy, r: 2.1, fill: 'none', stroke: '#9adcff', strokeWidth: 0.22, opacity: 0.5 }),
-              // 文字被推远时，用一根细线连回标杆，才看得出这个地名属于哪个山头
+          // 地名。只有真实地区才标 —— 资产名不是地名，标了会让人以为
+          // 「设定.md」是世界里的一个地方。
+          !fallback && labelPlan.length ? h('g', { className: 'nm-terra-sites' },
+            labelPlan.map((plan) => h('g', { key: plan.key },
+              h('circle', { cx: plan.cx, cy: plan.cy, r: 0.9, fill: '#dff3ff', opacity: 0.92 }),
+              h('circle', { cx: plan.cx, cy: plan.cy, r: 2.2, fill: 'none', stroke: '#9adcff', strokeWidth: 0.2, opacity: 0.45 }),
+              // 文字被推开时用一根线连回点位，才看得出它属于哪一块
               Math.hypot(plan.ax - plan.cx, plan.ay - plan.cy) > 1.8 ? h('line', {
                 x1: plan.cx, y1: plan.cy, x2: plan.ax, y2: plan.ay,
                 stroke: '#9adcff', strokeWidth: 0.16, opacity: 0.4,
@@ -3516,35 +2994,23 @@ window.__ModuleLoader__.load({
                 textAnchor: plan.flip ? 'end' : 'start',
                 className: 'nm-terra-site-label',
               }, plan.label)))) : null)),
-        h('div', { className: 'nm-terra-scale' },
-          h('span', { className: 'nm-terra-scale-label' }, '高程'),
-          h('i', { className: 'nm-terra-scale-bar' })),
+        // 进度条。地图不再用「高程」这个说法 —— 那是上一版编出来的概念。
         h('div', { className: 'nm-terra-bar', role: 'progressbar', 'aria-valuenow': percent ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 },
           h('div', { className: 'nm-terra-bar-fill', style: { width: `${percent ?? 0}%` } })),
-        // ---- 存为地图资产 ----
-        //
-        // 这张图光在面板里看有点浪费：它其实是这部小说的地理结构。
-        // 存成项目里的 地图.svg + 地图.md 之后，它能被大纲引用、被模型读到、
-        // 也能直接拿去当生图参考。
         h('div', { className: 'nm-terra-save' },
           h('button', {
             type: 'button',
             className: 'nm-terra-save-btn',
             disabled: saving || !project,
             onClick: saveMapAsset,
-            title: '把当前地形连同地名存成项目里的 地图.svg 与 地图.md',
+            title: '把当前地区连同方位存成项目里的 地图.svg 与 地图.md',
           }, saving ? '正在保存…' : '存为地图资产'),
           saved ? h('span', { className: 'nm-terra-save-ok', role: 'status' }, `已保存 ${saved}`) : null,
           saveError ? h('span', { className: 'nm-terra-save-err', role: 'alert' }, saveError) : null),
-        // ---- 世界讲不讲得通 ----
-        //
-        // 地名表本身看不出问题：六个地名并排放着，谁也不会觉得「雪原在赤道」
-        // 有什么不对。只有把位置和地形的后果算出来，矛盾才会浮到纸面上。
-        // 这段就是那个结果，作者不用自己去推。
-        WorldNotes(h, { regions: placeLike, world: project?.world }))
+        WorldNotes(h, { regions: places, world: project?.world }))
     }
 
-    /**
+/**
      * 世界概览：每个地区的纬度带、地形、气候，以及讲不通的地方。
      *
      * 为什么单独一块而不是塞进地名标签里：标签上最多再放两个字，
