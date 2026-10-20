@@ -16,6 +16,7 @@
  */
 import { regionsOf } from './atlas.js'
 import { readProjectFile, writeProjectFile } from './project.js'
+import { detectTerrain } from './world-model.js'
 
 const SVG_FILE = '地图.svg'
 const DOC_FILE = '地图.md'
@@ -60,10 +61,40 @@ export function renderWorldMap(input) {
       x: Math.min(1, Math.max(0, Number(site.x) || 0)),
       y: Math.min(1, Math.max(0, Number(site.y) || 0)),
       height: Math.min(1, Math.max(0, Number(site.height) || 0)),
+      // 地形种类：配色用。客户端会传，没传就从名字和说明推。
+      terrainKind: site.terrainKind ?? undefined,
       id: slug(site.name, index),
     }))
 
   const px = (v) => (v * size).toFixed(2)
+
+  // 地貌色斑：每个地点按地形种类晕开一片颜色。
+  //
+  // 界面上那张图是用 canvas 逐像素混色，服务端这里不能那么干 ——
+  // PNG 塞进 SVG 会让文件体积翻几十倍，而且没有 canvas 可用。
+  // 改用 radialGradient 色斑：纯 SVG、体积小、任何看图工具都认。
+  // 效果和界面不完全一致，界面上是连续场，这里是几团柔光叠在一起 ——
+  // 但地形差异看得出来，这才是这一层要传的信息。
+  const TINTS = {
+    volcano: '#8c3a26', snow: '#c8dbea', desert: '#b89a62', ocean: '#2f6a94',
+    swamp: '#42603c', cave: '#3a3c42', island: '#4a8a7e', city: '#8a8072',
+    forest: '#4a7440', mountain: '#6e7480', plain: '#7d8850',
+  }
+  const gradients = []
+  const washes = []
+  sites.forEach((site, index) => {
+    const kind = site.terrainKind ?? detectTerrain(site.name, site.desc)
+    const color = TINTS[kind]
+    // 认不出地形就不铺色 —— 猜一个颜色比不涂更误导
+    if (!color) return
+    const id = `w${index}`
+    gradients.push(`    <radialGradient id="${id}" cx="${px(site.x)}" cy="${px(site.y)}" r="${(size * 0.34).toFixed(1)}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="${color}" stop-opacity="0.5"/>
+      <stop offset="0.55" stop-color="${color}" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="${color}" stop-opacity="0"/>
+    </radialGradient>`)
+    washes.push(`    <rect width="${size}" height="${size}" fill="url(#${id})"/>`)
+  })
 
   // 等高线：每层描两遍（暗底 + 亮线），和界面上看到的一致。
   // 只保留 path 数据，不信任客户端给的其他属性。
@@ -99,6 +130,12 @@ export function renderWorldMap(input) {
     .site text { fill: #cfe6f5; font-size: 3.1px; font-family: "PingFang SC","Microsoft YaHei",system-ui,sans-serif; letter-spacing: .1px; }
   </style>
   <rect class="ocean" x="0" y="0" width="${size}" height="${size}"/>
+  <defs>
+${gradients.join('\n')}
+  </defs>
+  <g class="tints">
+${washes.join('\n')}
+  </g>
   <g class="contours">
 ${contours}
   </g>

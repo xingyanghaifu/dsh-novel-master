@@ -58,6 +58,11 @@ function buildTerrain() {
   const code = [
     extractConst('TERRA'),
     extractConst('TERRA_RAMP'),
+    // 着色要用到地形色板和识别函数，两样都得一起装进来
+    extractConst('TERRAIN_KINDS'),
+    extractConst('TERRAIN_TINTS'),
+    extractFn('tintAt'),
+    extractConst('terrainKindOf'),
     extractFn('terraHash'),
     extractFn('terraSmooth'),
     extractFn('terraNoise'),
@@ -69,7 +74,7 @@ function buildTerrain() {
     extractFn('terraContour'),
     extractFn('terraLayers'),
     extractFn('terraLabelLayout'),
-    'return { TERRA, terraLayers, terraSites, terraBump, terraLabelLayout }',
+    'return { TERRA, TERRAIN_KINDS, TERRAIN_TINTS, tintAt, terrainKindOf, terraLayers, terraSites, terraBump, terraLabelLayout }',
   ].join('\n')
   // eslint-disable-next-line no-new-func
   return new Function(code)()
@@ -317,4 +322,68 @@ test('挤不下的时候确实会放弃，而不是全画出来', () => {
   }))
   const plan = terraLabelLayout(sites, 84, 84)
   assert.ok(plan.length < sites.length, `20 个超长名字不可能全放下，实际放了 ${plan.length} 个`)
+})
+
+test('地形配色覆盖了全部地形种类', () => {
+  const { TERRAIN_KINDS, TERRAIN_TINTS } = buildTerrain()
+  for (const entry of TERRAIN_KINDS) {
+    assert.ok(TERRAIN_TINTS[entry.kind], `缺「${entry.label}」的配色`)
+    assert.equal(TERRAIN_TINTS[entry.kind].length, 3, `「${entry.label}」应有低/中/高三个色标`)
+  }
+})
+
+test('同一种地形，高处比低处亮', () => {
+  const { TERRAIN_TINTS, tintAt } = buildTerrain()
+  const luma = (c) => {
+    const m = /(\d+)\D+(\d+)\D+(\d+)/u.exec(c)
+    return Number(m[1]) * 0.3 + Number(m[2]) * 0.59 + Number(m[3]) * 0.11
+  }
+  for (const [kind, stops] of Object.entries(TERRAIN_TINTS)) {
+    assert.ok(luma(tintAt(stops, 0.9)) > luma(tintAt(stops, 0.1)), `「${kind}」高处应更亮`)
+  }
+})
+
+test('地形着色不会出现硬边界', () => {
+  // 判据不能只看「最大相邻色差」。沙漠的暗赭和雪原的近白本来就差得远，
+  // 两者相邻时出现一次大落差是正常的。硬边界的特征不是「差得大」，而是
+  // 「成片地差」—— 沿一条线连续跳变，那才是色块拼出来的方格边。
+  //
+  // 所以这里看比例：绝大多数相邻格应当平滑过渡，大跳变只能零星出现。
+  const { TERRA, terraLayers, terraSites } = buildTerrain()
+  const items = [
+    { name: '无声之地', pos: '西', terrain: '沙漠', desc: '一片黄沙' },
+    { name: '背面', pos: '东北', terrain: '雪原', desc: '终年冰封' },
+    { name: '艾尔登维尔', pos: '中', terrain: '原野', desc: '主舞台' },
+  ]
+  terraSites(items)
+  terraLayers(items)
+  const n = TERRA.size
+  const tints = TERRA.tints
+  assert.ok(tints, '应产出着色网格')
+  const delta = (a, b) => Math.abs(tints[a] - tints[b])
+    + Math.abs(tints[a + 1] - tints[b + 1])
+    + Math.abs(tints[a + 2] - tints[b + 2])
+  let edges = 0
+  let sharp = 0
+  let chain = 0
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n - 1; x++) {
+      const a = (y * n + x) * 4
+      const b = a + 4
+      const d = delta(a, b)
+      edges++
+      if (d > 60) sharp++
+      // 连续两条边都很大 = 沿一条线成片跳变，硬边界的特征
+      if (x < n - 2 && d > 60 && delta(b, b + 4) > 60) chain++
+    }
+  }
+  const ratio = sharp / edges
+  assert.ok(ratio < 0.01, `大跳变占 ${(ratio * 100).toFixed(2)}%，超过 1% 就是色块硬边界`)
+  assert.equal(chain, 0, `有 ${chain} 处连续跳变，说明是硬边界而不是自然过渡`)
+})
+
+test('认不出地形的地区不硬涂颜色', () => {
+  const { terrainKindOf } = buildTerrain()
+  assert.equal(terrainKindOf({ name: '某地', desc: '一个地方' }), undefined)
+  assert.equal(terrainKindOf({ name: '雪原哨站', desc: '' }), 'snow')
 })

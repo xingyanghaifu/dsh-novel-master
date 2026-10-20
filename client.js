@@ -1707,6 +1707,18 @@ window.__ModuleLoader__.load({
       return TERRAIN_KINDS.find((entry) => entry.words.test(text)) ?? TERRAIN_KINDS[TERRAIN_KINDS.length - 1]
     }
 
+    /**
+     * 地形种类，但认不出时返回 undefined（而不是退回「原野」）。
+     *
+     * terrainOf 是给侧栏文字用的，它总得有个标签，退回「原野」没问题。
+     * 但着色不能这么干：把认不出的地点一律涂成原野绿，作者看到一片绿，
+     * 会以为是 bug，而不是「这个地名没写地形」。
+     */
+    const terrainKindOf = (item) => {
+      const text = `${item?.terrain ?? ''} ${item?.desc ?? ''} ${item?.name ?? ''}`
+      return TERRAIN_KINDS.find((entry) => entry.words.test(text))?.kind
+    }
+
     /** 程序化地貌小图（240x60 viewBox，纯 SVG，随卡片宽度裁切）。 */
     function TerrainArt({ kind }) {
       const scenes = {
@@ -2606,6 +2618,12 @@ window.__ModuleLoader__.load({
           height: Math.min(1, 0.18 + mass * 0.62 + heightBoost),
           // 地区可以带方位词，摆位时优先按它来，而不是纯按序号
           pos: item.pos,
+          // 地形种类：着色时按它取色板。
+          //
+          // 优先用后端算好的 terrainKind（它认得比前端准），没有再从
+          // 中文文字推一次。两边都认不出时留空 —— 那就不上色。
+          // 猜一个颜色比不涂更误导：把一座城涂成森林，作者会以为是 bug。
+          terrainKind: item.terrainKind ?? terrainKindOf(item),
         })
       }
       return sites
@@ -2644,6 +2662,56 @@ window.__ModuleLoader__.load({
       [0.78, [168, 200, 222]],
       [1.00, [226, 240, 250]],
     ]
+
+    /**
+     * 地形配色：每种地貌一组「低处 → 高处」的颜色。
+     *
+     * 为什么用程序化渐变而不是贴图：贴图得有网络、有版权、还得跟等高线对齐，
+     * 而这张图的高程是每次实时算出来的 —— 贴上去必然对不上，看着像有人把
+     * 一张卫星图糊在了别的地形上。用渐变，颜色跟着我们自己算的高程走，
+     * 永远吻合。
+     *
+     * 每组给 3 个色标：水里/低地、典型、高处。渲染时按该点的归一化高程取。
+     * 颜色刻意压低饱和度 —— 面板是深色底，鲜艳色块会把地名和等高线吃掉。
+     */
+    const TERRAIN_TINTS = {
+      // 火山：从暗红岩到橙红熔岩
+      volcano: [[46, 24, 22], [96, 40, 30], [168, 74, 46]],
+      // 雪原：冷灰到近乎纯白
+      snow: [[46, 58, 72], [120, 142, 162], [232, 242, 250]],
+      // 沙漠：暗赭到浅金
+      desert: [[58, 46, 30], [122, 98, 58], [204, 176, 118]],
+      // 水域：深海到浅滩
+      ocean: [[18, 34, 54], [30, 62, 96], [58, 108, 148]],
+      // 沼泽：暗绿到浑浊黄绿
+      swamp: [[26, 38, 30], [48, 70, 48], [86, 112, 70]],
+      // 地下：近黑到石灰
+      cave: [[22, 24, 28], [46, 48, 54], [92, 96, 104]],
+      // 岛屿：与水域同系但偏亮
+      island: [[24, 44, 58], [58, 96, 108], [122, 168, 154]],
+      // 城邦：暖灰石色，像建起来的城
+      city: [[48, 44, 42], [92, 86, 80], [156, 146, 134]],
+      // 森林：深绿到林冠
+      forest: [[24, 40, 30], [46, 78, 48], [86, 126, 70]],
+      // 山地：冷岩到雪线
+      mountain: [[42, 46, 54], [96, 102, 112], [186, 194, 204]],
+      // 原野：橄榄到干草
+      plain: [[40, 44, 32], [86, 96, 58], [148, 156, 104]],
+    }
+
+    /** 在一条色标上取色。t 是 0–1 的归一化高程。 */
+    function tintAt(stops, t) {
+      const v = Math.max(0, Math.min(1, t))
+      const scaled = v * (stops.length - 1)
+      const i = Math.min(stops.length - 2, Math.floor(scaled))
+      const k = scaled - i
+      const a = stops[i]; const b = stops[i + 1]
+      const r = Math.round(a[0] + (b[0] - a[0]) * k)
+      const g = Math.round(a[1] + (b[1] - a[1]) * k)
+      const bl = Math.round(a[2] + (b[2] - a[2]) * k)
+      return `rgb(${r} ${g} ${bl})`
+    }
+
     function terraColor(t) {
       const stops = TERRA_RAMP
       for (let i = 1; i < stops.length; i++) {
@@ -2871,6 +2939,73 @@ window.__ModuleLoader__.load({
         if (d) levels.push({ t, frac: q, d })
       }
       TERRA.peak = { x: peakAt % n, y: Math.floor(peakAt / n), h: peak }
+      // 着色网格：每个格子的地形颜色。
+      //
+      // 做法是「最靠近哪个地点，就染那个地形的颜色」，按距离做加权混色。
+      // 不是把整块地按行政边界切开 —— 那会在交界处留下生硬的色块边，
+      // 而真实地貌的过渡本来就是渐变的（草原慢慢变成沙漠）。
+      //
+      // 权重用 1/(d²+ε) 的软化版本，再叠上「高处更亮」的明暗，
+      // 让山脉的亮面和坡面看得出来，不至于涂成一张平色卡。
+      const tints = new Uint8ClampedArray(n * n * 4)
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          const u = x / (n - 1)
+          const v = y / (n - 1)
+          const h = field[y * n + x]
+          let r = 0; let g = 0; let bl = 0; let wsum = 0
+          for (const site of sites) {
+            const palette = TERRAIN_TINTS[site.terrainKind]
+            if (!palette) continue
+            const dx = u - site.x
+            const dy = v - site.y
+            const d2 = dx * dx + dy * dy
+            // 影响半径外衰减得很快，但不断崖 —— 断了就会露出底色方块
+            const w = 1 / (d2 * 42 + 0.06)
+            // 同一地形内，按高程取色标：低处深、高处亮。
+            //
+            // 取值范围是 0.34–0.76 而不是 0–1：绝大多数地块都是低地，
+            // 从 0 取起的话整张图会落在每个色板最暗的那一端，看着像没上色。
+            // 窄一点的区间让地形种类本身主导颜色，高程只负责明暗层次。
+            const local = tintAt(palette, 0.34 + h * 0.42)
+            const m = /(\d+)\D+(\d+)\D+(\d+)/u.exec(local)
+            if (!m) continue
+            r += Number(m[1]) * w
+            g += Number(m[2]) * w
+            bl += Number(m[3]) * w
+            wsum += w
+          }
+          const idx = (y * n + x) * 4
+          // 中性高程色打底，地形色按「离地名多近」连续混上去。
+          //
+          // 关键是混一条公式，不能写成「近处用 A、远处用 B」——
+          // 那样分界线上会出现一道硬边。这里的 k 随 wsum 从 0 平滑升到
+          // 0.72，任何位置都是同一个式子，底色和地形色之间没有断层。
+          //
+          // 底色本身也要插值：直接拿 TERRA_RAMP 的档位色会让高程每跨一格
+          // 就跳一次色（实测 434 个相邻格跳变），看着像色带。走 terraRampAt
+          // 才是连续的。
+          const rampBase = TERRA_RAMP
+          let br = rampBase[0][1]; let bg = rampBase[0][1]; let bb = rampBase[0][1]
+          {
+            const tt = Math.max(0, Math.min(1, h))
+            let i = 0
+            while (i < TERRA_RAMP.length - 2 && tt > TERRA_RAMP[i + 1][0]) i++
+            const [t0, c0] = TERRA_RAMP[i]
+            const [t1, c1] = TERRA_RAMP[i + 1]
+            const kk = t1 === t0 ? 0 : (tt - t0) / (t1 - t0)
+            br = c0[0] + (c1[0] - c0[0]) * kk
+            bg = c0[1] + (c1[1] - c0[1]) * kk
+            bb = c0[2] + (c1[2] - c0[2]) * kk
+          }
+          const k = wsum > 0 ? Math.min(0.92, wsum / (wsum + 1.1)) : 0
+          tints[idx] = br + ((wsum > 0 ? r / wsum : br) - br) * k
+          tints[idx + 1] = bg + ((wsum > 0 ? g / wsum : bg) - bg) * k
+          tints[idx + 2] = bb + ((wsum > 0 ? bl / wsum : bb) - bb) * k
+          tints[idx + 3] = 255
+        }
+      }
+      TERRA.tints = tints
       TERRA.cache = levels
       return levels
     }
@@ -2985,6 +3120,10 @@ window.__ModuleLoader__.load({
           climate: region.climate ?? null,
           // 水从哪来，同样由后端给
           water: region.water ?? null,
+          // 地形种类也由后端给。前端那份 terrainKindOf 只认名字里有没有
+          // 「雪」「沙漠」这类词，后端那份还会看说明和地形字段，认得准。
+          // 着色时优先用它，前端那份是兜底。
+          terrainKind: region.terrainKind ?? null,
           // 地区的「厚」按说明写得多细算，而不是按正文字数 —— 地区没有字数
           chars: String(region.desc ?? '').length,
         }))
@@ -3050,6 +3189,34 @@ window.__ModuleLoader__.load({
         }
       }
 
+      // 着色网格 → data URI，作为等高线底下的地貌底色。
+      //
+      // 为什么转成一张图而不是画 7056 个 <rect>：每个格子一个节点会让
+      // SVG 节点数暴涨，而这张图只需要一个节点。canvas 在这里只是
+      // 「把像素网格编码成 PNG」的工具，不是绘图区。
+      //
+      // 拿不到 canvas 时返回空串 —— 隐私模式或没有 GPU 的环境下，
+      // 底图可以不出现，等高线和地名必须照常。
+      let tintUrl = ''
+      try {
+        if (TERRA.tints && typeof document !== 'undefined') {
+          if (TERRA.tintSeed !== seed) {
+            const canvas = document.createElement('canvas')
+            canvas.width = S
+            canvas.height = S
+            const context = canvas.getContext('2d')
+            if (context) {
+              const image = context.createImageData(S, S)
+              image.data.set(TERRA.tints)
+              context.putImageData(image, 0, 0)
+              TERRA.tintUrl = canvas.toDataURL('image/png')
+              TERRA.tintSeed = seed
+            }
+          }
+          tintUrl = TERRA.tintUrl ?? ''
+        }
+      } catch { tintUrl = '' }
+
       return h('div', { className: 'nm-terra', 'data-complete': complete ? '1' : '0' },
         h('div', { className: 'nm-terra-head' },
           h('span', { className: 'nm-terra-title' }, complete ? '世界已成形' : '世界生成中'),
@@ -3069,6 +3236,22 @@ window.__ModuleLoader__.load({
           // 行为跟半径无关，任何进度都稳定。
           h('mask', { id: 'nm-terra-reveal', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: S, height: S },
             h('circle', { cx: S / 2, cy: S / 2, r: Math.max(0.01, reach), fill: '#fff' })),
+          // ---- 地貌底色 ----
+          //
+          // 垫在等高线底下。不走进度遮罩 —— 底色是「这块地长什么样」的
+          // 背景信息，不是「探明了多少」。真按进度遮的话，低进度下会是
+          // 一片黑，作者反而看不出世界在长。
+          //
+          // 用整张图而不是逐格画，节点数只有 1。image-rendering 交给
+          // CSS 做平滑，84×84 撑满画布本来就会插值成柔和的色斑。
+          tintUrl ? h('image', {
+            href: tintUrl,
+            x: 0, y: 0, width: S, height: S,
+            preserveAspectRatio: 'none',
+            // 0.85 而不是 0.5：底色要能看出地形差异，但薄一点让等高线
+            // 仍然压在上面读得清。再高就盖住等高线了。
+            opacity: 0.85,
+          }) : null,
           // ---- 未探明的地形：极淡，只作为「还没长出来」的暗示 ----
           h('g', { opacity: 0.16 },
             layers.map((layer) => h('path', {
