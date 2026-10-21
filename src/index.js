@@ -302,6 +302,11 @@ export function definitions(ctx, intelligence, config) {
 function guarded(definition, logger, config, intelligence) {
   return {
     ...definition,
+    // Every command accepts attachments. Commands that hand a task to the model
+    // forward them through queueTask; commands that only read the project ignore
+    // them. Declaring it per-command meant a file dropped on /novel-review or
+    // /novel-conflict was silently discarded by the input box.
+    input: { ...definition.input, attachments: true },
     definitionId: `${DEFINITION_PREFIX}/${definition.name}`,
     handler: async (invocation) => {
       try {

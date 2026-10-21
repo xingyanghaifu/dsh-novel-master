@@ -452,7 +452,9 @@ export function installIntelligence(ctx, config = {}, dependencies = {}) {
 
 export function intelligenceDefinitions(runtime) {
   return INTELLIGENCE_KEYS.map(([key, title]) => ({ key, factory: () => ({
-    name: `novel-${key}`, description: title, input: { hint: key === 'decide' ? '问题 | 选项A | 选项B' : '[项目名]' },
+    name: `novel-${key}`, description: title,
+    // 这些命令把任务交给模型，附件要一并带过去。
+    input: { hint: key === 'decide' ? '问题 | 选项A | 选项B' : '[项目名]', attachments: true },
     handler: invocation => runtime?.[key] ? runtime[key](invocation) : result('error', '智能服务尚未就绪。'),
   }) }))
 }

@@ -257,16 +257,23 @@ export async function decide(ctx, { route, question, options, context = '', sign
  * Read last durable actual request/assistant route, NOT the deployment default.
  * This is last-observed identity, not a claim about a future routed request.
  * An unknown result is intentional for empty sessions or unavailable inspection.
+ *
+ * Falls back to the host's configured main model when the session has no
+ * observed route yet (a brand-new session, or a command that is the first thing
+ * the user runs). Without this, every model-backed command failed on its first
+ * use in a fresh session with "没有可用的模型路由" even though the host plainly
+ * had a main model configured.
  */
 export async function actualModelOf(agent, ctx = agent?.ctx, { signal, timeoutMs = 5000 } = {}) {
-  if (!agent?.id || !ctx?.get) return { known: false, source: 'unknown', reason: 'missing-session' }
+  const fallback = mainModelOf(ctx)
+  if (!agent?.id || !ctx?.get) return fallback ?? { known: false, source: 'unknown', reason: 'missing-session' }
   const controller = ctx.get('sessionController')
-  if (!controller?.inspect) return { known: false, source: 'unknown', reason: 'inspection-unavailable' }
+  if (!controller?.inspect) return fallback ?? { known: false, source: 'unknown', reason: 'inspection-unavailable' }
   const life = lifetime(signal, integer(timeoutMs, 5000, 1, 30000, 'timeoutMs'))
   try {
     const inspection = await life.bounded(controller.inspect(agent.id, life.signal))
     const events = inspection?.events
-    if (!Array.isArray(events)) return { known: false, source: 'unknown', reason: 'no-events' }
+    if (!Array.isArray(events)) return fallback ?? { known: false, source: 'unknown', reason: 'no-events' }
     // inspect returns chronological events. Never look at global/default settings.
     for (let i = events.length - 1; i >= 0; i--) {
       const event = events[i]
@@ -275,12 +282,36 @@ export async function actualModelOf(agent, ctx = agent?.ctx, { signal, timeoutMs
       else if (event.type === 'request/context') route = event.data
       else if (event.type === 'request/header') route = event.data?.header?.config
       else continue
-      if (!routeString(route?.provider) || !routeString(route?.model)) return { known: false, source: event.type, reason: 'invalid-observed-route' }
+      if (!routeString(route?.provider) || !routeString(route?.model)) return fallback ?? { known: false, source: event.type, reason: 'invalid-observed-route' }
       return { known: true, provider: route.provider, model: route.model, ...(routeString(route.reasoningEffort) ? { reasoningEffort: route.reasoningEffort } : {}), source: event.type, ...(Number.isInteger(event.seq) ? { seq: event.seq } : {}) }
     }
-    return { known: false, source: 'unknown', reason: 'no-observed-route' }
+    return fallback ?? { known: false, source: 'unknown', reason: 'no-observed-route' }
   } catch (error) {
     if (life.signal.aborted) throw life.signal.reason
-    return { known: false, source: 'unknown', reason: 'inspection-failed' }
+    return fallback ?? { known: false, source: 'unknown', reason: 'inspection-failed' }
   } finally { life.dispose() }
+}
+
+/**
+ * The host's configured main model, read from the settings service.
+ *
+ * This is the deployment default that `actualModelOf` deliberately avoids while
+ * an observed route exists. It is the right answer only when nothing has been
+ * observed yet — the user has configured a main model, so "use the current
+ * model" means that one rather than an error.
+ */
+export function mainModelOf(ctx) {
+  try {
+    const settings = ctx?.get?.('settings')
+    if (!settings || typeof settings.get !== 'function') return undefined
+    const configured = settings.get('agent-default-model')
+    if (!routeString(configured?.provider) || !routeString(configured?.model)) return undefined
+    return {
+      known: true,
+      provider: configured.provider,
+      model: configured.model,
+      ...(routeString(configured.reasoningEffort) ? { reasoningEffort: configured.reasoningEffort } : {}),
+      source: 'main-model',
+    }
+  } catch { return undefined }
 }
