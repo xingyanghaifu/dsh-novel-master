@@ -251,6 +251,18 @@ function readReference(invocation, cwd, input) {
   try {
     bytes = fs.readFileSync(file)
   } catch {
+    // 最常见的误用：把项目名当成参考文件。只说「读不到文件」会让人
+    // 以为插件坏了，得点明参数含义和正确写法。
+    const trimmed = input.trim()
+    if (listProjects(cwd).includes(trimmed)) {
+      return {
+        error: formatError(`「${trimmed}」是项目名，不是参考文件`, [
+          '拆书要的是别人的作品，不是你自己写的书：',
+          `/novel-persona-study ./参考/某作者.txt --to ${trimmed}`,
+          '只想看这个项目的数据，用 /novel-stats。',
+        ]),
+      }
+    }
     return { error: formatError(`读不到文件：${file}`) }
   }
   return { text: decodeText(bytes), label: path.basename(file, path.extname(file)), source: file }
