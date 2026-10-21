@@ -181,10 +181,12 @@ function takeRouteOptions(raw) {
     only = onlyMatch[1].trim()
     current.rest = `${current.rest.slice(0, onlyMatch.index)} ${current.rest.slice(onlyMatch.index + onlyMatch[0].length)}`
   }
+  // --to 的值可能带空格（「国运：方块降临 2026」）。吃到下一个 -- 参数为止，
+  // 否则项目名会被截成「国运：方块降临」，然后报「没有叫…的项目」。
   let to
-  const toMatch = current.rest.match(/(?:^|\s)--to\s+([^\s]+)(?=\s|$)/iu)
+  const toMatch = current.rest.match(/(?:^|\s)--to\s+([\s\S]*?)(?=\s--|$)/iu)
   if (toMatch !== null) {
-    to = toMatch[1]
+    to = toMatch[1].trim()
     current.rest = `${current.rest.slice(0, toMatch.index)} ${current.rest.slice(toMatch.index + toMatch[0].length)}`
   }
   return {
@@ -291,10 +293,23 @@ export function personaCommand() {
       }
       const parts = option.rest.split(/\s+/u).filter(Boolean)
       let personaId = option.personaId
+      // 项目名本身可能带空格（「国运：方块降临 2026」）。先拿整串去对项目名，
+      // 对上了就说明后面那些词属于书名，不是风格 id —— 否则会把 2026 当成
+      // 风格 id，报「没有内置风格「2026」」，看起来像命令坏了。
+      // 但也可能是「带空格的项目名 + 风格id」：整串对不上时，再试「去掉最后一个词」。
+      let wholeName
+      if (personaId === undefined && parts.length >= 2) {
+        const joined = parts.join(' ')
+        if (listProjects(cwd).includes(joined)) wholeName = joined
+        else if (BUILTIN_PERSONAS[parts[parts.length - 1]] !== undefined) {
+          const head = parts.slice(0, -1).join(' ')
+          if (listProjects(cwd).includes(head)) { wholeName = head; personaId = parts[parts.length - 1] }
+        }
+      }
       // A second bare word is the positional form advertised by the hint. If it
       // is not a built-in id, say so instead of ignoring it: silently dropping
       // "测试书 忘语" and just printing status looks like the command did nothing.
-      if (personaId === undefined && parts.length >= 2) {
+      if (wholeName === undefined && personaId === undefined && parts.length >= 2) {
         if (BUILTIN_PERSONAS[parts[1]] === undefined) {
           return fail(formatError(`没有内置风格「${parts[1]}」`, [
             `可用风格：${BUILTIN_PERSONA_IDS.join('、')}`,
@@ -303,6 +318,10 @@ export function personaCommand() {
         }
         personaId = parts[1]
         parts.length = 1
+      }
+      if (wholeName !== undefined) {
+        parts.length = 0
+        parts.push(wholeName)
       }
       const target = targetProject(cwd, parts[0])
       if (target.error !== undefined) return fail(target.error)

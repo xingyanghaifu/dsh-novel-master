@@ -43,9 +43,11 @@ export function studyCommand() {
       const cwd = agentCwd(invocation)
       let raw = invocation.rawInput.trim()
       let to
-      const toMatch = raw.match(/\s--to\s+(\S+)\s*$/u)
+      // 项目名可能带空格（「国运：方块降临 2026」）。用贪婪匹配把 --to 之后的
+      // 整段都吃掉，否则只会拿到第一个词，然后报「没有叫…的项目」。
+      const toMatch = raw.match(/\s--to\s+(\S[\s\S]*?)\s*$/u)
       if (toMatch !== null) {
-        to = toMatch[1]
+        to = toMatch[1].trim()
         raw = raw.slice(0, toMatch.index).trim()
       }
       const attachments = invocation.attachments ?? []
