@@ -62,7 +62,15 @@ export function studyCommand() {
         try {
           bytes = fs.readFileSync(file)
         } catch {
-          return fail(`读不到文件：${file}`)
+          // 最常见的误用：把项目名当成参考文件。只说「读不到文件」
+          // 会让人以为插件坏了，得直接点明参数含义和正确写法。
+          if (listProjects(cwd).includes(raw.trim())) {
+            return fail(`「${raw.trim()}」是项目名，不是参考文件。\n`
+              + '拆书要的是别人的作品：\n'
+              + `  /novel-study ./参考/某作者.txt --to ${raw.trim()}\n`
+              + '只想看这个项目的数据，用 /novel-stats。')
+          }
+          return fail(`读不到文件：${file}\n如果这是项目名，拆书要的是参考文件，不是项目。`)
         }
         const text = decodeText(bytes)
         const stats = textStats(text)
