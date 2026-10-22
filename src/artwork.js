@@ -70,28 +70,27 @@ export function imageStatus(config) {
   }
 }
 
-/** 从各种生图响应里取出图片字节。支持 b64_json 与 url 两种返回。 */
-async function readImage(payload) {
-  const item = payload?.data?.[0] ?? payload?.images?.[0] ?? payload?.output?.[0]
-  if (!item) throw new Error('生图接口没有返回图片数据')
-  if (item.b64_json || item.base64 || item.b64) {
-    const raw = item.b64_json ?? item.base64 ?? item.b64
-    const data = String(raw).replace(/^data:[^,]+,/u, '')
-    return { buffer: Buffer.from(data, 'base64'), ext: 'png' }
+/**
+ * 下载生图服务返回的图片 URL。
+ *
+ * URL 来自服务端响应，配置了恶意或错乱的中转站时可以让插件去访问内网地址
+ * （SSRF），把结果当图片存进项目目录。这里只放行公网的 http/https：
+ * 私有网段、回环、链路本地地址一律拒绝。
+ */
+function assertPublicUrl(value) {
+  let url
+  try { url = new URL(value) } catch { throw new Error('生图返回的图片地址不是合法 URL') }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(`生图返回的图片地址协议不允许：${url.protocol}`)
+  const host = url.hostname.replace(/^\[|\]$/gu, '').toLowerCase()
+  const privateV4 = /^(?:10\.|127\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|0\.)/u
+  const privateV6 = /^(?:::1|::|fc|fd|fe80)/u
+  if (host === 'localhost' || privateV4.test(host) || privateV6.test(host)) {
+    throw new Error(`生图返回的图片地址指向内网，已拒绝：${host}`)
   }
-  const url = item.url ?? payload?.url
-  if (!url) throw new Error('生图接口既没有 b64 也没有 url')
-  const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-  if (!response.ok) throw new Error(`下载生成的图片失败：HTTP ${response.status}`)
-  const type = response.headers.get('content-type') ?? ''
-  const ext = type.includes('jpeg') ? 'jpg' : type.includes('webp') ? 'webp' : 'png'
-  return { buffer: Buffer.from(await response.arrayBuffer()), ext }
+  return url.href
 }
 
-/**
- * 取出全部图片（n>1 时一次请求可能返回多张）。
- * 单个下载失败不应让整批失败：跳过坏的那张并记录原因。
- */
+/** 取出全部图片（n>1 时一次请求可能返回多张）。 */
 async function readImages(payload) {
   const list = payload?.data ?? payload?.images ?? payload?.output
   if (!Array.isArray(list) || list.length === 0) throw new Error('生图接口没有返回图片数据')
@@ -107,7 +106,7 @@ async function readImages(payload) {
       }
       const url = item?.url ?? (index === 0 ? payload?.url : undefined)
       if (!url) throw new Error('既没有 b64 也没有 url')
-      const response = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+      const response = await fetch(assertPublicUrl(url), { signal: AbortSignal.timeout(TIMEOUT_MS) })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const type = response.headers.get('content-type') ?? ''
       const ext = type.includes('jpeg') ? 'jpg' : type.includes('webp') ? 'webp' : 'png'

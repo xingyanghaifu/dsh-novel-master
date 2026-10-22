@@ -51,7 +51,16 @@ function writeStatus(cwd, name, patch) {
   try { previous = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { /* first run */ }
   const next = { ...previous, ...patch, updatedAt: new Date().toISOString() }
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+  // 原子替换：崩在写一半会留下残缺 JSON，下次读失败会被当成「首次运行」，
+  // 进度就归零了。和 project.js 的 writeState 保持一致。
+  const temp = `${file}.${process.pid}.tmp`
+  try {
+    fs.writeFileSync(temp, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+    fs.renameSync(temp, file)
+  } catch (error) {
+    try { fs.rmSync(temp, { force: true }) } catch { /* 清理失败就算了 */ }
+    throw error
+  }
 }
 
 /** Model route for batch writing: explicit config first, else the session's observed route. */

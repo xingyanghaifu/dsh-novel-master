@@ -115,12 +115,28 @@ export function projectDir(cwd, name) {
   return path.join(projectsRoot(cwd), name)
 }
 
-/** Read `项目.json`; a missing or broken file yields `undefined`. */
+/**
+ * Read `项目.json`.
+ *
+ * Returns `undefined` when the file is missing, which callers read as "new
+ * project". A file that exists but cannot be parsed or read is a different
+ * situation and must not be confused with a missing one: callers rewrite state
+ * from `undefined`, so treating a corrupt file as empty silently wipes progress.
+ * Those errors are thrown.
+ */
 export function readState(cwd, name) {
+  const file = path.join(projectDir(cwd, name), STATE_FILE)
+  let raw
   try {
-    return JSON.parse(fs.readFileSync(path.join(projectDir(cwd, name), STATE_FILE), 'utf8'))
-  } catch {
-    return undefined
+    raw = fs.readFileSync(file, 'utf8')
+  } catch (error) {
+    if (error?.code === 'ENOENT') return undefined
+    throw error
+  }
+  try {
+    return JSON.parse(raw)
+  } catch (error) {
+    throw new Error(`项目状态文件已损坏：${file}（${error?.message ?? error}）`)
   }
 }
 

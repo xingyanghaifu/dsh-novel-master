@@ -82,9 +82,12 @@ const ID = /^\d{13}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0
 /**
  * One immutable file per record; no session logs or raw prompts are read.
  * maxRecords is a hard append cap and bounded read cap. No automatic deletion.
- * Append uses an exclusive directory lock; a crash-stale lock requires explicit
- * owner inspection/removal. Local filesystem integrity checks are not signatures.
+ * Append uses an exclusive directory lock. A lock older than STALE_LOCK_MS is
+ * treated as left over from a crashed process and removed once, so a crash does
+ * not disable learning forever. Local filesystem integrity checks are not
+ * signatures.
  */
+const STALE_LOCK_MS = 5 * 60 * 1000
 export function createLearningStore({ cwd, directory = 'novel_learning', provider, model, maxRecords = 500 }) {
   identity(provider, 'provider'); identity(model, 'model')
   must(Number.isSafeInteger(maxRecords) && maxRecords >= 1 && maxRecords <= LEARNING_LIMITS.maxRecords, 'maxRecords must be an integer between 1 and 10000')
@@ -143,12 +146,28 @@ export function createLearningStore({ cwd, directory = 'novel_learning', provide
     }
     return records
   }
+  /** Take the append lock; a lock left by a crashed process is removed once. */
+  function acquire() {
+    try { fs.mkdirSync(lock); return } catch (error) { if (error.code !== 'EEXIST') throw error }
+    let age
+    try { age = Date.now() - fs.statSync(lock).mtimeMs } catch { age = undefined }
+    // 只有在锁确实很旧时才删。删错会让两个进程同时写同一个命名空间，
+    // 所以宁可报错让用户看一眼，也不在拿不准的时候动手。
+    if (age === undefined || age < STALE_LOCK_MS) {
+      throw new Error(`Learning namespace busy; inspect lock before retrying: ${lock}`)
+    }
+    try { fs.rmdirSync(lock) } catch { /* someone else removed it first */ }
+    try { fs.mkdirSync(lock) } catch (error) {
+      if (error.code === 'EEXIST') throw new Error(`Learning namespace busy; inspect lock before retrying: ${lock}`)
+      throw error
+    }
+  }
   function append(input) {
     validatePayload(input)
     const copy = JSON.parse(JSON.stringify(input))
     ensure()
     inspect(lock, 'directory', true)
-    try { fs.mkdirSync(lock) } catch (error) { if (error.code === 'EEXIST') throw new Error(`Learning namespace busy; inspect lock before retrying: ${lock}`); throw error }
+    acquire()
     let temp
     try {
       const existing = inventory()

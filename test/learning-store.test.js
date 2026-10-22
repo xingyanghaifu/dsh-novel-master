@@ -143,6 +143,21 @@ test('explicit stale lock refuses writes rather than stealing or deleting user d
   fs.rmdirSync(lock)
 })
 
+test('a lock left by a crashed process is cleared once it is old enough', () => {
+  // 崩溃留下的锁会让学习功能永久失效。只清理「确实很旧」的锁：删错会让两个
+  // 进程同时写同一个命名空间，所以新锁必须继续报错。
+  const store = make()
+  store.append(learning('before'))
+  const lock = path.join(store.location, '.append-lock')
+  fs.mkdirSync(lock)
+  const old = new Date(Date.now() - 10 * 60 * 1000)
+  fs.utimesSync(lock, old, old)
+
+  store.append(learning('after crash'))
+  assert.equal(store.list().length, 2)
+  assert.equal(fs.existsSync(lock), false)
+})
+
 test('cross-process appends do not lose records or exceed cap', async () => {
   const moduleUrl = new URL('../src/learning-store.js', import.meta.url).href
   const options = { cwd, provider: 'actual/provider', model: 'actual/model', maxRecords: 12 }

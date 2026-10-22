@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { normalizeProjectDirectory, validateProjectDirectory } from '../src/path-helper.js'
-import { configuredProjectsDirectory, withProjectsDirectory, projectRelativeDir, projectsRoot, projectDir } from '../src/project.js'
+import { configuredProjectsDirectory, withProjectsDirectory, projectRelativeDir, projectsRoot, projectDir, readState } from '../src/project.js'
 import { ensureProject, prepareRun } from '../src/workflow.js'
 import { finishObjective } from '../src/prompts.js'
 import { novelCommand } from '../src/cmd-write.js'
@@ -176,5 +176,29 @@ test('detailed stats handles a project without chapters', (t) => {
     assert.equal(result.kind, 'success')
     assert.match(result.text, /暂无章节；最短\/最长章：无；全书对话占比：0\.0%/u)
     assert.doesNotMatch(result.text, /NaN|Infinity/u)
+  })
+})
+
+test('a corrupt 项目.json is an error, not an empty project', (t) => {
+  // 曾经：解析失败被当成「没有状态」，调用方随即用 {} 重写，
+  // 进度、字数、更新时间一并丢掉，而且用户看不到任何提示。
+  const cwd = temporary(t)
+  withProjectsDirectory('books', () => {
+    ensureProject(cwd, '坏书')
+    const file = path.join(projectDir(cwd, '坏书'), '项目.json')
+    fs.writeFileSync(file, '{ 这不是合法 JSON', 'utf8')
+
+    assert.throws(() => readState(cwd, '坏书'), /项目状态文件已损坏/u)
+    // 文件本身没有被改写
+    assert.equal(fs.readFileSync(file, 'utf8'), '{ 这不是合法 JSON')
+  })
+})
+
+test('a missing 项目.json still reads as a new project', (t) => {
+  const cwd = temporary(t)
+  withProjectsDirectory('books', () => {
+    ensureProject(cwd, '新书')
+    fs.rmSync(path.join(projectDir(cwd, '新书'), '项目.json'), { force: true })
+    assert.equal(readState(cwd, '新书'), undefined)
   })
 })

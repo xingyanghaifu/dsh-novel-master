@@ -59,14 +59,28 @@ export function guidedCommand(ctx, config) {
 
         for (let index = 0; index < count; index++) {
           const number = start + index
-          // 每章重新规划：引导模型要读到刚写完的上一章，否则它会重复场景。
-          const result = await runGuidedChapter(ctx, invocation, {
-            cwd, name, targetChapter: number, requirement: resolved.note ?? '', config,
-          })
-          const file = writeChapter(dir, number, result.body)
-          saveGuidance(dir, number, result.guidance)
-          written.push(file)
-          plans.push(result)
+          try {
+            // 每章重新规划：引导模型要读到刚写完的上一章，否则它会重复场景。
+            const result = await runGuidedChapter(ctx, invocation, {
+              cwd, name, targetChapter: number, requirement: resolved.note ?? '', config,
+            })
+            const file = writeChapter(dir, number, result.body)
+            saveGuidance(dir, number, result.guidance)
+            written.push(file)
+            plans.push(result)
+          } catch (error) {
+            // 已经写好的章必须报出来：否则用户以为全失败，重跑还会撞上
+            // 「第N章已存在，拒绝覆盖」，而那些章其实已经躺在磁盘上了。
+            if (written.length === 0) throw error
+            return fail(formatError(
+              `第 ${number} 章失败，但前 ${written.length} 章已写好`,
+              [
+                `已写：${written.join('、')}`,
+                `失败原因：${error?.message ?? String(error)}`,
+                `继续写：/novel-guided ${name} ${count - written.length}章`,
+              ],
+            ))
+          }
           if (invocation.signal?.aborted) break
         }
 
