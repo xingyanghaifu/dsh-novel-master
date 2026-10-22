@@ -677,3 +677,20 @@ test('pausing owned goal during summary prevents final record write', async () =
   assert.equal(h.records().length, 0)
   h.runtime.dispose()
 })
+
+test('reuse does not leak another project\'s experience into this one', async () => {
+  // 两本书都有正文，写甲书时不该看到乙书的经验。存储只按 provider/model 分
+  // 命名空间，不按项目分，所以过滤必须在读取时做。
+  book('甲')
+  book('乙')
+  const write = (project, summary) => createLearningStore({ cwd, provider: 'writer', model: 'a' })
+    .append({ type: 'learning', summary, source: { project } })
+  write('乙', '乙书的经验：主角是条龙')
+  write('甲', '甲书的经验：主角是个网管')
+
+  const h = harness()
+  const prompt = await h.runtime.run({ ...h.invocation, rawInput: '甲' }, () => enhanceTaskPrompt({ ...h.invocation, rawInput: '甲' }, '写下一章'))
+  assert.match(prompt, /甲书的经验/u)
+  assert.doesNotMatch(prompt, /乙书的经验/u)
+  h.runtime.dispose()
+})
