@@ -275,6 +275,17 @@ export function installUpdater(ctx, options = {}) {
           if (typeof options.atlas !== 'function') return send(res, 503, { error: 'atlas-unavailable' })
           return send(res, 200, options.atlas(new URL(req.url, 'http://localhost').searchParams))
         }
+        if (req.method === 'GET' && action === '/chapter') {
+          if (typeof options.readChapter !== 'function') return send(res, 503, { error: 'editor-unavailable' })
+          const query = new URL(req.url, 'http://localhost').searchParams
+          const found = options.readChapter({
+            cwd: query.get('cwd') ?? '',
+            project: query.get('project') ?? '',
+            number: Number(query.get('number')),
+          })
+          if (!found) return send(res, 404, { error: 'chapter-not-found' })
+          return send(res, 200, found)
+        }
         // 把设定树里画出来的地形存成项目资产（地图.svg + 地图.md）。
         // 放在 /atlas 之下是因为它就是设定树的一个动作，客户端也只从那里调。
         if (req.method === 'POST' && action === '/atlas/map') {
@@ -309,6 +320,15 @@ export function installUpdater(ctx, options = {}) {
         if (action === '/llm/expand') {
           if (typeof options.llmExpand !== 'function') return send(res, 503, { error: 'llm-unavailable' })
           return send(res, 200, await options.llmExpand(body))
+        }
+        // 片段改写：只生成候选，不写文件。采纳走 /chapter/apply。
+        if (action === '/chapter/rewrite') {
+          if (typeof options.rewriteSnippet !== 'function') return send(res, 503, { error: 'editor-unavailable' })
+          return send(res, 200, await options.rewriteSnippet(body))
+        }
+        if (action === '/chapter/apply') {
+          if (typeof options.applySnippet !== 'function') return send(res, 503, { error: 'editor-unavailable' })
+          return send(res, 200, await options.applySnippet(body))
         }
         if (action === '/image/generate') {
           if (typeof options.generateImage !== 'function') return send(res, 503, { error: 'image-unavailable' })

@@ -140,6 +140,25 @@ window.__ModuleLoader__.load({
 .nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px}
 .nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
 .nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+/* 正文阅读器：点章节后从这里读，选中一段就能润色/重写 */
+.nm-read{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+.nm-read-bar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card)}
+.nm-read-title{font-weight:650;font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-read-meta{font-size:11px;color:var(--nm-muted);flex:none}
+.nm-read-bar .nm-atlas-refresh{flex:none}
+.nm-read-body{flex:1;min-height:0;overflow:auto;padding:14px 16px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);line-height:1.85;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+.nm-read-body::selection{background:color-mix(in srgb,var(--nm-accent) 32%,transparent)}
+.nm-read-pick{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nm-read-pick button{border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text);border-radius:8px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+.nm-read-pick button:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-read-pick button:disabled{opacity:.5;cursor:default}
+.nm-read-hint{font-size:11px;color:var(--nm-muted)}
+.nm-read-cmp{flex:none;display:grid;gap:8px;padding:10px;border:1px solid var(--nm-accent);border-radius:12px;background:var(--nm-card)}
+.nm-read-cmp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--nm-muted)}
+.nm-read-cmp-pair{display:grid;gap:8px;grid-template-columns:1fr}
+.nm-read-cmp-box{border:1px solid var(--nm-border);border-radius:10px;padding:10px 12px;line-height:1.8;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+.nm-read-cmp-box[data-new=true]{border-color:color-mix(in srgb,var(--nm-accent) 55%,var(--nm-border))}
+.nm-read-cmp-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--nm-muted);margin-bottom:4px}
 .nm-atlas-svg{display:block}
 .nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
 .nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
@@ -1561,24 +1580,34 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M12 7.4v2.4M12 9.8H6.2a.7.7 0 0 0-.7.7v1.2M12 9.8h5.8a.7.7 0 0 1 .7.7v1.2M5.5 14.9v2.4M18.5 14.9v2.4' }))
     }
 
-    function AtlasRow({ node, expanded, toggle, depth }) {
+    function AtlasRow({ node, expanded, toggle, depth, onOpenChapter }) {
       const children = Array.isArray(node.children) ? node.children : []
       const hasChildren = children.length > 0
       const open = expanded[node.id] ?? depth === 0
+      // 章节节点是 leaves（id 形如 chapters/12）。点它打开正文，其余仍是展开/收起。
+      const chapterNumber = !hasChildren && typeof onOpenChapter === 'function'
+        ? (String(node.id ?? '').match(/^chapters\/(\d+)$/u)?.[1])
+        : undefined
       return h('li', { className: 'nm-atlas-item' },
         h('button', {
           className: 'nm-atlas-row', type: 'button',
           style: { paddingLeft: `${8 + depth * 12}px` },
           'data-leaf': String(!hasChildren),
           'data-missing': String(node.missing === true),
-          ...(hasChildren ? { 'aria-expanded': open, onClick: () => toggle(node.id, open) } : {}),
+          ...(hasChildren
+            ? { 'aria-expanded': open, onClick: () => toggle(node.id, open) }
+            : chapterNumber === undefined
+              ? {}
+              : { title: '点击阅读正文，可选中片段润色或重写', onClick: () => onOpenChapter(Number(chapterNumber)) }),
         },
           h('span', { className: 'nm-atlas-chevron' }, hasChildren ? (open ? '▾' : '▸') : '·'),
           h('span', { className: 'nm-atlas-label', title: node.label }, node.label),
           node.meta ? h('span', { className: 'nm-atlas-meta' }, node.meta) : null),
         hasChildren && open
           ? h('ul', { className: 'nm-atlas-level' },
-            children.map((child) => h(AtlasRow, { key: child.id, node: child, expanded, toggle, depth: depth + 1 })))
+            children.map((child) => h(AtlasRow, {
+              key: child.id, node: child, expanded, toggle, depth: depth + 1, onOpenChapter,
+            })))
           : null)
     }
 
@@ -2439,6 +2468,7 @@ window.__ModuleLoader__.load({
       const [selected, setSelected] = useState('')
       const [expanded, setExpanded] = useState({})
       const [view, setView] = useState('graph')
+      const [openChapter, setOpenChapter] = useState(null)
       const alive = useRef(true)
       const toggle = (id, open) => setExpanded((prev) => ({ ...prev, [id]: !open }))
       const load = () => {
@@ -2486,6 +2516,16 @@ window.__ModuleLoader__.load({
             '还没有小说项目。用 /novel 或 /novel-idea 立项后，这里会以树状图展示世界观、人设、大纲、伏笔与写作进度。')
           : null,
       ]
+
+      // 打开某一章时整块换成阅读器：侧边栏本来就窄，树和正文并排谁都看不清。
+      if (openChapter !== null && project) {
+        return h('div', { className: 'nm-atlas' },
+          h('style', null, CSS),
+          h(ChapterReader, {
+            cwd, projectName: project.name, number: openChapter,
+            onClose: () => setOpenChapter(null),
+          }))
+      }
       return h('div', { className: 'nm-atlas' },
         // 样式随面板自身挂载：设置页此前是唯一的样式注入点，面板独立渲染时
         // 整张样式表都不存在（这就是图谱全黑的根因）。
@@ -2515,8 +2555,141 @@ window.__ModuleLoader__.load({
                 : view === 'time'
                   ? h(AtlasTimeline, { project })
                   : h('ul', { className: 'nm-atlas-level' },
-                    groups.map((group) => h(AtlasRow, { key: group.id, node: group, expanded, toggle, depth: 0 }))))
+                    groups.map((group) => h(AtlasRow, {
+                      key: group.id, node: group, expanded, toggle, depth: 0, onOpenChapter: setOpenChapter,
+                    }))))
             : null))
+    }
+
+    /**
+     * 正文阅读器 + 片段改写。
+     *
+     * 流程刻意分成「看 / 改 / 采纳」三步：选中的片段发出去只拿回候选，
+     * 磁盘上什么都没变；点了采纳才写入，并且写入前留一份旧稿。
+     * 这样不满意的时候代价是零，而不是「先改了再撤销」。
+     */
+    function ChapterReader({ cwd, projectName, number, onClose }) {
+      const [chapter, setChapter] = useState(null)
+      const [error, setError] = useState('')
+      const [loading, setLoading] = useState(true)
+      const [selection, setSelection] = useState('')
+      const [mode, setMode] = useState('polish')
+      const [requirement, setRequirement] = useState('')
+      const [candidate, setCandidate] = useState(null)
+      const [busy, setBusy] = useState(false)
+      const [notice, setNotice] = useState('')
+      const alive = useRef(true)
+
+      const load = () => {
+        setLoading(true)
+        setError('')
+        api(`chapter?cwd=${encodeURIComponent(cwd ?? '')}&project=${encodeURIComponent(projectName)}&number=${number}`)
+          .then((payload) => { if (alive.current) { setChapter(payload); setCandidate(null); setSelection('') } })
+          .catch((e) => { if (alive.current) setError(e?.message ?? String(e)) })
+          .finally(() => { if (alive.current) setLoading(false) })
+      }
+      useEffect(() => { alive.current = true; load(); return () => { alive.current = false } }, [cwd, projectName, number])
+
+      /** 读出当前浏览器里选中的文字，且必须落在正文框内。 */
+      const captureSelection = (event) => {
+        const box = event?.currentTarget
+        const picked = typeof window !== 'undefined' ? String(window.getSelection?.() ?? '') : ''
+        if (!picked.trim() || !box) return
+        // 选区必须完全在正文里，否则会把标题栏或按钮上的字也送过去。
+        try {
+          if (!box.contains(window.getSelection().anchorNode) || !box.contains(window.getSelection().focusNode)) return
+        } catch { return }
+        setSelection(picked)
+        setCandidate(null)
+        setNotice('')
+      }
+
+      const save = (action, body) => api(action, { body, timeoutMs: 200000 })
+
+      const propose = () => {
+        if (!selection.trim() || busy) return
+        setBusy(true)
+        setError('')
+        setNotice('')
+        save('chapter/rewrite', {
+          cwd, project: projectName, number, snippet: selection, mode, requirement,
+        })
+          .then((payload) => {
+            if (!alive.current) return
+            setCandidate(payload?.text ?? '')
+            setNotice('')
+          })
+          .catch((e) => { if (alive.current) setError(e?.message ?? String(e)) })
+          .finally(() => { if (alive.current) setBusy(false) })
+      }
+
+      const accept = () => {
+        if (candidate === null || busy) return
+        setBusy(true)
+        setError('')
+        save('chapter/apply', { cwd, project: projectName, number, original: selection, replacement: candidate })
+          .then((payload) => {
+            if (!alive.current) return
+            setNotice(payload?.backup ? `已写入，旧稿存于 ${payload.backup}` : '已写入')
+            setCandidate(null)
+            setSelection('')
+            load()
+          })
+          .catch((e) => { if (alive.current) setError(e?.message ?? String(e)) })
+          .finally(() => { if (alive.current) setBusy(false) })
+      }
+
+      return h('div', { className: 'nm-read' },
+        h('div', { className: 'nm-read-bar' },
+          h('strong', { className: 'nm-read-title' },
+            chapter ? `第${chapter.number}章${chapter.title ? ` ${chapter.title}` : ''}` : `第${number}章`),
+          chapter ? h('span', { className: 'nm-read-meta' }, `${chapter.chars} 字`) : null,
+          h('span', { style: { flex: 1 } }),
+          h('button', { className: 'nm-atlas-refresh', type: 'button', onClick: load, disabled: loading }, loading ? '读取中…' : '刷新'),
+          h('button', { className: 'nm-atlas-refresh', type: 'button', onClick: onClose }, '返回树')),
+
+        error ? h('div', { className: 'nm-atlas-message' }, error) : null,
+        notice ? h('div', { className: 'nm-atlas-message' }, notice) : null,
+
+        loading
+          ? h('div', { className: 'nm-atlas-message' }, '正在读取正文…')
+          : h('div', { className: 'nm-read-body', onMouseUp: captureSelection, onKeyUp: captureSelection, tabIndex: 0 },
+            chapter?.text ?? ''),
+
+        h('div', { className: 'nm-read-pick' },
+          h('button', { type: 'button', disabled: !selection.trim() || busy, onClick: propose },
+            busy && candidate === null ? '生成中…' : '润色选中'),
+          h('button', {
+            type: 'button', disabled: !selection.trim() || busy,
+            onClick: () => { setMode('rewrite'); propose() },
+          }, '重写选中'),
+          h('input', {
+            type: 'text', value: requirement, placeholder: '可选：这次想怎么改（如：短句多一点）',
+            'aria-label': '改写要求',
+            onChange: (event) => setRequirement(event.target.value),
+            style: {
+              flex: '1 1 180px', minWidth: 0, font: 'inherit', fontSize: 12, padding: '5px 10px',
+              borderRadius: 8, border: '1px solid var(--nm-border)', background: 'var(--nm-card)', color: 'var(--nm-text)',
+            },
+          }),
+          h('span', { className: 'nm-read-hint' },
+            selection.trim() ? `已选 ${selection.length} 字` : '在正文里选一段文字')),
+
+        candidate === null
+          ? null
+          : h('div', { className: 'nm-read-cmp' },
+            h('div', { className: 'nm-read-cmp-head' },
+              h('span', null, mode === 'rewrite' ? '重写结果（未写入）' : '润色结果（未写入）'),
+              h('div', { style: { display: 'flex', gap: 6 } },
+                h('button', { type: 'button', disabled: busy, onClick: accept }, busy ? '写入中…' : '采纳'),
+                h('button', { type: 'button', disabled: busy, onClick: () => setCandidate(null) }, '丢弃'))),
+            h('div', { className: 'nm-read-cmp-pair' },
+              h('div', null,
+                h('div', { className: 'nm-read-cmp-label' }, '原文'),
+                h('div', { className: 'nm-read-cmp-box' }, selection)),
+              h('div', null,
+                h('div', { className: 'nm-read-cmp-label' }, '新版'),
+                h('div', { className: 'nm-read-cmp-box', 'data-new': 'true' }, candidate)))))
     }
 
     function AtlasTitle(props) {

@@ -140,6 +140,25 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
 .nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px}
 .nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
 .nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+/* 正文阅读器：点章节后从这里读，选中一段就能润色/重写 */
+.nm-read{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+.nm-read-bar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card)}
+.nm-read-title{font-weight:650;font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-read-meta{font-size:11px;color:var(--nm-muted);flex:none}
+.nm-read-bar .nm-atlas-refresh{flex:none}
+.nm-read-body{flex:1;min-height:0;overflow:auto;padding:14px 16px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);line-height:1.85;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+.nm-read-body::selection{background:color-mix(in srgb,var(--nm-accent) 32%,transparent)}
+.nm-read-pick{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nm-read-pick button{border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text);border-radius:8px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+.nm-read-pick button:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-read-pick button:disabled{opacity:.5;cursor:default}
+.nm-read-hint{font-size:11px;color:var(--nm-muted)}
+.nm-read-cmp{flex:none;display:grid;gap:8px;padding:10px;border:1px solid var(--nm-accent);border-radius:12px;background:var(--nm-card)}
+.nm-read-cmp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--nm-muted)}
+.nm-read-cmp-pair{display:grid;gap:8px;grid-template-columns:1fr}
+.nm-read-cmp-box{border:1px solid var(--nm-border);border-radius:10px;padding:10px 12px;line-height:1.8;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+.nm-read-cmp-box[data-new=true]{border-color:color-mix(in srgb,var(--nm-accent) 55%,var(--nm-border))}
+.nm-read-cmp-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--nm-muted);margin-bottom:4px}
 .nm-atlas-svg{display:block}
 .nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
 .nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}
@@ -523,6 +542,25 @@ body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-pr
 .nm-atlas-seg button{border:0;background:transparent;color:var(--nm-muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px}
 .nm-atlas-seg button[aria-pressed=true]{background:var(--nm-card);color:var(--nm-text);box-shadow:0 1px 4px color-mix(in srgb,CanvasText 12%,transparent)}
 .nm-atlas-graph{flex:1;min-height:0;overflow:auto;padding:6px 10px 20px}
+/* 正文阅读器：点章节后从这里读，选中一段就能润色/重写 */
+.nm-read{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+.nm-read-bar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card)}
+.nm-read-title{font-weight:650;font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-read-meta{font-size:11px;color:var(--nm-muted);flex:none}
+.nm-read-bar .nm-atlas-refresh{flex:none}
+.nm-read-body{flex:1;min-height:0;overflow:auto;padding:14px 16px;border:1px solid var(--nm-border);border-radius:12px;background:var(--nm-card);line-height:1.85;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+.nm-read-body::selection{background:color-mix(in srgb,var(--nm-accent) 32%,transparent)}
+.nm-read-pick{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nm-read-pick button{border:1px solid var(--nm-border);background:var(--nm-card);color:var(--nm-text);border-radius:8px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+.nm-read-pick button:hover:not(:disabled){border-color:var(--nm-accent)}
+.nm-read-pick button:disabled{opacity:.5;cursor:default}
+.nm-read-hint{font-size:11px;color:var(--nm-muted)}
+.nm-read-cmp{flex:none;display:grid;gap:8px;padding:10px;border:1px solid var(--nm-accent);border-radius:12px;background:var(--nm-card)}
+.nm-read-cmp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--nm-muted)}
+.nm-read-cmp-pair{display:grid;gap:8px;grid-template-columns:1fr}
+.nm-read-cmp-box{border:1px solid var(--nm-border);border-radius:10px;padding:10px 12px;line-height:1.8;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+.nm-read-cmp-box[data-new=true]{border-color:color-mix(in srgb,var(--nm-accent) 55%,var(--nm-border))}
+.nm-read-cmp-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--nm-muted);margin-bottom:4px}
 .nm-atlas-svg{display:block}
 .nm-atlas-link{fill:none;stroke-width:1.6;opacity:.55}
 .nm-atlas-text{fill:var(--nm-text);font-size:11.5px;paint-order:stroke;stroke:var(--nm-bg);stroke-width:3px;stroke-linejoin:round}

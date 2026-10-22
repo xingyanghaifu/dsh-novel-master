@@ -50,6 +50,7 @@ import { guidedCommand } from './cmd-guided.js'
 import { probeCommand, probeTool } from './cmd-probe.js'
 import { personaCommand, personaStudyCommand } from './cmd-persona.js'
 import { powerCommand } from './power-system.js'
+import { applySnippet as applyChapterSnippet, proposeSnippet, readChapter } from './chapter-editor.js'
 
 export const name = 'novel-master'
 
@@ -419,6 +420,34 @@ export function apply(ctx, config = {}) {
       size: body?.size,
     }),
     imageStatus: () => imageStatus(config),
+    // 正文阅读与片段改写（侧边栏）：读一章、生成候选、采纳写回。
+    //
+    // 这三个都在 web 路由里跑，不经过 guarded()，所以必须自己带上项目目录：
+    // configuredProjectsDirectory() 靠 AsyncLocalStorage，不设置就退回默认的
+    // novel_projects —— 用户在设置里改了目录，侧边栏就会找不到自己的书。
+    readChapter: ({ cwd, project, number }) => (
+      Number.isInteger(number)
+        ? withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () => readChapter(cwd, project, number))
+        : undefined
+    ),
+    rewriteSnippet: async (body) => {
+      const { cwd, project, number, snippet, mode, requirement } = body ?? {}
+      if (!project) throw new Error('缺少项目名')
+      if (!Number.isInteger(number)) throw new Error('缺少章节号')
+      return withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () => proposeSnippet(ctx, {
+        cwd: cwd ?? '', name: project, number,
+        snippet, mode: mode === 'rewrite' ? 'rewrite' : 'polish',
+        requirement, config,
+      }))
+    },
+    applySnippet: (body) => {
+      const { cwd, project, number, original, replacement } = body ?? {}
+      if (!project) throw new Error('缺少项目名')
+      if (!Number.isInteger(number)) throw new Error('缺少章节号')
+      return withProjectsDirectory(readField(config, 'projectsDir') ?? 'novel_projects', () => (
+        applyChapterSnippet(cwd ?? '', project, number, original, replacement)
+      ))
+    },
     // 对话模型：把一句话描述扩写成生图提示词（宿主侧发请求，无 CORS）
     llmExpand: (body) => expandPrompt({
       config,
