@@ -876,7 +876,7 @@ window.__ModuleLoader__.load({
           guidanceStyle: guidance.guidanceStyle.trim() || 'detailed'
         }
         if (next.enabled && (!next.provider || !next.model)) return setError('引导模型需要明确配置提供方和模型。')
-        if (!!next.writingProvider !== !!next.writingModel) return setError('写作模型提供方和模型必须同时填写，或同时留空使用会话主模型。')
+        if (!!next.writingProvider !== !!next.writingModel) return setError('写作模型提供方和模型必须同时填写，或同时留空沿用引导模型。')
         return save({ guidance: next })
       }
       function saveLearning(event) {
@@ -1237,8 +1237,7 @@ window.__ModuleLoader__.load({
         panel('guidance', form && !value.guidance ? card('引导配置尚未就绪', '当前 Host 尚未提供引导配置，请重载插件或重启 DSH。') : form && h('form', { className: 'nm-stack', 'aria-label': '引导配置', onSubmit: saveGuidance },
           card('智能引导-写作分离架构', '由引导模型负责规划与拆解，写作模型专注文字生成。适合用顶尖模型引导、快速模型执行，达成质量与成本的最佳平衡。', 
             check('启用引导模型', 'enabled', guidance, editGuidance, '引导模型会分析上下文、拆解任务、生成详细写作大纲，再交由写作模型执行。'),
-            h('div', { className: 'nm-callout' }, '💡 推荐配置：Claude Opus 5.5 引导 + Gemini 2.0 Flash 写作，兼顾质量与速度。')),
-          card('引导模型配置（规划与拆解）', '负责分析项目状态、拆解任务、生成详细执行大纲与写作要求。',
+            h('div', { className: 'nm-callout' }, '💡 推荐配置：Claude Opus 5.5 引导 + Gemini 2.0 Flash 写作，兼顾质量与速度。')),          card('引导模型配置（规划与拆解）', '负责分析项目状态、拆解任务、生成详细执行大纲与写作要求。',
             h('div', { className: 'nm-stack' },
               renderModelSelect('从现有模型列表中选择引导模型', guidance.provider, guidance.model, (p, m) => { editGuidance('provider', p); editGuidance('model', m) }, false),
               renderReasoningSelect('引导模型思考/推理强度 (Reasoning Effort)', guidance.reasoningEffort, val => editGuidance('reasoningEffort', val), guidance.provider, guidance.model),
@@ -1247,13 +1246,13 @@ window.__ModuleLoader__.load({
                 field('引导模型 ID', 'model', guidance, editGuidance, 'text', { placeholder: '例如 claude-opus-5.5', required: guidance.enabled })
               )
             )),
-          card('写作模型配置（文字生成）', '负责接收引导大纲并生成最终文字。留空则使用会话主模型。',
+          card('写作模型配置（文字生成）', '负责接收引导大纲并生成最终文字。留空则沿用上面的引导模型。',
             h('div', { className: 'nm-stack' },
               renderModelSelect('从现有模型列表中选择写作模型', guidance.writingProvider, guidance.writingModel, (p, m) => { editGuidance('writingProvider', p); editGuidance('writingModel', m) }, true),
               renderReasoningSelect('写作模型思考/推理强度 (Reasoning Effort)', guidance.writingReasoningEffort, val => editGuidance('writingReasoningEffort', val), guidance.writingProvider, guidance.writingModel),
               h('div', { className: 'nm-grid' },
-                field('写作模型提供方', 'writingProvider', guidance, editGuidance, 'text', { placeholder: '留空使用会话主模型' }),
-                field('写作模型 ID', 'writingModel', guidance, editGuidance, 'text', { placeholder: '留空使用会话主模型' })
+                field('写作模型提供方', 'writingProvider', guidance, editGuidance, 'text', { placeholder: '留空沿用引导模型' }),
+                field('写作模型 ID', 'writingModel', guidance, editGuidance, 'text', { placeholder: '留空沿用引导模型' })
               )
             )),
           card('引导风格', '决定引导模型输出的详细程度。',
@@ -1266,6 +1265,9 @@ window.__ModuleLoader__.load({
               )
             ),
             h('p', { className: 'nm-muted' }, '建议：Flash 模型使用"极详细"；GPT-4/Claude 使用"详细"；o1/DeepSeek-R1 使用"简明"。')),
+          card('怎么用', '配置好后用 /novel-guided 逐章写作：引导模型先读项目资料产出本章指令，写作模型照着写。',
+            h('div', { className: 'nm-callout' }, '手动发起：', h('code', { className: 'nm-inlinecode' }, '/novel-guided 项目名 3章')),
+            h('p', { className: 'nm-muted' }, '每章都会重新规划，所以写第 N 章时引导模型能读到第 N-1 章的正文。/novel-batch 没有规划环节，/novel-continue 用的是会话模型。')),
           saveBar('guidance', '保存引导配置'))),
         panel('learning', form && !value.learning ? card('学习配置尚未就绪', '当前 Host 尚未提供学习配置，请重载插件或重启 DSH。') : form && h('form', { className: 'nm-stack', 'aria-label': '学习配置', onSubmit: saveLearning },
           card('让每次创作留下经验', '从小说任务的成功输出中总结经验，按工作目录与实际提供方 / 模型分别保存。', check('启用学习', 'enabled', learning, editLearning, '保存可查询的经验，不训练模型权重，也不收集任意聊天。'), h('div', { className: 'nm-grid' }, h('div', { className: 'nm-feature' }, check('自动生成摘要', 'autoSummarize', learning, editLearning, '小说任务完成后自动总结。')), h('div', { className: 'nm-feature' }, check('复用学习记录', 'reuse', learning, editLearning, '将同模型经验加入后续任务参考。')))),

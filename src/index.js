@@ -46,6 +46,7 @@ import { selfReload } from './reload.js'
 import { installIntelligence, INTELLIGENCE_KEYS, intelligenceDefinitions } from './intelligence.js'
 import { researchCommand, trendAnalysisCommand } from './research.js'
 import { batchCommand, batchTool } from './cmd-batch.js'
+import { guidedCommand } from './cmd-guided.js'
 import { probeCommand, probeTool } from './cmd-probe.js'
 import { personaCommand, personaStudyCommand } from './cmd-persona.js'
 import { powerCommand } from './power-system.js'
@@ -87,6 +88,7 @@ const COMMAND_KEYS = [
   ['research', '资料检索 (/novel-research)'],
   ['trends', '热点分析 (/novel-trends)'],
   ['batch', '批量写作 (/novel-batch)'],
+  ['guided', '引导写作 (/novel-guided)'],
   ['probe', '输出上限实测 (/novel-probe)'],
   ['persona', '作者风格 (/novel-persona)'],
   ['persona-study', '拆书提取人格 (/novel-persona-study)'],
@@ -290,6 +292,7 @@ export function definitions(ctx, intelligence, config) {
     { key: 'research', factory: () => researchCommand(ctx, config?.research) },
     { key: 'trends', factory: () => trendAnalysisCommand(ctx, config?.research) },
     { key: 'batch', factory: () => batchCommand(ctx, readField(config, 'batch')) },
+    { key: 'guided', factory: () => guidedCommand(ctx, config) },
     { key: 'probe', factory: () => probeCommand(ctx, readField(config, 'batch')) },
     { key: 'persona', factory: () => personaCommand() },
     { key: 'persona-study', factory: () => personaStudyCommand(ctx, config) },
